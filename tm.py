@@ -183,9 +183,10 @@ def solve(rules_cards_nums_list):
                     bool(possible_accepting_rules_card_indices) and
                     bool(possible_rejecting_rules_card_indices)
                 ):
-                    # NOTE: redoing a lot of work here, as many possible useful queries will result in exactly the same possible_accepting_rules_card_indices and possible_rejecting_rules_card_indices as previous queries, so you're recomputing the work of the answers remaining if result is true or false. Consider making it a function and caching results for use later.
-                    possible_combos_with_answers_remaining_if_true = [] #TODO populate
-                    possible_combos_with_answers_remaining_if_false = [] #TODO populate
+                    # NOTE: redoing a lot of work here, as many possible useful queries will result in exactly the same possible_accepting_rules_card_indices and possible_rejecting_rules_card_indices as previous queries, so you're recomputing the work of the answers remaining if result is true or false. TODO: Consider making it a function and caching results for use later.
+                    # NOTE: consider saving all query info for useful queries to the query dict, including which card the query is to (will have to move the query dict outside the unsolved card loop)
+                    possible_combos_with_answers_remaining_if_true = []
+                    possible_combos_with_answers_remaining_if_false = []
                     for combo_with_answer in possible_combos_with_answers:
                         (possible_combo, possible_answer) = combo_with_answer
                         if (possible_combo[unsolved_card_index].card_index in possible_accepting_rules_card_indices):
@@ -199,20 +200,58 @@ def solve(rules_cards_nums_list):
                         possible_combos_with_answers_remaining_if_true,
                         possible_combos_with_answers_remaining_if_false
                     )
+
                     (combos_remaining_if_true, answers_remaining_if_true) = zip(*possible_combos_with_answers_remaining_if_true)
                     set_answers_remaining_if_true = set(answers_remaining_if_true)
+                    num_combos_remaining_if_true = len(combos_remaining_if_true)
+                    num_answers_remaining_if_true = len(set_answers_remaining_if_true)
 
+                    (combos_remaining_if_false, answers_remaining_if_false) = zip(*possible_combos_with_answers_remaining_if_false)
+                    set_answers_remaining_if_false = set(answers_remaining_if_false)
+                    num_combos_remaining_if_false = len(combos_remaining_if_false)
+                    num_answers_remaining_if_false = len(set_answers_remaining_if_false)
+                    if((num_combos_remaining_if_true + num_combos_remaining_if_false) != current_num_possible_combos):
+                        print("FAIL")
+                        exit()
+                    if((num_answers_remaining_if_true + num_answers_remaining_if_false) != current_num_possible_answers):
+                        print("FAIL")
+                        exit()
+
+                    p_true = num_combos_remaining_if_true / current_num_possible_combos
+                    answer_info_gain_true = math.log2(
+                        current_num_possible_answers / num_answers_remaining_if_true
+                    )
+                    combo_info_gain_true = math.log2(
+                        current_num_possible_combos / num_combos_remaining_if_true
+                    )
+
+                    p_false = num_combos_remaining_if_false / current_num_possible_combos
+                    answer_info_gain_false = math.log2(
+                        current_num_possible_answers / num_answers_remaining_if_false
+                    )
+                    combo_info_gain_false = math.log2(
+                        current_num_possible_combos / num_combos_remaining_if_false
+                    )
+                    expected_answer_info_gain = (
+                        (p_true * answer_info_gain_true) + (p_false * answer_info_gain_false)
+                    )
+                    expected_combo_info_gain = (
+                        (p_true * combo_info_gain_true) + (p_false * combo_info_gain_false)
+                    )
+                    print(f'Query {answer_tup_to_string(possible_query)} on rc {unsolved_card_index}: probability true: {p_true:0.2f}, false: {p_false:0.2f}. Expected info gain from answer and combo: {expected_answer_info_gain:0.3f}, {expected_combo_info_gain:0.3f}')
 
             useful_queries_set = set(useful_queries_dict.keys()) # NOTE: consider using the keys view directly if this proves too costly
             print(f"# useful queries: {len(useful_queries_set)}")
             for q in sorted(useful_queries_set):
-                print((' ' * 4) + answer_tup_to_string(q))
-                print(f'{" " * 8} Combos remaining if query returns True:')
-                for (combo, answer) in useful_queries_dict[q][0]:
-                    print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
-                print(f'\n{" " * 8} Combos remaining if query returns False:')
-                for (combo, answer) in useful_queries_dict[q][1]:
-                    print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+                pass
+                # print((' ' * 4) + answer_tup_to_string(q))
+                # print(f'{" " * 8} Combos remaining if query returns True:')
+                # for (combo, answer) in useful_queries_dict[q][0]:
+                #     print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+                # print(f'\n{" " * 8} Combos remaining if query returns False:')
+                # for (combo, answer) in useful_queries_dict[q][1]:
+                #     print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+
             # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false NOTE: as tiebreaker if 2 queries have the same information gain, use expected total number of previously-possible combos ruled out, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
             print()
         exit() # TODO: delete when write in queries to eliminate possible answers each turn
@@ -243,5 +282,5 @@ def inner_dict_to_string(inner_dict):
     return(s)
 
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
-solve([4, 9, 11, 14]) # problem 1 in the book
-# solve([3, 7, 10, 14]) # problem 2 in the book
+# solve([4, 9, 11, 14]) # problem 1 in the book
+solve([3, 7, 10, 14]) # problem 2 in the book
