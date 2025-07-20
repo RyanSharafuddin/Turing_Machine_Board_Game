@@ -125,6 +125,22 @@ def get_unsolved_rules_card_indices(rules_card_infos):
     print(f'Unsolved rules cards indices: {unsolved_rules_card_indices_within_rules_cards_list}')
     return(unsolved_rules_card_indices_within_rules_cards_list)
 
+
+Query_Info = namedtuple(
+    'Query_Info',
+    [
+        'possible_combos_with_answers_remaining_if_true',
+        'set_answers_remaining_if_true',
+        'possible_combos_with_answers_remaining_if_false,',
+        'set_answers_remaining_if_false',
+        'p_true',
+        'a_info_gain_true',
+        'a_info_gain_false',
+        'expected_a_info_gain',
+        'expected_c_info_gain',
+    ]
+)
+
 # TODO: have the program handle standard mode before it handles nightmare mode. 
 # a problem is a list of rules cards.
 def solve(rules_cards_nums_list):
@@ -161,6 +177,12 @@ def solve(rules_cards_nums_list):
         current_num_possible_combos = len(possible_combos)
         current_num_possible_answers = len(set_possible_answers)
 
+        # useful_queries_dict is {
+        #     key = proposal (answer tuple): value = {
+        #        inner_key = index of the rule card this query goes to: value = Query_Info (see named tuple)
+        #     }
+        # }
+        useful_queries_dict = dict() # TODO move this outside of loop below and implement above plan
         for unsolved_card_index in unsolved_rules_card_indices_within_rules_cards_list:
             useful_queries_dict = dict() # key = query, value = tuple of ([(combos with answers) remaining if query result is true], [ditto if query false]).
             # useful_queries_set = set() # TODO will need to keep track of each card's useful queries set
