@@ -52,18 +52,12 @@ def is_combo_possible(combo):
             return((False, None)) # means that this rule is redundant.
     return((True, answer))
 
-# TODO: have the program handle standard mode before it handles nightmare mode. 
-# a problem is a list of rules cards.
-def solve(rules_cards_nums_list):
-    """
-    rules_card_list is a list of the names (numbers) of the rules cards in this problem. Solve will print out which queries to perform, and (TBD) either print out what to do in all possible cases, or ask for the answers of the queries and proceed from there.
-    """
-    num_rules_cards = len(rules_cards_nums_list)
-    rules_cards_list = [rules_cards[num] for num in rules_cards_nums_list]    # TODO: change for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
+def get_all_rules_combinations(rules_cards_list):
+    """ Returns all possible combinations of rules, whether possible or not. """
+    num_rules_cards = len(rules_cards_list)
     rules_cards_lengths = [len(rules_card) for rules_card in rules_cards_list]
     total_num_combinations = math.prod(rules_cards_lengths)
     rules_combos = []
-
     for combo_num in range(total_num_combinations):
         new_combo = [
             rules_cards_list[rules_card_index][
@@ -72,100 +66,155 @@ def solve(rules_cards_nums_list):
             for rules_card_index in range(num_rules_cards)
         ]
         rules_combos.append(new_combo)
-
+    return(rules_combos)
     # print all combos, possible or not.
     # for (combo_num, combo) in enumerate(rules_combos, start=1):
     #     print(f'{combo_num}: {[rule.name for rule in combo]}')
 
+def get_possible_rules_combos_with_answers(rules_cards_list):
+    all_rules_combos = get_all_rules_combinations(rules_cards_list)
     possible_combos_with_answers = [] # tuples of ([rules_list], answer_tuple)
-    for combo in rules_combos:
+    for combo in all_rules_combos:
         (possible, answer) = is_combo_possible(combo)
         if(possible):
             possible_combos_with_answers.append((combo, answer))
+    return(possible_combos_with_answers)
 
+def populate_rules_card_infos(rules_card_infos, possible_combos_with_answers):
+    print("POSSIBLE COMBOS:")
+    for (combo_with_answer_index, combo_with_answer) in enumerate(possible_combos_with_answers):
+        (possible_combo, possible_answer) = combo_with_answer
+        print_combo(combo_with_answer_index, possible_answer, possible_combo)
+        for (rule_card_index, rule) in enumerate(possible_combo):
+            rules_card_info_dict = rules_card_infos[rule_card_index]
+            answer_within_this_card_index = rule.card_index
+            if(answer_within_this_card_index in rules_card_info_dict):
+                this_rule_s_inner_dict = rules_card_info_dict[answer_within_this_card_index]
+                if(possible_answer) in this_rule_s_inner_dict:
+                    this_rule_s_inner_dict[possible_answer].append(possible_combo)
+                else:
+                    this_rule_s_inner_dict[possible_answer] = [possible_combo]
+            else:
+                rules_card_info_dict[answer_within_this_card_index] = {possible_answer: [possible_combo]}
 
-    original_possible_combos_with_answers = copy.deepcopy(possible_combos_with_answers)
+def get_unsolved_rules_card_indices(rules_card_infos):
+    unsolved_rules_card_indices_within_rules_cards_list = []
+    # print internal info
+    print()
+    for (rc_index, rc_info) in enumerate(rules_card_infos):
+        print(f'rules card {rc_index}:' + ' {')
+        for (rule_index_within_card, inner_dict) in rc_info.items():
+            print(f'    possible rule index: {rule_index_within_card}: {inner_dict_to_string(inner_dict)}')
+        print('}')
+        if(len(rc_info) > 1): # if there are multiple rules this card could be
+            unique_answers_this_rc = set()
+            for inner_dict in rc_info.values():
+                for possibility in inner_dict.keys():
+                    unique_answers_this_rc.add(possibility)
+            # NOTE: This below block may not be necessary at all, as even if it's not included, it's fine, b/c when you calculate the information gain of a possible query, it will show that querying this card results in an information gain of 0.
+            # NOTE: Actually, I don't think this should happen at all. Shouldn't every possible answer appear at least once on every possible rules card, otherwise the answer isn't possible at all? Good thing the program exits if this happens.
+            if(len(unique_answers_this_rc) == 1):
+                print(f"Huh! Rules card {rc_index} is 'unsolved' in the sense that it is unknown which of the rules on it is being checked for, but it doesn't matter(?) because no matter which rule is the one that's being checked, they all lead to the same answer. Exiting.")
+                exit()
+            elif(len(unique_answers_this_rc) > 1):
+                unsolved_rules_card_indices_within_rules_cards_list.append(rc_index)
+            else:
+                print("Your program is broken, b/c this rules card has no possible answers.")
+                exit()
+    print()
+    print(f'Unsolved rules cards indices: {unsolved_rules_card_indices_within_rules_cards_list}')
+    return(unsolved_rules_card_indices_within_rules_cards_list)
+
+# TODO: have the program handle standard mode before it handles nightmare mode. 
+# a problem is a list of rules cards.
+def solve(rules_cards_nums_list):
+    """
+    rules_card_nums_list is a list of the names (numbers) of the rules cards in this problem. Solve will print out which queries to perform, and (TBD) either print out what to do in all possible cases, or ask for the answers of the queries and proceed from there.
+    """
+    num_rules_cards = len(rules_cards_nums_list)
+    # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
+    rules_cards_list = [rules_cards[num] for num in rules_cards_nums_list]
+    possible_combos_with_answers = get_possible_rules_combos_with_answers(rules_cards_list)
+    # original_possible_combos_with_answers = copy.deepcopy(possible_combos_with_answers)
     (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
     set_possible_answers = set(possible_answers)
     print_all_possible_answers("All possible answers:", set_possible_answers, possible_combos_with_answers)
 
-    len_possible_answers = len(possible_answers) # the tuples that are the answer number
-    num_unique_possible_answers = len(set_possible_answers)
-
     # Note: may not need this block below.
-    if(num_unique_possible_answers != len_possible_answers):
+    number_possible_combos = len(possible_combos)
+    num_unique_possible_answers = len(set_possible_answers)
+    if(num_unique_possible_answers != number_possible_combos):
         print("NOTE: There are different possible rules combos that give rise to the same answer. Perhaps you can exploit this to solve for the answer without also needing to solve for which rules combo gives rise to the answer? Consider it.")
         exit()
 
-    # NOTE TODO: It's not the number of possible combos that you have to narrow down to 1; it's the number of possible answer tuples that you have to narrow down to 1.
+    # All non-constant variables that need to be set correctly at beginning of each loop:
+    # possible_combos_with_answers (remove ruled out possibilities)
+    # possible_combos and possible_answers (make from possible_combos_with answers using zip)
+    # set_possible_answers (make from possible_answers)
     while(len(set_possible_answers) > 1):
+        # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list
+        # each key in that dict is the rules_card_index of a possible rule that the ith card could be 
+        # the value mapped to that key is a dictionary {a:b}, where a is a possible answer tuple for that rule and b is a list of combos that correspond to that answer tuple and that rule.
         rules_card_infos = [dict() for i in range(num_rules_cards)]
-        # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list, where each key is the rules_card_index of a possible rule that the ith card could be, and the value mapped to that key is a dictionary {a:b}, where a is a possible answer tuple and b is a list of combos that correspond to that answer tuple and that rule from the rule card.
-        print("POSSIBLE COMBOS:")
-        for (combo_with_answer_index, combo_with_answer) in enumerate(possible_combos_with_answers):
-            (possible_combo, possible_answer) = combo_with_answer
-            print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)}, {combo_to_combo_rules_names(possible_combo):<150}, rules_card_indices: {[r.card_index for r in possible_combo]}')
+        populate_rules_card_infos(rules_card_infos, possible_combos_with_answers)
+        unsolved_rules_card_indices_within_rules_cards_list = get_unsolved_rules_card_indices(rules_card_infos)
+        current_num_possible_combos = len(possible_combos)
+        current_num_possible_answers = len(set_possible_answers)
 
-            for (rule_card_index, rule) in enumerate(possible_combo):
-                rules_card_info_dict = rules_card_infos[rule_card_index]
-                answer_within_this_card_index = rule.card_index
-                if(answer_within_this_card_index in rules_card_info_dict):
-                    this_rule_s_inner_dict = rules_card_info_dict[answer_within_this_card_index]
-                    if(possible_answer) in this_rule_s_inner_dict:
-                        this_rule_s_inner_dict[possible_answer].append(possible_combo)
-                    else:
-                        this_rule_s_inner_dict[possible_answer] = [possible_combo]
-                else:
-                    rules_card_info_dict[answer_within_this_card_index] = {possible_answer: [possible_combo]}
-
-        unsolved_rules_card_indices_within_rules_cards_list = []
-        # print internal info
-        print()
-        for (rc_index, rc_info) in enumerate(rules_card_infos):
-            print(f'rules card {rc_index}:' + ' {')
-            for (rule_index_within_card, inner_dict) in rc_info.items():
-                print(f'    possible rule index: {rule_index_within_card}: {inner_dict_to_string(inner_dict)}')
-            print('}')
-            if(len(rc_info) > 1):
-                #TODO: consider not listing a rules card as unsolved in the case that there are multiple possible rules it could be, but they all lead to the same answer. Maybe have a warning/exit block if this happens.
-                unique_answers_this_rc = set()
-                for inner_dict in rc_info.values():
-                    for possibility in inner_dict.keys():
-                        unique_answers_this_rc.add(possibility)
-                # NOTE: This below block may not be necessary at all, as even if it's not included, it's fine, b/c when you calculate the information gain of a possible query, it will show that querying this card results in an information gain of 0.
-                if(len(unique_answers_this_rc) == 1):
-                    print(f"Huh! Rules card {rc_index} is 'unsolved' in the sense that it is unknown which of the rules on it is being checked for, but it doesn't matter(?) because no matter which rule is the one that's being checked, they all lead to the same answer. Exiting.")
-                    exit()
-                else:
-                    unsolved_rules_card_indices_within_rules_cards_list.append(rc_index)
-        print()
-        print(f'Unsolved rules cards indices: {unsolved_rules_card_indices_within_rules_cards_list}')
         for unsolved_card_index in unsolved_rules_card_indices_within_rules_cards_list:
-            useful_queries_dict = dict() # key = query, value = tuple of ([rules eliminated if true], [rules eliminated if false]). TODO: populate this and also find out how 'set-like' the dict.keys() view is: can it be used directly like a set? How do view objects work anyway?
-            useful_queries_set = set() # TODO will need to keep track of each card's useful queries set
-            corresponding_rule_card = rules_cards_list[unsolved_card_index]
+            useful_queries_dict = dict() # key = query, value = tuple of ([(combos with answers) remaining if query result is true], [ditto if query false]).
+            # useful_queries_set = set() # TODO will need to keep track of each card's useful queries set
+            corresponding_rc = rules_cards_list[unsolved_card_index]
             corresponding_rc_info = rules_card_infos[unsolved_card_index]
-            possible_rules_this_card = []
-            for possible_rule_index in corresponding_rc_info.keys():
-                possible_rules_this_card.append(corresponding_rule_card[possible_rule_index])
+            possible_rules_this_card = [
+                corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
+            ]
             print(f"On unsolved rules card: {unsolved_card_index}")
             print(f"Possible rules: {[r.name for r in possible_rules_this_card]}")
             for possible_query in all_125_possibilities_set:
-                possible_rules_accepting = []
-                possible_rules_rejecting = []
+                possible_accepting_rules_card_indices = set()
+                possible_rejecting_rules_card_indices = set()
                 for possible_rule in possible_rules_this_card:
                     if(possible_query in possible_rule.reject_set):
-                        possible_rules_rejecting.append(possible_rule)
+                        possible_rejecting_rules_card_indices.add(possible_rule.card_index)
                     else:
-                        possible_rules_accepting.append(possible_rule)
-                if(bool(possible_rules_accepting) and bool(possible_rules_rejecting)):
-                    useful_queries_set.add(possible_query)
+                        possible_accepting_rules_card_indices.add(possible_rule.card_index)
+                if(
+                    bool(possible_accepting_rules_card_indices) and
+                    bool(possible_rejecting_rules_card_indices)
+                ):
+                    # NOTE: redoing a lot of work here, as many possible useful queries will result in exactly the same possible_accepting_rules_card_indices and possible_rejecting_rules_card_indices as previous queries, so you're recomputing the work of the answers remaining if result is true or false. Consider making it a function and caching results for use later.
+                    possible_combos_with_answers_remaining_if_true = [] #TODO populate
+                    possible_combos_with_answers_remaining_if_false = [] #TODO populate
+                    for combo_with_answer in possible_combos_with_answers:
+                        (possible_combo, possible_answer) = combo_with_answer
+                        if (possible_combo[unsolved_card_index].card_index in possible_accepting_rules_card_indices):
+                            possible_combos_with_answers_remaining_if_true.append(combo_with_answer)
+                        elif(possible_combo[unsolved_card_index].card_index in possible_rejecting_rules_card_indices):
+                            possible_combos_with_answers_remaining_if_false.append(combo_with_answer)
+                        else:
+                            print("Teh program is broken if this happens")
+                            exit()
+                    useful_queries_dict[possible_query] = (
+                        possible_combos_with_answers_remaining_if_true,
+                        possible_combos_with_answers_remaining_if_false
+                    )
+                    (combos_remaining_if_true, answers_remaining_if_true) = zip(*possible_combos_with_answers_remaining_if_true)
+                    set_answers_remaining_if_true = set(answers_remaining_if_true)
+
+
+            useful_queries_set = set(useful_queries_dict.keys()) # NOTE: consider using the keys view directly if this proves too costly
             print(f"# useful queries: {len(useful_queries_set)}")
             for q in sorted(useful_queries_set):
-                print(answer_tup_to_string(q))
-            # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
+                print((' ' * 4) + answer_tup_to_string(q))
+                print(f'{" " * 8} Combos remaining if query returns True:')
+                for (combo, answer) in useful_queries_dict[q][0]:
+                    print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+                print(f'\n{" " * 8} Combos remaining if query returns False:')
+                for (combo, answer) in useful_queries_dict[q][1]:
+                    print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+            # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false NOTE: as tiebreaker if 2 queries have the same information gain, use expected total number of previously-possible combos ruled out, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
             print()
-
         exit() # TODO: delete when write in queries to eliminate possible answers each turn
 
     print_all_possible_answers("ANSWER:", set_possible_answers, possible_combos_with_answers)
@@ -184,6 +233,8 @@ def print_all_possible_answers(message, set_possible_answers, possible_combos_wi
             if(a == possible_answer):
                 print(f"{' ' * 8}{combo_to_combo_rules_names(c)}")
     print()
+def print_combo(combo_with_answer_index, possible_answer, possible_combo):
+    print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)}, {combo_to_combo_rules_names(possible_combo):<150}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def inner_dict_to_string(inner_dict):
     s = '{ '
     for (possibility, combos_list) in inner_dict.items():
@@ -191,6 +242,6 @@ def inner_dict_to_string(inner_dict):
     s += '}'
     return(s)
 
-# solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries.
+# solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 solve([4, 9, 11, 14]) # problem 1 in the book
 # solve([3, 7, 10, 14]) # problem 2 in the book
