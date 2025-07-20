@@ -128,10 +128,10 @@ def get_unsolved_rules_card_indices(rules_card_infos):
 
 Query_Info = namedtuple(
     'Query_Info',
-    [
+    [   # NOTE: TODO: will probably have to make possible_combos_with... a set when get to 2 and 3 query phase, in order to do set intersection when seeing what the best set of 2 or 3 queries to make in a round is. May have to override eq and hash and/or do tests to make sure that set intersection/comparison with combos/answers works. Consider this after finish 1 query/round work.
         'possible_combos_with_answers_remaining_if_true',
         'set_answers_remaining_if_true',
-        'possible_combos_with_answers_remaining_if_false,',
+        'possible_combos_with_answers_remaining_if_false',
         'set_answers_remaining_if_false',
         'p_true',
         'a_info_gain_true',
@@ -184,7 +184,6 @@ def solve(rules_cards_nums_list):
         # }
         useful_queries_dict = dict() # TODO move this outside of loop below and implement above plan
         for unsolved_card_index in unsolved_rules_card_indices_within_rules_cards_list:
-            useful_queries_dict = dict() # key = query, value = tuple of ([(combos with answers) remaining if query result is true], [ditto if query false]).
             # useful_queries_set = set() # TODO will need to keep track of each card's useful queries set
             corresponding_rc = rules_cards_list[unsolved_card_index]
             corresponding_rc_info = rules_card_infos[unsolved_card_index]
@@ -218,10 +217,10 @@ def solve(rules_cards_nums_list):
                         else:
                             print("Teh program is broken if this happens")
                             exit()
-                    useful_queries_dict[possible_query] = (
-                        possible_combos_with_answers_remaining_if_true,
-                        possible_combos_with_answers_remaining_if_false
-                    )
+                    # useful_queries_dict[possible_query] = (
+                    #     possible_combos_with_answers_remaining_if_true,
+                    #     possible_combos_with_answers_remaining_if_false
+                    # )
 
                     (combos_remaining_if_true, answers_remaining_if_true) = zip(*possible_combos_with_answers_remaining_if_true)
                     set_answers_remaining_if_true = set(answers_remaining_if_true)
@@ -260,11 +259,40 @@ def solve(rules_cards_nums_list):
                     expected_combo_info_gain = (
                         (p_true * combo_info_gain_true) + (p_false * combo_info_gain_false)
                     )
-                    print(f'Query {answer_tup_to_string(possible_query)} on rc {unsolved_card_index}: probability true: {p_true:0.2f}, false: {p_false:0.2f}. Expected info gain from answer and combo: {expected_answer_info_gain:0.3f}, {expected_combo_info_gain:0.3f}')
+                    query_info = Query_Info(
+                        possible_combos_with_answers_remaining_if_true,
+                        set_answers_remaining_if_true,
+                        possible_combos_with_answers_remaining_if_false,
+                        set_answers_remaining_if_false,
+                        p_true,
+                        answer_info_gain_true,
+                        answer_info_gain_false,
+                        expected_answer_info_gain,
+                        expected_combo_info_gain
+                    )
+                    if(possible_query in useful_queries_dict):
+                        inner_dict = useful_queries_dict[possible_query]
+                        if(unsolved_card_index in inner_dict):
+                            print("This shouldn't happen, because you're going over every card/every possible query to that card only once.")
+                            exit()
+                        else:
+                            inner_dict[unsolved_card_index] = query_info
+                    else:
+                        useful_queries_dict[possible_query] = {
+                            unsolved_card_index: query_info
+                        }
+                    # print(f'Query {answer_tup_to_string(possible_query)} on rc {unsolved_card_index}: probability true: {p_true:0.2f}, false: {p_false:0.2f}. Expected info gain from answer and combo: {expected_answer_info_gain:0.3f}, {expected_combo_info_gain:0.3f}')
 
-            useful_queries_set = set(useful_queries_dict.keys()) # NOTE: consider using the keys view directly if this proves too costly
-            print(f"# useful queries: {len(useful_queries_set)}")
-            for q in sorted(useful_queries_set):
+            # TODO: print out the info on all useful queries to this card. And test that the number of useful queries to each card is the same as before.
+            q_dict_this_card = dict()
+            for q in sorted(useful_queries_dict.keys()):
+                inner_dict = useful_queries_dict[q]
+                if(unsolved_card_index in useful_queries_dict[q]):
+                    q_info = inner_dict[unsolved_card_index]
+                    q_dict_this_card[q] = q_info
+
+            print(f"# useful queries this card: {len(q_dict_this_card)}")
+            for q in sorted(q_dict_this_card.keys()):
                 pass
                 # print((' ' * 4) + answer_tup_to_string(q))
                 # print(f'{" " * 8} Combos remaining if query returns True:')
@@ -274,8 +302,8 @@ def solve(rules_cards_nums_list):
                 # for (combo, answer) in useful_queries_dict[q][1]:
                 #     print(f'{" " * 8} {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
 
-            # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false NOTE: as tiebreaker if 2 queries have the same information gain, use expected total number of previously-possible combos ruled out, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
             print()
+        # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false NOTE: as tiebreaker if 2 queries have the same information gain, use expected total number of previously-possible combos ruled out, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
         exit() # TODO: delete when write in queries to eliminate possible answers each turn
 
     print_all_possible_answers("ANSWER:", set_possible_answers, possible_combos_with_answers)
