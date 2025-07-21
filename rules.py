@@ -83,12 +83,13 @@ def square_strict_max(triangle, square, circle):
 def circle_strict_max(triangle, square, circle):
     return((circle > triangle) and (circle > square))
 
-
+#rule 18
 def sum_digits_even(triangle, square, circle):
     return(((triangle + square + circle) % 2) == 0)
 def sum_digits_odd(triangle, square, circle):
     return(((triangle + square + circle) % 2) == 1)
 
+#rule 22
 def strictly_ascending(triangle, square, circle):
     return(triangle < square < circle)
 def strictly_descending(triangle, square, circle):
@@ -96,18 +97,49 @@ def strictly_descending(triangle, square, circle):
 def neither_asc_nor_desc(triangle, square, circle):
     return(not(strictly_ascending(triangle, square, circle) or strictly_descending(triangle, square, circle)))
 
+#rule 24
+def cons_seq_cons_asc_3(triangle, square, circle):
+    return(((square == (triangle + 1)) and (circle == (square + 1))))
+def cons_seq_cons_asc_2(triangle, square, circle):
+    return(((square == (triangle + 1)) != (circle == (square + 1))))
+def cons_seq_cons_asc_0(triangle, square, circle):
+    return(not((square == (triangle + 1)) or (circle == (square + 1))))
 
+#rule 31
+# rule 0 on card 31 is the same as rule 1 on card 1
+def square_greater_1(triangle, square, circle):
+    return(square > 1)
+def circle_greater_1(triangle, square, circle):
+    return(circle > 1)
+
+
+#rule 37
+def tri_plus_sq_4(triangle, square, circle):
+    return((triangle + square) == 4)
+def tri_plus_ci_4(triangle, square, circle):
+    return((triangle + circle) == 4)
+def sq_plus_ci_4(triangle, square, circle):
+    return((square + circle) == 4)
+
+#rule 40
+#reuses all 6 rules from rule 2 and 3
+def circle_less_3(triangle, square, circle):
+    return(circle < 3)
+def circle_eq_3(triangle, square, circle):
+    return(circle == 3)
+def circle_greater_3(triangle, square, circle):
+    return(circle > 3)
 
 rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of reading/changing
-    1: [triangle_eq_1, triangle_greater_1],
-    2: [triangle_less_3, triangle_eq_3, triangle_greater_3],
-    3: [square_less_3, square_eq_3, square_greater_3],
-    4: [square_less_4, square_eq_4, square_greater_4],
-    5: [triangle_even, triangle_odd],
-    6: [square_even, square_odd],
-    7: [circle_even, circle_odd],
+     1: [triangle_eq_1, triangle_greater_1],
+     2: [triangle_less_3, triangle_eq_3, triangle_greater_3],
+     3: [square_less_3, square_eq_3, square_greater_3],
+     4: [square_less_4, square_eq_4, square_greater_4],
+     5: [triangle_even, triangle_odd],
+     6: [square_even, square_odd],
+     7: [circle_even, circle_odd],
 
-    9: [zero_3, one_3, two_3, three_3],
+     9: [zero_3, one_3, two_3, three_3],
     10: [zero_4, one_4, two_4, three_4],
     11: [triangle_less_square, triangle_eq_square, triangle_greater_square],
 
@@ -120,7 +152,21 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 
 
 
-    22: [strictly_ascending, strictly_descending, neither_asc_nor_desc]
+    22: [strictly_ascending, strictly_descending, neither_asc_nor_desc],
+
+    24: [cons_seq_cons_asc_3, cons_seq_cons_asc_2, cons_seq_cons_asc_0],
+
+    31: [triangle_greater_1, square_greater_1, circle_greater_1],
+
+
+    37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
+
+
+    40: [
+            triangle_less_3, triangle_eq_3, triangle_greater_3,
+            square_less_3, square_eq_3, square_greater_3,
+            circle_less_3, circle_eq_3, circle_greater_3
+        ],
 }
 
 max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])

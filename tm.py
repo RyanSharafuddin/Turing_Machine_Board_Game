@@ -182,11 +182,14 @@ def populate_useful_qs_dict(
                 num_combos_remaining_if_false = len(combos_remaining_if_false)
                 num_answers_remaining_if_false = len(set_answers_remaining_if_false)
                 if((num_combos_remaining_if_true + num_combos_remaining_if_false) != current_num_possible_combos):
-                    print("FAIL")
-                    exit()
-                if((num_answers_remaining_if_true + num_answers_remaining_if_false) != current_num_possible_answers):
-                    print("FAIL")
-                    exit()
+                    raise Exception("FAIL")
+
+                # NOTE: It's okay if the number of answers remaining when true and when false don't add up to the number of answers currently, because it's not the case that every answer remains only when true or only when false. Every *combo* remains only when true or only when false, but sometimes one answer can have multiple combos, so it it remains when the query is true and when it's false. To see an example of this, uncomment the block below and try on problem [9, 22, 24, 31, 37, 40] ("C63 0YV B" online).
+                # if((num_answers_remaining_if_true + num_answers_remaining_if_false) != current_num_possible_answers):
+                #     print(f"Failed when considering query: {answer_tup_to_string(possible_query)} on card {string.ascii_uppercase[unsolved_card_index]}")
+                #     print_all_possible_answers("Combos remaining if true:", set_answers_remaining_if_true, possible_combos_with_answers_remaining_if_true)
+                #     print_all_possible_answers("Combos remaining if false:", set_answers_remaining_if_false, possible_combos_with_answers_remaining_if_false)
+                #     exit()
 
                 p_true = num_combos_remaining_if_true / current_num_possible_combos
                 answer_info_gain_true = math.log2(
@@ -303,7 +306,7 @@ def solve(rules_cards_nums_list):
     num_unique_possible_answers = len(set_possible_answers)
     if(num_unique_possible_answers != number_possible_combos):
         print("NOTE: There are different possible rules combos that give rise to the same answer. Perhaps you can exploit this to solve for the answer without also needing to solve for which rules combo gives rise to the answer? Consider it.")
-        exit()
+        # exit()
 
     # All non-constant variables that need to be set correctly at beginning of each loop:
     # possible_combos_with_answers (remove ruled out possibilities)
@@ -339,7 +342,7 @@ def solve(rules_cards_nums_list):
                     (best_expected_a_info_gain, best_expected_c_info_gain) = (q_info.expected_a_info_gain, q_info.expected_c_info_gain)
                     (best_query, corresponding_rc_index, best_q_info) = (q, rc_index, q_info)
 
-        print(f'\nQuery {answer_tup_to_string(best_query)} to verifier {string.ascii_uppercase[corresponding_rc_index]}. Expected answer info gain: {best_expected_a_info_gain:0.3f}')
+        print(f'\nQuery {answer_tup_to_string(best_query)} to verifier {string.ascii_uppercase[corresponding_rc_index]}. Expected answer info gain: {best_expected_a_info_gain:0.3f}. Expected combo info gain: {best_expected_c_info_gain:0.3f}.')
         print("Result of query (T/F)\n> ", end="")
         result_raw = input()
         if(result_raw == 'q'):
@@ -362,12 +365,13 @@ def rules_list_to_names(rl, pad=True):
 def print_all_possible_answers(message, set_possible_answers, possible_combos_with_answers):
     print("\n" + message)
     final_answer = (len(set_possible_answers) == 1)
+    multiple_combo_spacing = 7 if final_answer else 9
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
         relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
         answer_number_str = '   ' if final_answer else f'{answer_index:>3}: '
         print(f"{answer_number_str}{answer_tup_to_string(possible_answer)} {rules_list_to_names(relevant_combos[0])}")
         for c in relevant_combos[1:]:
-            print(f"{' ' * 9}{rules_list_to_names(c)}")
+            print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(c)}")
 def print_combo(combo_with_answer_index, possible_answer, possible_combo):
     print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def inner_dict_to_string(inner_dict):
@@ -386,4 +390,5 @@ def print_problem(rcs_list, active):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 # solve([4, 9, 11, 14]) # problem 1 in the book
-solve([3, 7, 10, 14]) # problem 2 in the book
+# solve([3, 7, 10, 14]) # problem 2 in the book. FTF
+solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here.
