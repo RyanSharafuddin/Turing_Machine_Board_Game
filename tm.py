@@ -1,4 +1,4 @@
-import math
+import math, string
 from collections import namedtuple
 from rules import *
 
@@ -28,8 +28,8 @@ def func_to_Rule(func, card_index):
     reject_set = {p for p in all_125_possibilities_set if not(func(*p))}
     return(Rule(func.__name__, reject_set, func, card_index))
 
-for (rule_card_num, rule_card) in rules_cards.items():
-    rules_cards[rule_card_num] = [func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
+for (rule_card_num, rule_card) in rcs_deck.items():
+    rcs_deck[rule_card_num] = [func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
     # now rules_cards is a dict from rule_card_num to a list of Rules, where each rule consists of a name, reject_set, Python function, and index within its card
 
 def is_combo_possible(combo):
@@ -81,7 +81,7 @@ def get_possible_rules_combos_with_answers(rules_cards_list):
     return(possible_combos_with_answers)
 
 def populate_rules_card_infos(rules_card_infos, possible_combos_with_answers):
-    print("POSSIBLE COMBOS:")
+    print("\nRemaining Combos:")
     for (combo_with_answer_index, combo_with_answer) in enumerate(possible_combos_with_answers):
         (possible_combo, possible_answer) = combo_with_answer
         print_combo(combo_with_answer_index, possible_answer, possible_combo)
@@ -103,8 +103,7 @@ def get_unsolved_rules_card_indices(rules_card_infos):
     # print()
     for (rc_index, rc_info) in enumerate(rules_card_infos):
         # print(f'rules card {rc_index}:' + ' {')
-        for (rule_index_within_card, inner_dict) in rc_info.items():
-            pass
+        # for (rule_index_within_card, inner_dict) in rc_info.items():
             # print(f'    possible rule index: {rule_index_within_card}: {inner_dict_to_string(inner_dict)}')
         # print('}')
         if(len(rc_info) > 1): # if there are multiple rules this card could be
@@ -122,8 +121,8 @@ def get_unsolved_rules_card_indices(rules_card_infos):
             else:
                 print("Your program is broken, b/c this rules card has no possible answers.")
                 exit()
-    print()
-    print(f'Unsolved rules cards indices: {unsolved_rules_card_indices_within_rules_cards_list}')
+    # print()
+    # print(f'Unsolved rules cards indices: {unsolved_rules_card_indices_within_rules_cards_list}')
     return(unsolved_rules_card_indices_within_rules_cards_list)
 
 
@@ -150,11 +149,11 @@ def solve(rules_cards_nums_list):
     """
     num_rules_cards = len(rules_cards_nums_list)
     # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
-    rules_cards_list = [rules_cards[num] for num in rules_cards_nums_list]
+    rules_cards_list = [rcs_deck[num] for num in rules_cards_nums_list]
     possible_combos_with_answers = get_possible_rules_combos_with_answers(rules_cards_list)
-    # original_possible_combos_with_answers = copy.deepcopy(possible_combos_with_answers)
     (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
     set_possible_answers = set(possible_answers)
+    print_problem(rcs_list=rules_cards_list, active=True)
     print_all_possible_answers("All possible answers:", set_possible_answers, possible_combos_with_answers)
 
     # Note: may not need this block below.
@@ -169,12 +168,10 @@ def solve(rules_cards_nums_list):
     # possible_combos and possible_answers (make from possible_combos_with answers using zip)
     # set_possible_answers (make from possible_answers)
     while(len(set_possible_answers) > 1):
-        # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list
-        # each key in that dict is the rules_card_index of a possible rule that the ith card could be 
-        # the value mapped to that key is a dictionary {a:b}, where a is a possible answer tuple for that rule and b is a list of combos that correspond to that answer tuple and that rule.
-        rules_card_infos = [dict() for i in range(num_rules_cards)]
-        populate_rules_card_infos(rules_card_infos, possible_combos_with_answers)
-        unsolved_rules_card_indices_within_rules_cards_list = get_unsolved_rules_card_indices(rules_card_infos)
+        # see todo.txt for documentation on what exactly rc_infos is
+        rc_infos = [dict() for _ in range(num_rules_cards)]
+        populate_rules_card_infos(rc_infos, possible_combos_with_answers)
+        unsolved_rules_card_indices_within_rules_cards_list = get_unsolved_rules_card_indices(rc_infos)
         current_num_possible_combos = len(possible_combos)
         current_num_possible_answers = len(set_possible_answers)
 
@@ -183,16 +180,15 @@ def solve(rules_cards_nums_list):
         #        inner_key = index of the rule card this query goes to: value = Query_Info (see named tuple)
         #     }
         # }
-        useful_queries_dict = dict() # TODO move this outside of loop below and implement above plan
+        useful_queries_dict = dict()
         for unsolved_card_index in unsolved_rules_card_indices_within_rules_cards_list:
-            # useful_queries_set = set() # TODO will need to keep track of each card's useful queries set
             corresponding_rc = rules_cards_list[unsolved_card_index]
-            corresponding_rc_info = rules_card_infos[unsolved_card_index]
+            corresponding_rc_info = rc_infos[unsolved_card_index]
             possible_rules_this_card = [
                 corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
             ]
-            print(f"On unsolved rules card: {unsolved_card_index}")
-            print(f"Possible rules: {[r.name for r in possible_rules_this_card]}")
+            # print(f"On unsolved rules card: {unsolved_card_index}")
+            # print(f"Possible rules: {[r.name for r in possible_rules_this_card]}")
             for possible_query in all_125_possibilities_set:
                 possible_accepting_rules_card_indices = set()
                 possible_rejecting_rules_card_indices = set()
@@ -206,7 +202,6 @@ def solve(rules_cards_nums_list):
                     bool(possible_rejecting_rules_card_indices)
                 ):
                     # NOTE: redoing a lot of work here, as many possible useful queries will result in exactly the same possible_accepting_rules_card_indices and possible_rejecting_rules_card_indices as previous queries, so you're recomputing the work of the answers remaining if result is true or false. TODO: Consider making it a function and caching results for use later.
-                    # NOTE: consider saving all query info for useful queries to the query dict, including which card the query is to (will have to move the query dict outside the unsolved card loop)
                     possible_combos_with_answers_remaining_if_true = []
                     possible_combos_with_answers_remaining_if_false = []
                     for combo_with_answer in possible_combos_with_answers:
@@ -278,60 +273,83 @@ def solve(rules_cards_nums_list):
                         useful_queries_dict[possible_query] = {
                             unsolved_card_index: query_info
                         }
-                    # print(f'Query {answer_tup_to_string(possible_query)} on rc {unsolved_card_index}: probability true: {p_true:0.2f}, false: {p_false:0.2f}. Expected info gain from answer and combo: {expected_answer_info_gain:0.3f}, {expected_combo_info_gain:0.3f}')
+            # print out all query info relevant to this card
+            # q_dict_this_card = dict()
+            # for q in sorted(useful_queries_dict.keys()):
+            #     inner_dict = useful_queries_dict[q]
+            #     if(unsolved_card_index in useful_queries_dict[q]):
+            #         q_info = inner_dict[unsolved_card_index]
+            #         q_dict_this_card[q] = q_info
+            # print(f"# useful queries this card: {len(q_dict_this_card)}")
+            # for q in sorted(q_dict_this_card.keys()):
+            #     q_info = q_dict_this_card[q]
+            #     print((' ' * 4) + answer_tup_to_string(q))
+            #     print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
+            #     print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
+            #     print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
+            #     print(f'{" " * 8} Combos remaining if query returns True:')
+            #     for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_true, start=1):
+            #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+            #     print()
+            #     print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
+            #     print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
+            #     print(f'{" " * 8} Combos remaining if query returns False:')
+            #     for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_false, start=1):
+            #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+            # print()
 
-            # TODO: print out the info on all useful queries to this card.
-            q_dict_this_card = dict()
-            for q in sorted(useful_queries_dict.keys()):
-                inner_dict = useful_queries_dict[q]
-                if(unsolved_card_index in useful_queries_dict[q]):
-                    q_info = inner_dict[unsolved_card_index]
-                    q_dict_this_card[q] = q_info
-            print(f"# useful queries this card: {len(q_dict_this_card)}")
-            for q in sorted(q_dict_this_card.keys()):
-                q_info = q_dict_this_card[q]
-                print((' ' * 4) + answer_tup_to_string(q))
-                print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
-                print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
-                print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
-                print(f'{" " * 8} Combos remaining if query returns True:')
-                for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_true, start=1):
-                    print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
-                print()
-                print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}.') 
-                print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
-                print(f'{" " * 8} Combos remaining if query returns False:')
-                for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_false, start=1):
-                    print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
-            print()
-        # TODO: for each useful query, calculate which combos and possible answers will remain if the result is true and if the result is false (use the flat lists from the beginning rather than the nested info dicts?), and, using the number of combos and possible answers that existed before, calculate the probability of it being true or false (assuming each combo is equally likely), as well as the information gain resulting from it being true or false NOTE: as tiebreaker if 2 queries have the same information gain, use expected total number of previously-possible combos ruled out, and then calculate the expected information gain from that query. Keep track of the single query that results in a highest expected information gain, and then later also the one proposal (single number) with 2 queries that results in highest gain, then the 3 queries. But get the 1 query completely working first.
-        exit() # TODO: delete when write in queries to eliminate possible answers each turn
-
+        (best_query, corresponding_rc_index, best_q_info) = (None, None, None)
+        (best_expected_a_info_gain, best_expected_c_info_gain) = (0, 0)
+        for (q, inner_dict) in useful_queries_dict.items():
+            for (rc_index, q_info) in inner_dict.items():
+                if((q_info.expected_a_info_gain, q_info.expected_c_info_gain) > (best_expected_a_info_gain, best_expected_c_info_gain)):
+                    (best_expected_a_info_gain, best_expected_c_info_gain) = (q_info.expected_a_info_gain, q_info.expected_c_info_gain)
+                    (best_query, corresponding_rc_index, best_q_info) = (q, rc_index, q_info)
+        print(f'\nQuery {answer_tup_to_string(best_query)} to verifier {string.ascii_uppercase[corresponding_rc_index]}. Expected answer info gain: {best_expected_a_info_gain:0.3f}')
+        print("Result of query (T/F)\n> ", end="")
+        result_raw = input()
+        if(result_raw == 'q'):
+            exit()
+        result = (result_raw in ['T', 't'])
+        possible_combos_with_answers = best_q_info.possible_combos_with_answers_remaining_if_true if(result) else best_q_info.possible_combos_with_answers_remaining_if_false
+        (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
+        set_possible_answers = set(possible_answers)
+        # query loop end
+    # Found an answer
     print_all_possible_answers("ANSWER:", set_possible_answers, possible_combos_with_answers)
 
 # TODO: put in display file
 def answer_tup_to_string(answer):
     return("".join(str(d) for d in answer))
-def combo_to_combo_rules_names(combo):
-    return(str([r.name for r in combo]))
+def rules_list_to_names(rl, pad=True):
+    pad_spaces = max_rule_name_length if(pad) else 0
+    names = [f'{r.name:<{pad_spaces}}' for r in rl]
+    return(', '.join(names))
 def print_all_possible_answers(message, set_possible_answers, possible_combos_with_answers):
-    print(message)
+    print("\n" + message)
     final_answer = (len(set_possible_answers) == 1)
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
-        print(f"{f'{answer_index:>3}: ' if(not final_answer) else ''}{answer_tup_to_string(possible_answer)}")
-        for (c, a) in possible_combos_with_answers:
-            if(a == possible_answer):
-                print(f"{' ' * 8}{combo_to_combo_rules_names(c)}")
-    print()
+        relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
+        answer_number_str = '   ' if final_answer else f'{answer_index:>3}: '
+        print(f"{answer_number_str}{answer_tup_to_string(possible_answer)} {rules_list_to_names(relevant_combos[0])}")
+        for c in relevant_combos[1:]:
+            print(f"{' ' * 9}{rules_list_to_names(c)}")
 def print_combo(combo_with_answer_index, possible_answer, possible_combo):
-    print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)}, {combo_to_combo_rules_names(possible_combo):<150}, rules_card_indices: {[r.card_index for r in possible_combo]}')
+    print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def inner_dict_to_string(inner_dict):
     s = '{ '
     for (possibility, combos_list) in inner_dict.items():
         s += f'{answer_tup_to_string(possibility)}: {[[r.card_index for r in combo] for combo in combos_list]} '
     s += '}'
     return(s)
-
+def print_problem(rcs_list, active):
+    """ 
+    NOTE: will have to change this for nightmare mode, since rules cards won't have corresponding letters, only numbers.
+    """
+    if(active):
+        print("\nProblem")
+        for (i, rc) in enumerate(rcs_list):
+            print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 # solve([4, 9, 11, 14]) # problem 1 in the book
 solve([3, 7, 10, 14]) # problem 2 in the book

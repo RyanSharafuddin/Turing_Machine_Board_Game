@@ -98,7 +98,7 @@ def neither_asc_nor_desc(triangle, square, circle):
 
 
 
-rules_cards = { #dict from num: rules list. Dictionary rather than list for ease of reading/changing
+rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of reading/changing
     1: [triangle_eq_1, triangle_greater_1],
     2: [triangle_less_3, triangle_eq_3, triangle_greater_3],
     3: [square_less_3, square_eq_3, square_greater_3],
@@ -123,6 +123,4 @@ rules_cards = { #dict from num: rules list. Dictionary rather than list for ease
     22: [strictly_ascending, strictly_descending, neither_asc_nor_desc]
 }
 
-max_rule_name_length = 1
-for rules_card in rules_cards.values():
-    max_rule_name_length = max(max([len(rule.__name__) for rule in rules_card]), max_rule_name_length)
+max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
