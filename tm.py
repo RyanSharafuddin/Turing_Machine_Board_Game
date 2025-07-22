@@ -1,4 +1,4 @@
-import math, string
+import math, string, copy
 from collections import namedtuple
 from rules import *
 
@@ -221,7 +221,19 @@ def populate_useful_qs_dict(
                     answer_info_gain_true,
                     answer_info_gain_false,
                     expected_answer_info_gain,
-                    expected_combo_info_gain
+                    expected_combo_info_gain,
+                    set(
+                        map(
+                            lambda cwa: (tuple([r.card_index for r in cwa[0]]), cwa[1]),
+                            possible_combos_with_answers_remaining_if_true
+                        )
+                    ),
+                    set(
+                        map(
+                            lambda cwa: (tuple([r.card_index for r in cwa[0]]), cwa[1]),
+                            possible_combos_with_answers_remaining_if_false
+                        )
+                    )
                 )
                 if(possible_query in useful_queries_dict):
                     inner_dict = useful_queries_dict[possible_query]
@@ -236,11 +248,13 @@ def populate_useful_qs_dict(
                     }
         # print out all query info relevant to this card
         # q_dict_this_card = dict()
+        # print()
         # for q in sorted(useful_queries_dict.keys()):
         #     inner_dict = useful_queries_dict[q]
         #     if(unsolved_card_index in useful_queries_dict[q]):
         #         q_info = inner_dict[unsolved_card_index]
         #         q_dict_this_card[q] = q_info
+        # print(f'For card {string.ascii_uppercase[unsolved_card_index]}. Possible rules: {rules_list_to_names(possible_rules_this_card)}')
         # print(f"# useful queries this card: {len(q_dict_this_card)}")
         # for q in sorted(q_dict_this_card.keys()):
         #     q_info = q_dict_this_card[q]
@@ -249,15 +263,18 @@ def populate_useful_qs_dict(
         #     print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
         #     print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
         #     print(f'{" " * 8} Combos remaining if query returns True:')
-        #     for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_true, start=1):
-        #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
+        #     for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_true, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
+        #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
+        #     for i in sorted(q_info.set_indexes_cwa_remaining_true, key=lambda t:(t[1], t[0])):
+        #         print(f'{" " * 14} {i}')
         #     print()
         #     print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
         #     print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
         #     print(f'{" " * 8} Combos remaining if query returns False:')
-        #     for (i, (combo, answer)) in enumerate(q_info.possible_combos_with_answers_remaining_if_false, start=1):
-        #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
-        # print()
+        #     for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_false, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
+        #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
+        #     for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[1], t[0])):
+        #         print(f'{" " * 14} {i}')
 
 Query_Info = namedtuple(
     'Query_Info',
@@ -271,10 +288,156 @@ Query_Info = namedtuple(
         'a_info_gain_false',
         'expected_a_info_gain',
         'expected_c_info_gain',
+        'set_indexes_cwa_remaining_true', # set of tuples (rc_indices of the cwa, (answer_tup)).
+        'set_indexes_cwa_remaining_false'
     ]
 )
 
-# TODO: have the program handle standard mode before it handles nightmare mode. 
+Game_State = namedtuple(
+    'Game_State',
+    [
+        'num_queries_this_round',
+        'proposal_used_this_round',
+        'fset_cwa_indexes_remaining',
+        'fset_answers_remaining'
+    ]
+)
+
+def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
+    """
+    num_queries_this_round is the number there will be after making this move.
+    WARN: could be None
+    """
+    fset_indexes_cwa_remaining_true = game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_true
+    fset_indexes_cwa_remaining_false = game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_false
+    if(bool(fset_indexes_cwa_remaining_false) and bool(fset_indexes_cwa_remaining_true)):
+        # this is a useful query.
+        num_combos_remaining_true = len(fset_indexes_cwa_remaining_true)
+        p_true = num_combos_remaining_true / num_combos_currently
+        p_false = 1 - p_true
+        p_tuple = (p_false, p_true)
+        game_state_false = Game_State(
+            num_queries_this_round = num_queries_this_round,
+            proposal_used_this_round = move[0],
+            fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_false,
+            fset_answers_remaining = (
+                game_state.fset_answers_remaining & q_info.set_answers_remaining_if_false
+            )
+        )
+        game_state_true = Game_State(
+            num_queries_this_round = num_queries_this_round,
+            proposal_used_this_round = move[0],
+            fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_true,
+            fset_answers_remaining = (
+                game_state.fset_answers_remaining & q_info.set_answers_remaining_if_true
+            )
+        )
+        gs_tuple = (game_state_false, game_state_true)
+        move_info = (move, cost, gs_tuple, p_tuple)
+    else:
+        # this is not a useful query. Take move out of the game state frozen set representing remaining moves, if you implement it. Actually, take out all such useless moves before making the next game states. Will require some refactoring.
+        move_info = None
+    return(move_info)
+
+
+def get_and_apply_moves(game_state, qs_dict):
+    """
+    yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
+    move is a tuple (proposal tuple, rc_index of verifier to query).
+    cost is a tuple (round cost, query cost)
+    game_states are copied, not mutated.
+    """
+    # NOTE: don't forget to set proposal_used_this_round
+    # NOTE: if taking too much time, may want to copy qs_dict and remove queries/rcs that are no longer useful, and pass them along as part of game_state. But then there'd be the problem that dicionaries aren't hashable . . . Could consider instead maintaining a frozenset of (proposal, rc_index) for those proposal rc_index pairs that are still useful, and when creating a new game_state for next function call, copying it over into a new frozenset, except without the pairs that are no longer useful. Maybe do profiling first though to see if this is what is consuming time.
+    num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
+    if((game_state.num_queries_this_round == 3) or (game_state.num_queries_this_round == 0)):
+        # does not continue from previous query. All queries this move are new round.
+        cost = (1, 1) if (game_state.num_queries_this_round == 3) else (0, 1)
+        for (proposal, inner_dict) in qs_dict.items():
+            for (rc_index, q_info) in inner_dict.items():
+                move = (proposal, rc_index)
+                move_info = create_move_info(num_combos_currently, game_state, 1, q_info, move, cost)
+                if(not(move_info is None)):
+                    yield(move_info)
+                else:
+                    # proposal to rc_index is not a useful query. Consider eliminating it from game_state, if you start passing around fsets for this info as in above note. See comment in create_move_info.
+                    pass
+    else:
+        # does continue from previous query; new proposals cost a round
+        if(game_state.proposal_used_this_round is None):
+            print("FAIL")
+            exit()
+        cost = (0, 1) # considering all queries with this round's proposal first, then new proposals.
+        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
+        if(not(inner_dict_this_proposal is None)):
+            # TODO: make a function to create the (move, cost, gs_tuple, p_tuple) tuple and yield it here.
+            num_queries_this_round = game_state.num_queries_this_round + 1
+            for (rc_index, q_info) in inner_dict.items():
+                move = (game_state.proposal_used_this_round, rc_index)
+                move_info = create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost)
+                if(not(move_info is None)):
+                    yield(move_info)
+                else:
+                    pass # not a useful query. See other comments.
+        # after trying all the moves that continue with the same query this round, try ending the round early.
+        cost = (1, 1)
+        num_queries_this_round = 1
+        for (proposal, inner_dict) in qs_dict.items():
+            if(proposal == game_state.proposal_used_this_round):
+                continue # no sense starting a new round when you could have remained on same round.
+            for (rc_index, q_info) in inner_dict.items():
+                move = (proposal, rc_index)
+                move_info = create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move)
+                if(not(move_info is None)):
+                    yield(move_info)
+                else:
+                    pass  # not a useful query
+
+# TODO: cache the output of this function for {game_state : (best_move, cost of that move)}
+# see get_moves docstring for definitions of move and cost.
+# NOTE: do I actually need current_round_num or total_queries_made parameters in args to below? Yes, for pruning purposes. Or is it? B/c even if cost is high, probability could be low? But you know the probabilities. Think about it later. Then previous_best is a tuple of (expected_round_num_solved, expected_total_queries?) Consider making these two args a tuple for easy comparison.
+# WARN: copy game state, no mutate
+def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, total_queries_made):
+    """
+    Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
+    best_move_tup is a tup of (proposal, rc_index)
+    """
+    best_move = None
+    (expected_round_cost, expected_queries_cost) = (0, 0)
+    if(len(game_state.fset_answers) == 1):
+        return((best_move), (expected_round_cost, expected_queries_cost))
+    best_expected_cost_tup = (float('inf'), float('inf'))
+    for move_info in get_and_apply_moves(game_state, qs_dict):
+        gs_tup = move_info[2]
+        p_tup = move_info[3]
+        (p_false, p_true) = p_tup
+        (_, _, _, gs_false_expected_cost_to_win) = calculate_best_move(
+            qs_dict,
+            gs_tup[0],
+            previous_best, # NOTE: not actually used yet.
+            current_round_num, # NOTE: not used yet. Fill with correct value.
+            total_queries_made, # NOTE: not used yet. To use, add in a move's cost to these values, compare to previous best, and if worse, abandon this branch. For previous best, update it with each new answer you get (after multiplying by probs and adding), and start it at +infinity.
+        )
+        (_, _, _, gs_true_expected_cost_to_win) = calculate_best_move(
+            qs_dict,
+            gs_tup[1],
+            previous_best, # NOTE: not actually used yet.
+            current_round_num, # NOTE: not used yet. Fill with correct value.
+            total_queries_made, # NOTE: not used yet. To use, add in a move's cost to these values, compare to previous best, and if worse, abandon this branch. For previous best, update it with each new answer you get, and start it at +infinity.
+        )
+        mov_cost_tup = move_info[1]
+        (mov_round_cost, mov_query_cost) = mov_cost_tup
+        expected_round_cost = mov_round_cost + (p_false * gs_false_expected_cost_to_win[0]) + (p_true * gs_true_expected_cost_to_win[0])
+        expected_query_cost = mov_query_cost + (p_false * gs_false_expected_cost_to_win[1]) + (p_true * gs_true_expected_cost_to_win[1])
+        expected_cost_tup = (expected_round_cost, expected_query_cost)
+        if(expected_cost_tup < best_expected_cost_tup):
+            best_expected_cost_tup = expected_cost_tup
+            best_move_tup = move_info[0]
+            best_mov_cost_tup = mov_cost_tup
+            best_gs_tup = gs_tup
+    return((best_move_tup, best_mov_cost_tup, best_gs_tup, expected_cost_tup))
+
+# TODO: have the program handle standard mode before it handles nightmare mode.
 # a problem is a list of rules cards.
 def solve(rules_cards_nums_list):
     """
@@ -284,14 +447,17 @@ def solve(rules_cards_nums_list):
     # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
     rules_cards_list = [rcs_deck[num] for num in rules_cards_nums_list]
     possible_combos_with_answers = get_possible_rules_combos_with_answers(rules_cards_list)
+    rc_indexes_cwa_to_full_combos_dict = {}
+    for cwa in possible_combos_with_answers:
+        rc_indexes_cwa_to_full_combos_dict[(tuple([r.card_index for r in cwa[0]]), cwa[1])] = cwa
     (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
     set_possible_answers = set(possible_answers)
     print_problem(rcs_list=rules_cards_list, active=True)
     print_all_possible_answers("All possible answers:", set_possible_answers, possible_combos_with_answers)
 
     # Note: may not need this block below.
-    number_possible_combos = len(possible_combos)
-    num_unique_possible_answers = len(set_possible_answers)
+    # number_possible_combos = len(possible_combos)
+    # num_unique_possible_answers = len(set_possible_answers)
     # if(num_unique_possible_answers != number_possible_combos):
         # print("NOTE: There are different possible rules combos that give rise to the same answer. Perhaps you can exploit this to solve for the answer without also needing to solve for which rules combo gives rise to the answer? Consider it.")
         # exit()
@@ -379,5 +545,5 @@ def print_problem(rcs_list, active):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 # solve([4, 9, 11, 14]) # problem 1 in the book
-# solve([3, 7, 10, 14]) # problem 2 in the book. FTF 435
-solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here. T 351
+solve([3, 7, 10, 14]) # problem 2 in the book. FTF 435
+# solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here. T 351
