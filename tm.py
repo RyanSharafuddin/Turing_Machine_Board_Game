@@ -66,10 +66,10 @@ def get_all_rules_combinations(rules_cards_list):
             for rules_card_index in range(num_rules_cards)
         ]
         rules_combos.append(new_combo)
-    return(rules_combos)
     # print all combos, possible or not.
     # for (combo_num, combo) in enumerate(rules_combos, start=1):
     #     print(f'{combo_num}: {[rule.name for rule in combo]}')
+    return(rules_combos)
 
 def get_possible_rules_combos_with_answers(rules_cards_list):
     all_rules_combos = get_all_rules_combinations(rules_cards_list)
@@ -83,9 +83,9 @@ def get_possible_rules_combos_with_answers(rules_cards_list):
 def make_rc_infos(num_rules_cards, possible_combos_with_answers):
     rc_infos = [dict() for _ in range(num_rules_cards)]
     print("\nRemaining Combos:")
-    for (combo_with_answer_index, combo_with_answer) in enumerate(possible_combos_with_answers):
+    for (combo_with_answer_index, combo_with_answer) in enumerate(sorted(possible_combos_with_answers, key=lambda t:t[1])):
         (possible_combo, possible_answer) = combo_with_answer
-        print_combo(combo_with_answer_index, possible_answer, possible_combo)
+        print_combo_with_answer(combo_with_answer_index, combo_with_answer)
         for (rule_card_index, rule) in enumerate(possible_combo):
             rules_card_info_dict = rc_infos[rule_card_index]
             answer_within_this_card_index = rule.card_index
@@ -259,18 +259,6 @@ def populate_useful_qs_dict(
         #         print(f'{" " * 12} {i:>3}: {answer_tup_to_string(answer)} {combo_to_combo_rules_names(combo)}')
         # print()
 
-def single_proposal_n_verifiers(n, useful_qs_dict, possible_combos_with_answers):
-    """
-    Given a number n (between 1 and 3 in regular game), for every useful proposal number, find out what would happen if you query all combinations of n cards with that proposal (if a proposal does not have n cards it could usefully query, it is not included in the output). Returns an n_level query dict, which is:
-    n_level_query dict = {
-        key = proposal (answer tuple): value = {
-            inner_key = (n-tuple of the indices of the n rules cards this proposal queries) : 
-            value = N_Level_Query_Info
-        }
-    }
-    """
-    pass
-
 Query_Info = namedtuple(
     'Query_Info',
     [   # NOTE: TODO: will probably have to make possible_combos_with... a set when get to 2 and 3 query phase, in order to do set intersection when seeing what the best set of 2 or 3 queries to make in a round is. May have to override eq and hash and/or do tests to make sure that set intersection/comparison with combos/answers works. Consider this after finish 1 query/round work.
@@ -304,8 +292,8 @@ def solve(rules_cards_nums_list):
     # Note: may not need this block below.
     number_possible_combos = len(possible_combos)
     num_unique_possible_answers = len(set_possible_answers)
-    if(num_unique_possible_answers != number_possible_combos):
-        print("NOTE: There are different possible rules combos that give rise to the same answer. Perhaps you can exploit this to solve for the answer without also needing to solve for which rules combo gives rise to the answer? Consider it.")
+    # if(num_unique_possible_answers != number_possible_combos):
+        # print("NOTE: There are different possible rules combos that give rise to the same answer. Perhaps you can exploit this to solve for the answer without also needing to solve for which rules combo gives rise to the answer? Consider it.")
         # exit()
 
     # All non-constant variables that need to be set correctly at beginning of each loop:
@@ -372,7 +360,8 @@ def print_all_possible_answers(message, set_possible_answers, possible_combos_wi
         print(f"{answer_number_str}{answer_tup_to_string(possible_answer)} {rules_list_to_names(relevant_combos[0])}")
         for c in relevant_combos[1:]:
             print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(c)}")
-def print_combo(combo_with_answer_index, possible_answer, possible_combo):
+def print_combo_with_answer(combo_with_answer_index, combo_with_answer):
+    (possible_combo, possible_answer) = combo_with_answer
     print(f'{combo_with_answer_index + 1:>3}: {answer_tup_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def inner_dict_to_string(inner_dict):
     s = '{ '
@@ -381,7 +370,7 @@ def inner_dict_to_string(inner_dict):
     s += '}'
     return(s)
 def print_problem(rcs_list, active):
-    """ 
+    """
     NOTE: will have to change this for nightmare mode, since rules cards won't have corresponding letters, only numbers.
     """
     if(active):
@@ -390,5 +379,5 @@ def print_problem(rcs_list, active):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 # solve([4, 9, 11, 14]) # problem 1 in the book
-# solve([3, 7, 10, 14]) # problem 2 in the book. FTF
-solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here.
+# solve([3, 7, 10, 14]) # problem 2 in the book. FTF 435
+solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here. T 351
