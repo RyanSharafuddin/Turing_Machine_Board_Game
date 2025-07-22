@@ -173,11 +173,13 @@ def populate_useful_qs_dict(
                         exit()
 
                 (combos_remaining_if_true, answers_remaining_if_true) = zip(*possible_combos_with_answers_remaining_if_true)
+                # WARN: do not use set_answers_remaining... unless you plan to recalculate q_infos every query.
                 set_answers_remaining_if_true = set(answers_remaining_if_true)
                 num_combos_remaining_if_true = len(combos_remaining_if_true)
                 num_answers_remaining_if_true = len(set_answers_remaining_if_true)
 
                 (combos_remaining_if_false, answers_remaining_if_false) = zip(*possible_combos_with_answers_remaining_if_false)
+                # WARN: see warning above
                 set_answers_remaining_if_false = set(answers_remaining_if_false)
                 num_combos_remaining_if_false = len(combos_remaining_if_false)
                 num_answers_remaining_if_false = len(set_answers_remaining_if_false)
@@ -214,9 +216,7 @@ def populate_useful_qs_dict(
                 )
                 query_info = Query_Info(
                     possible_combos_with_answers_remaining_if_true,
-                    set_answers_remaining_if_true,
                     possible_combos_with_answers_remaining_if_false,
-                    set_answers_remaining_if_false,
                     p_true,
                     answer_info_gain_true,
                     answer_info_gain_false,
@@ -280,9 +280,7 @@ Query_Info = namedtuple(
     'Query_Info',
     [   # NOTE: TODO: will probably have to make possible_combos_with... a set when get to 2 and 3 query phase, in order to do set intersection when seeing what the best set of 2 or 3 queries to make in a round is. May have to override eq and hash and/or do tests to make sure that set intersection/comparison with combos/answers works. Consider this after finish 1 query/round work.
         'possible_combos_with_answers_remaining_if_true',
-        'set_answers_remaining_if_true',
         'possible_combos_with_answers_remaining_if_false',
-        'set_answers_remaining_if_false',
         'p_true',
         'a_info_gain_true',
         'a_info_gain_false',
@@ -303,6 +301,9 @@ Game_State = namedtuple(
     ]
 )
 
+def fset_answers_from_fset_cwa(fset_cwa):
+    return(frozenset([cwa[1] for cwa in fset_cwa]))
+
 def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
     """
     num_queries_this_round is the number there will be after making this move.
@@ -320,17 +321,13 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = move[0],
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_false,
-            fset_answers_remaining = (
-                game_state.fset_answers_remaining & q_info.set_answers_remaining_if_false
-            )
+            fset_answers_remaining = fset_answers_from_fset_cwa(fset_indexes_cwa_remaining_false)
         )
         game_state_true = Game_State(
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = move[0],
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_true,
-            fset_answers_remaining = (
-                game_state.fset_answers_remaining & q_info.set_answers_remaining_if_true
-            )
+            fset_answers_remaining = fset_answers_from_fset_cwa(fset_indexes_cwa_remaining_true)
         )
         gs_tuple = (game_state_false, game_state_true)
         move_info = (move, cost, gs_tuple, p_tuple)
@@ -418,9 +415,9 @@ def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, t
     if(len(game_state.fset_answers_remaining) == 1):
         return( (None, None, None, (0,0)) )
     # print here to avoid printing all the game states directly at end of game
-    print(f"\ncurrent round: {current_round_num}. total_queries: {total_queries_made}.")
-    print(f"Move history: {mov_history}")
-    print_game_state(game_state)
+    # print(f"\ncurrent round: {current_round_num}. total_queries: {total_queries_made}.")
+    # print(f"Move history: {mov_history}")
+    # print_game_state(game_state)
     best_expected_cost_tup = (float('inf'), float('inf'))
     for move_info in get_and_apply_moves(game_state, qs_dict):
         gs_tup = move_info[2]
