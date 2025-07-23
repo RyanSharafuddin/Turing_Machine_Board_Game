@@ -301,6 +301,21 @@ Game_State = namedtuple(
     ]
 )
 
+def apply_single_move_and_result(mov_tup, m_cost, result, gs, q_dict):
+    """
+    Returns next game state.
+    """
+    m_info = create_move_info(
+        num_combos_currently=len(gs.fset_cwa_indexes_remaining),
+        game_state=gs,
+        num_queries_this_round=gs.num_queries_this_round,
+        q_info=q_dict[mov_tup[0]][mov_tup[1]],
+        move=mov_tup,
+        cost=m_cost
+    )
+    gs_tup_index = 1 if result else 0
+    return(m_info[2][gs_tup_index])
+
 def fset_answers_from_fset_cwa(fset_cwa):
     return(frozenset([cwa[1] for cwa in fset_cwa]))
 
@@ -317,15 +332,17 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
         p_true = num_combos_remaining_true / num_combos_currently
         p_false = 1 - p_true
         p_tuple = (p_false, p_true)
+        # if the num queries is 3, then any next query starts a new round, and game_state's proposal_used_this_round is not read. Important to set to None to help cache.
+        proposal_used_this_round = None if(num_queries_this_round == 3) else move[0]
         game_state_false = Game_State(
             num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = move[0],
+            proposal_used_this_round = proposal_used_this_round,
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_false,
             fset_answers_remaining = fset_answers_from_fset_cwa(fset_indexes_cwa_remaining_false)
         )
         game_state_true = Game_State(
             num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = move[0],
+            proposal_used_this_round = proposal_used_this_round,
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_true,
             fset_answers_remaining = fset_answers_from_fset_cwa(fset_indexes_cwa_remaining_true)
         )
@@ -399,18 +416,24 @@ def print_game_state(gs, name="game_state", active=True):
     for (i, ans) in enumerate(sorted(map(lambda ans_tup:answer_tup_to_string(ans_tup), gs.fset_answers_remaining))):
         print(f'{i+1}: {ans}')
 
-
-# TODO: cache the output of this function for {game_state : (best_move, cost of that move)}
 # see get_moves docstring for definitions of move and cost.
 # NOTE: do I actually need current_round_num or total_queries_made parameters in args to below? Yes, for pruning purposes. Or is it? B/c even if cost is high, probability could be low? But you know the probabilities. Think about it later. Then previous_best is a tuple of (expected_round_num_solved, expected_total_queries?) Consider making these two args a tuple for easy comparison.
 # WARN: copy game state, no mutate
-def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, total_queries_made, mov_history=[]):
+def calculate_best_move(
+        qs_dict,
+        game_state,
+        previous_best,
+        current_round_num,
+        total_queries_made,
+        evaluations_cache # a dict of {game_state: (best_move_tup, best_mov_cost_tup, best_gs_tup, expected_cost_tup)} NOTE: might consider offloading this to Python's decorator for LRU cache rather than doing it manually and never evicting anything.
+    ):
     """
     Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
     best_move_tup is a tup of (proposal, rc_index)
     # TODO: delete the mov_history, as it was only used for debugging.
     """
-    best_move = None
+    if(game_state in evaluations_cache):
+        return(evaluations_cache[game_state])
     (expected_round_cost, expected_queries_cost) = (0, 0)
     if(len(game_state.fset_answers_remaining) == 1):
         return( (None, None, None, (0,0)) )
@@ -430,8 +453,8 @@ def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, t
             previous_best, # NOTE: not actually used yet.
             current_round_num + mov_cost_tup[0], # NOTE: correct value, but not used yet.
             total_queries_made + 1, # NOTE: not used yet. To use, add in a move's cost to these values, compare to previous best, and if worse, abandon this branch. For previous best, update it with each new answer you get (after multiplying by probs and adding), and start it at +infinity.
-            mov_history + [f'{answer_tup_to_string(move_info[0][0])} to verifier {string.ascii_uppercase[move_info[0][1]]}. False']
-            # mov_history + [f'{answer_tup_to_string(move_info[0][0])} to verifier {string.ascii_uppercase[move_info[0][1]]}']
+            evaluations_cache=evaluations_cache
+            # mov_history + [f'{answer_tup_to_string(move_info[0][0])} to verifier {string.ascii_uppercase[move_info[0][1]]}. False']
         )
         (_, _, _, gs_true_expected_cost_to_win) = calculate_best_move(
             qs_dict,
@@ -439,7 +462,8 @@ def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, t
             previous_best, # NOTE: not actually used yet.
             current_round_num + mov_cost_tup[0], # NOTE: correct value, but not used yet.
             total_queries_made + 1, # all moves cost 1 query
-            mov_history + [f'{answer_tup_to_string(move_info[0][0])} to verifier {string.ascii_uppercase[move_info[0][1]]}. True.']
+            evaluations_cache=evaluations_cache
+            # mov_history + [f'{answer_tup_to_string(move_info[0][0])} to verifier {string.ascii_uppercase[move_info[0][1]]}. True.']
         )
         (mov_round_cost, mov_query_cost) = mov_cost_tup
         expected_round_cost = mov_round_cost + (p_false * gs_false_expected_cost_to_win[0]) + (p_true * gs_true_expected_cost_to_win[0])
@@ -450,7 +474,9 @@ def calculate_best_move(qs_dict, game_state, previous_best, current_round_num, t
             best_move_tup = move_info[0]
             best_mov_cost_tup = mov_cost_tup
             best_gs_tup = gs_tup
-    return((best_move_tup, best_mov_cost_tup, best_gs_tup, expected_cost_tup))
+    answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
+    evaluations_cache[game_state] = answer
+    return(answer)
 
 # TODO: have the program handle standard mode before it handles nightmare mode.
 # a problem is a list of rules cards.
@@ -469,7 +495,7 @@ def solve(rules_cards_nums_list):
     (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
     set_possible_answers = set(possible_answers)
     print_problem(rcs_list=rules_cards_list, active=True)
-    print_all_possible_answers("All possible answers:", set_possible_answers, possible_combos_with_answers)
+    print_all_possible_answers("\nAll possible answers:", set_possible_answers, possible_combos_with_answers)
 
     # Note: may not need this block below.
     # number_possible_combos = len(possible_combos)
@@ -482,7 +508,7 @@ def solve(rules_cards_nums_list):
     # possible_combos_with_answers (remove ruled out possibilities)
     # possible_combos and possible_answers (make from possible_combos_with answers using zip)
     # set_possible_answers (make from possible_answers)
-    while(len(set_possible_answers) > 1):
+    if(len(set_possible_answers) > 1):
         # see todo.txt for documentation on what exactly rc_infos is
         rc_infos = make_rc_infos(num_rules_cards, possible_combos_with_answers)
         unsolved_rules_card_indices_within_rules_cards_list = get_unsolved_rules_card_indices(rc_infos)
@@ -509,35 +535,44 @@ def solve(rules_cards_nums_list):
                 possible_combos_with_answers
             )
         )
-        initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining, frozenset(set_possible_answers))
-        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = calculate_best_move(
-            qs_dict=useful_queries_dict,
-            game_state=initial_game_state,
-            previous_best=float('inf'),
-            current_round_num=1,
-            total_queries_made=0
-        )
-        print(f"\nQuery {answer_tup_to_string(best_move_tup[0])} to verifier {string.ascii_uppercase[best_move_tup[1]]}. Expected game winning round: {expected_cost_tup[0] + 1}. Expected number of queries to win: {expected_cost_tup[1]}.")
-        # (best_query, corresponding_rc_index, best_q_info) = (None, None, None)
-        # (best_expected_a_info_gain, best_expected_c_info_gain) = (0, 0)
-        # for (q, inner_dict) in useful_queries_dict.items():
-        #     for (rc_index, q_info) in inner_dict.items():
-        #         if((q_info.expected_a_info_gain, q_info.expected_c_info_gain) > (best_expected_a_info_gain, best_expected_c_info_gain)):
-        #             (best_expected_a_info_gain, best_expected_c_info_gain) = (q_info.expected_a_info_gain, q_info.expected_c_info_gain)
-        #             (best_query, corresponding_rc_index, best_q_info) = (q, rc_index, q_info)
+        evaluations_cache = dict()
+        current_game_state = Game_State(0, None, fset_cwa_indexes_remaining, frozenset(set_possible_answers))
+        current_round_num = 1
+        total_queries_made = 0
 
-        # print(f'\nQuery {answer_tup_to_string(best_query)} to verifier {string.ascii_uppercase[corresponding_rc_index]}. Expected answer info gain: {best_expected_a_info_gain:0.3f}. Expected combo info gain: {best_expected_c_info_gain:0.3f}.')
-        # print("Result of query (T/F)\n> ", end="")
-        # result_raw = input()
-        # if(result_raw == 'q'):
-        #     exit()
-        # result = (result_raw in ['T', 't'])
-        # possible_combos_with_answers = best_q_info.possible_combos_with_answers_remaining_if_true if(result) else best_q_info.possible_combos_with_answers_remaining_if_false
-        # (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
-        # set_possible_answers = set(possible_answers)
-        exit()
-        # query loop end
+        while(len(set_possible_answers) > 1):
+            (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = calculate_best_move(
+                qs_dict=useful_queries_dict,
+                game_state=current_game_state,
+                previous_best=float('inf'),
+                current_round_num=current_round_num,
+                total_queries_made=total_queries_made,
+                evaluations_cache=evaluations_cache
+            )
+            print(f"\nCurrent round number: {current_round_num}. Total queries made: {total_queries_made}.")
+            print(f"Query {answer_tup_to_string(best_move_tup[0])} to verifier {string.ascii_uppercase[best_move_tup[1]]}. Expected game winning round: {expected_cost_tup[0] + current_round_num:.3f}. Expected number of queries to win: {expected_cost_tup[1] + total_queries_made:.3f}.")
+            print("Result of query (T/F)\n> ", end="")
+            result_raw = input()
+            if(result_raw == 'q'):
+                exit()
+            result = (result_raw in ['T', 't'])
+            current_game_state = apply_single_move_and_result(
+                best_move_tup,
+                mcost_tup,
+                result,
+                current_game_state,
+                useful_queries_dict
+            )
+            current_round_num = current_round_num + mcost_tup[0]
+            total_queries_made += mcost_tup[1]
+            set_possible_answers = current_game_state.fset_answers_remaining
+            possible_combos_with_answers = [rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in current_game_state.fset_cwa_indexes_remaining]
+            # TODO: print all combos still possible
+            # TODO: print out current round and queries used this round/overall.
+            # query loop end
     # Found an answer
+    # TODO: print out current round and queries used this round/overall.
+    print(f"\nCurrent round number: {current_round_num}. Total queries made: {total_queries_made}.")
     print_all_possible_answers("ANSWER:", set_possible_answers, possible_combos_with_answers)
 
 # TODO: put in display file
@@ -548,7 +583,7 @@ def rules_list_to_names(rl, pad=True):
     names = [f'{r.name:<{pad_spaces}}' for r in rl]
     return(', '.join(names))
 def print_all_possible_answers(message, set_possible_answers, possible_combos_with_answers):
-    print("\n" + message)
+    print(message)
     final_answer = (len(set_possible_answers) == 1)
     multiple_combo_spacing = 7 if final_answer else 9
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
@@ -576,5 +611,5 @@ def print_problem(rcs_list, active):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 # solve([2, 5, 9, 15, 18, 22]) # corresponds to zero_query_problem.png. Can be solved without making any queries. Problem ID: "B63 YRW 4" on the website turingmachine.info.
 # solve([4, 9, 11, 14]) # problem 1 in the book
-# solve([3, 7, 10, 14]) # problem 2 in the book. FTF 435
-solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here. T 351
+solve([3, 7, 10, 14]) # problem 2 in the book. FTF 435. Try answering false false for debug purposes.
+# solve([9, 22, 24, 31, 37, 40]) # "C63 0YV B" online. Interesting b/c multiple combos lead to same answer here. T 351
