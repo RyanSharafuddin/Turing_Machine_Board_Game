@@ -1,28 +1,30 @@
+from definitions import Rule, all_125_possibilities_set
+
 # rule 1
 def triangle_eq_1(triangle, square, circle):
     return(triangle == 1)
-def triangle_greater_1(triangle, square, circle):
+def triangle_gt_1(triangle, square, circle):
     return(triangle > 1)
 # rule 2
-def triangle_less_3(triangle, square, circle):
+def triangle_lt_3(triangle, square, circle):
     return(triangle < 3)
 def triangle_eq_3(triangle, square, circle):
     return(triangle == 3)
-def triangle_greater_3(triangle, square, circle):
+def triangle_gt_3(triangle, square, circle):
     return(triangle > 3)
 #rule 3
-def square_less_3(triangle, square, circle):
+def square_lt_3(triangle, square, circle):
     return(square < 3)
 def square_eq_3(triangle, square, circle):
     return(square == 3)
-def square_greater_3(triangle, square, circle):
+def square_gt_3(triangle, square, circle):
     return(square > 3)
 #rule 4
-def square_less_4(triangle, square, circle):
+def square_lt_4(triangle, square, circle):
     return(square < 4)
 def square_eq_4(triangle, square, circle):
     return(square == 4)
-def square_greater_4(triangle, square, circle):
+def square_gt_4(triangle, square, circle):
     return(square > 4)
 #rule 5
 def triangle_even(triangle, square, circle):
@@ -60,11 +62,11 @@ def three_4(triangle, square, circle):
     return((triangle, square, circle).count(4) == 3)
 
 # rule 11
-def triangle_less_square(triangle, square, circle):
+def triangle_lt_square(triangle, square, circle):
     return(triangle < square)
 def triangle_eq_square(triangle, square, circle):
     return(triangle == square)
-def triangle_greater_square(triangle, square, circle):
+def triangle_gt_square(triangle, square, circle):
     return(triangle > square)
 
 #rule 14
@@ -94,7 +96,7 @@ def strictly_ascending(triangle, square, circle):
     return(triangle < square < circle)
 def strictly_descending(triangle, square, circle):
     return(triangle > square > circle)
-def neither_asc_nor_desc(triangle, square, circle):
+def neither_asc_desc(triangle, square, circle):
     return(not(strictly_ascending(triangle, square, circle) or strictly_descending(triangle, square, circle)))
 
 #rule 24
@@ -107,9 +109,9 @@ def cons_seq_cons_asc_0(triangle, square, circle):
 
 #rule 31
 # rule 0 on card 31 is the same as rule 1 on card 1
-def square_greater_1(triangle, square, circle):
+def square_gt_1(triangle, square, circle):
     return(square > 1)
-def circle_greater_1(triangle, square, circle):
+def circle_gt_1(triangle, square, circle):
     return(circle > 1)
 
 
@@ -123,25 +125,25 @@ def sq_plus_ci_4(triangle, square, circle):
 
 #rule 40
 #reuses all 6 rules from rule 2 and 3
-def circle_less_3(triangle, square, circle):
+def circle_lt_3(triangle, square, circle):
     return(circle < 3)
 def circle_eq_3(triangle, square, circle):
     return(circle == 3)
-def circle_greater_3(triangle, square, circle):
+def circle_gt_3(triangle, square, circle):
     return(circle > 3)
 
 rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of reading/changing
-     1: [triangle_eq_1, triangle_greater_1],
-     2: [triangle_less_3, triangle_eq_3, triangle_greater_3],
-     3: [square_less_3, square_eq_3, square_greater_3],
-     4: [square_less_4, square_eq_4, square_greater_4],
+     1: [triangle_eq_1, triangle_gt_1],
+     2: [triangle_lt_3, triangle_eq_3, triangle_gt_3],
+     3: [square_lt_3, square_eq_3, square_gt_3],
+     4: [square_lt_4, square_eq_4, square_gt_4],
      5: [triangle_even, triangle_odd],
      6: [square_even, square_odd],
      7: [circle_even, circle_odd],
 
      9: [zero_3, one_3, two_3, three_3],
     10: [zero_4, one_4, two_4, three_4],
-    11: [triangle_less_square, triangle_eq_square, triangle_greater_square],
+    11: [triangle_lt_square, triangle_eq_square, triangle_gt_square],
 
 
     14: [triangle_strict_min, square_strict_min, circle_strict_min],
@@ -152,21 +154,31 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 
 
 
-    22: [strictly_ascending, strictly_descending, neither_asc_nor_desc],
+    22: [strictly_ascending, strictly_descending, neither_asc_desc],
 
     24: [cons_seq_cons_asc_3, cons_seq_cons_asc_2, cons_seq_cons_asc_0],
 
-    31: [triangle_greater_1, square_greater_1, circle_greater_1],
+    31: [triangle_gt_1, square_gt_1, circle_gt_1],
 
 
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
 
 
     40: [
-            triangle_less_3, triangle_eq_3, triangle_greater_3,
-            square_less_3, square_eq_3, square_greater_3,
-            circle_less_3, circle_eq_3, circle_greater_3
+            triangle_lt_3, triangle_eq_3, triangle_gt_3,
+            square_lt_3, square_eq_3, square_gt_3,
+            circle_lt_3, circle_eq_3, circle_gt_3
         ],
 }
 
 max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
+# longest_rule_name = max([max([(len(r.__name__), r.__name__) for r in rc]) for rc in rcs_deck.values()])[1]
+# print(longest_rule_name, max_rule_name_length)
+# card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
+def _func_to_Rule(func, card_index):
+    reject_set = {p for p in all_125_possibilities_set if not(func(*p))}
+    return(Rule(func.__name__, reject_set, func, card_index))
+
+for (rule_card_num, rule_card) in rcs_deck.items():
+    rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
+    # now rcs_deck is a dict from rule_card_num to a list of Rules, where each rule consists of a name, reject_set, Python function, and index within its card
