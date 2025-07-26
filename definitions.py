@@ -42,7 +42,7 @@ Game_State = namedtuple(
 
 # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list. That dict is:
 # rules_card_infos[i] = {
-#   key = rules_card_index (index within card of a possible rule that the ith card could be) : val = {
+#   key = rule_index (index within card of a possible rule that the ith card could be) : val = {
 #      key = possible answer tuple for that rules_card_index :
 #       val = [all rule combos that correspond to that answer tuple and rules_card_index]
 #   }

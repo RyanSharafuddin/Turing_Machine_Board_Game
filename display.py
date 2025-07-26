@@ -18,7 +18,7 @@ def print_all_possible_answers(message, possible_combos_with_answers):
     multiple_combo_spacing = 7 if final_answer else 9
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
         relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
-        answer_number_str = '   ' if final_answer else f'{answer_index:>3}: '
+        answer_number_str = '    ' if final_answer else f'{answer_index:>3}: '
         print(f"{answer_number_str}{answer_to_string(possible_answer)} {rules_list_to_names(relevant_combos[0])} {[r.card_index for r in relevant_combos[0]]}")
         for c in relevant_combos[1:]:
             print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(c)} {[r.card_index for r in c]}")
@@ -45,11 +45,11 @@ def print_problem(rcs_list, active=True):
         print("\nProblem")
         for (i, rc) in enumerate(rcs_list):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
-def conduct_query(query_tup, current_round_num, total_queries_made, expected_cost_tup):
+def conduct_query(query_tup, expected_winning_round, expected_total_queries):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
-    print(f"Query {answer_to_string(query_tup[0])} to verifier {string.ascii_uppercase[query_tup[1]]}. Expected game winning round: {expected_cost_tup[0] + current_round_num:.3f}. Expected number of queries to win: {expected_cost_tup[1] + total_queries_made:.3f}.")
+    print(f"Query {answer_to_string(query_tup[0])} {string.ascii_uppercase[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
     print("Result of query (T/F)\n> ", end="")
     result_raw = input()
     if(result_raw == 'q'):
