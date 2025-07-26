@@ -315,6 +315,10 @@ def solve(rules_cards_nums_list):
     # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
     rcs_list = [rules.rcs_deck[num] for num in rules_cards_nums_list]
     possible_combos_with_answers = get_possible_rules_combos_with_answers(rcs_list)
+    if(not(possible_combos_with_answers)):
+        display.print_problem(rcs_list)
+        print("User error: you have entered a problem which has no valid solutions. Exiting.")
+        exit()
     fset_cwa_indexes_remaining = frozenset(
         [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in possible_combos_with_answers]
     )
@@ -345,6 +349,14 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
     if(new_round):
         q_history.append([move[0]])
     q_history[-1].append((move[1], result))
+    if(move[0] != q_history[-1][0]):
+        print("ERROR! The current move's proposal does not match up with the proposal used this round, and so this should have been a new round, but it isn't.")
+        exit()
+    # q_history is a list of rounds 
+    # [
+    #    [proposal, (verifier queried, result), (verifier queried, result), ...]
+    #    [next round] ...
+    # ]
 
 def play(rc_nums_list):
     (rcs_list, evaluations_cache, initial_game_state) = solve(rc_nums_list)
@@ -362,12 +374,11 @@ def play(rc_nums_list):
         possible_combos_with_answers = full_cwa_from_game_state(current_gs)
         expected_winning_round = current_round_num + expected_cost_tup[0]
         expected_total_queries = total_queries_made + expected_cost_tup[1]
-        # display.print_list_cwa(possible_combos_with_answers, "\nRemaining Combos:")
-        # TODO: print out what query number this is within round/overall.
+        # display.print_list_cwa(possible_combos_with_answers, "\nRemaining Combos:", use_round_indent=True)
         current_round_num += mcost_tup[0]
         total_queries_made += mcost_tup[1]
         query_this_round = 1 if (mcost_tup[0]) else current_gs.num_queries_this_round + 1
-        print(f"\nRound: {current_round_num}. Query this round: {query_this_round}. Total query: {total_queries_made}.")
+        display.display_query_num_info(current_round_num, query_this_round, total_queries_made, mcost_tup[0], best_move_tup[0])
         result = display.conduct_query(
             best_move_tup,
             expected_winning_round,
@@ -375,17 +386,18 @@ def play(rc_nums_list):
         )
         current_gs = gs_tup[result]
         update_query_history(query_history, best_move_tup, mcost_tup[0], result)
-        # query loop end
     # Found an answer
-    # TODO: Print out the query table from the notepad in physical game.
     possible_combos_with_answers = full_cwa_from_game_state(current_gs)
     print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
     display.display_query_history(query_history, len(rc_nums_list))
     display.print_final_answer("\nANSWER: ", possible_combos_with_answers)
+    # TODO: delete below 2 after convert all answers to ints instead of tuples.
+    for r in query_history:
+        print(r)
 
 # DEBUG_MODE = False
 # play([2, 5, 9, 15, 18, 22])   # ID: B63 YRW 4. Takes 0 queries to solve.
 # play([4, 9, 11, 14])          # ID:         1.
-play([3, 7, 10, 14])          # ID:         2. FTF 435.
-# solve([3, 7, 10, 14])         # ID:         2. FOR PROFILING
+# play([3, 7, 10, 14])          # ID:         2. FTF 435.
+solve([3, 7, 10, 14])         # ID:         2. FOR PROFILING
 # play([9, 22, 24, 31, 37, 40]) # ID: C63 0YV B. Interesting b/c multiple combos lead to same answer here. T 351

@@ -1,9 +1,15 @@
 import string
 import rules
 
-RED = "\033[31m"
-CHECK_SEQ = "\033[97;42m"
-DEFAULT = "\033[0m"
+# escape sequence is \033[<text color>;<background color>m
+# see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+# NOTE: for some reason that probably has to do with VS Code color themes, the checks and Xs don't display how I want them to in the terminal when using the Radical theme, but they do display correctly when using the Terminal app on the computer, or with certain other VS Code themes.
+# RED = "\033[31m"            #   red text, default background
+X_SEQ = "\033[97;41m"       # white text,     red background
+CHECK_SEQ = "\033[97;42m"   # white text,   green background
+DEFAULT = "\033[0;0m"
+# DEFAULT = "\033[32;0m"
+ROUND_INDENT = " " * 14
 def answer_to_string(answer: tuple):
     return("".join(str(d) for d in answer) if (answer is not None) else "None")
 def rules_list_to_names(rl, pad=True):
@@ -33,13 +39,18 @@ def print_final_answer(message, cwas):
     print(answer_to_string(answer))
     for c in combos:
         print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}")
-def print_list_cwa(cwa, message = ""):
-    print(message)
+def print_list_cwa(cwa, message = "", use_round_indent=False):
+    indent = ROUND_INDENT if(use_round_indent) else ""
+    if(message[0] == '\n'):
+        indent = '\n' + indent
+        message = message[1:]
+    print(indent + message)
     for (i, cwa) in enumerate(sorted(cwa, key=lambda t:t[1])):
-        print_combo_with_answer(i, cwa)
-def print_combo_with_answer(combo_with_answer_index, combo_with_answer):
+        print_combo_with_answer(i, cwa, use_round_indent)
+def print_combo_with_answer(combo_with_answer_index, combo_with_answer, use_round_indent=False):
+    indent = ROUND_INDENT if(use_round_indent) else ""
     (possible_combo, possible_answer) = combo_with_answer
-    print(f'{combo_with_answer_index + 1:>3}: {answer_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
+    print(f'{indent}{combo_with_answer_index + 1:>3}: {answer_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def print_problem(rcs_list, active=True):
     """
     NOTE: will have to change this for nightmare mode, since rules cards won't have corresponding letters, only numbers.
@@ -48,27 +59,33 @@ def print_problem(rcs_list, active=True):
         print("\nProblem")
         for (i, rc) in enumerate(rcs_list):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
+def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
+    if(new_round):
+        print(f"\nRound   : {current_round_num:>3}")
+        print(f"Proposal: {answer_to_string(proposal)}")
+    q_newline = "\n" if(query_this_round == 1) else ""
+    print(f"{q_newline}{ROUND_INDENT}Query: {query_this_round}. Total query: {total_query}.")
 def conduct_query(query_tup, expected_winning_round, expected_total_queries):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
-    print(f"Query {answer_to_string(query_tup[0])} {string.ascii_uppercase[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
-    print("Result of query (T/F)\n> ", end="")
+    print(f"{ROUND_INDENT}Query verifier: {string.ascii_uppercase[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
+    print(f"{ROUND_INDENT}Result of query (T/F)\n{ROUND_INDENT}> ", end="")
     result_raw = input()
     if(result_raw == 'q'):
         exit()
     result = (result_raw in ['T', 't'])
     return(result)
 def display_query_history(query_history, num_rcs):
+    separator = ""
     if(query_history):
-        print("\n" + (" " * 8) + f" ".join(string.ascii_uppercase[:num_rcs]))
-        # print((" " * 8) + f" ".join('🅰️🅱️A'[:num_rcs]))
+        print("\n" + (" " * 8) + separator.join(string.ascii_uppercase[:num_rcs]))
         for (round_num, round_info) in enumerate(query_history, start=1):
             verifier_info = [2 for i in range(num_rcs)]
             for (v, result) in round_info[1:]:
                 verifier_info[v] = result
-            print(f"{round_num}: {answer_to_string(round_info[0])}: {' '.join([[f'{RED}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
-            print(DEFAULT)
+            print(f"{round_num}: {answer_to_string(round_info[0])}: {separator.join([[f'{X_SEQ}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
+            print(DEFAULT, end="")
 
 
 # To be used for displaying things in debugging:
@@ -137,9 +154,6 @@ def print_game_state(gs, name="game_state", active=True):
         rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[1])
     ]):
         print_combo_with_answer(i, cwa)
-    print(f"Sorted answer set:")
-    for (i, ans) in enumerate(sorted([answer_to_string(ans_tup) for ans_tup in gs.fset_answers_remaining])):
-        print(f'{i+1:>3}: {ans}')
 
 def mov_to_str(move: tuple):
     return(f"{answer_to_string(move[0])} to verifier {string.ascii_uppercase[move[1]]}.")
