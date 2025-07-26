@@ -1,6 +1,5 @@
 import math
-import display
-import rules
+import display, rules
 from definitions import *
 
 def get_all_rules_combinations(rcs_list):
@@ -198,13 +197,11 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = proposal_used_this_round,
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_false,
-            fset_answers_remaining = fset_answers_from_cwa_iterable(fset_indexes_cwa_remaining_false)
         )
         game_state_true = Game_State(
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = proposal_used_this_round,
             fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_true,
-            fset_answers_remaining = fset_answers_from_cwa_iterable(fset_indexes_cwa_remaining_true)
         )
         gs_tuple = (game_state_false, game_state_true)
         move_info = (move, cost, gs_tuple, p_tuple)
@@ -265,7 +262,7 @@ def calculate_best_move(
     """
     if(game_state in evaluations_cache):
         return(evaluations_cache[game_state])
-    if(len(game_state.fset_answers_remaining) == 1):
+    if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
         # don't bother filling up the cache with already-won states.
         return( (None, None, None, (0,0)) )
     best_expected_cost_tup = (float('inf'), float('inf'))
@@ -327,7 +324,7 @@ def solve(rules_cards_nums_list):
     fset_possible_answers = fset_answers_from_cwa_iterable(possible_combos_with_answers)
 
     evaluations_cache = None
-    initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining, fset_possible_answers)
+    initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining)
     if(len(fset_possible_answers) > 1):
         qs_dict = populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos_with_answers)
         evaluations_cache = dict()
@@ -382,5 +379,5 @@ def play(rc_nums_list):
 # play([2, 5, 9, 15, 18, 22])   # ID: B63 YRW 4. Takes 0 queries to solve.
 # play([4, 9, 11, 14])          # ID:         1.
 # play([3, 7, 10, 14])          # ID:         2. FTF 435.
-solve([3, 7, 10, 14])          # ID:         2. FTF 435.
+solve([3, 7, 10, 14])         # ID:         2. FOR PROFILING
 # play([9, 22, 24, 31, 37, 40]) # ID: C63 0YV B. Interesting b/c multiple combos lead to same answer here. T 351

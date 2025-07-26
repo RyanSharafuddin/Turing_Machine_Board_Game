@@ -35,7 +35,6 @@ Game_State = namedtuple(
         'num_queries_this_round',
         'proposal_used_this_round',
         'fset_cwa_indexes_remaining',
-        'fset_answers_remaining'
     ]
 )
 
