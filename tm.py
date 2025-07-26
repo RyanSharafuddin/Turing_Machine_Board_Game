@@ -341,6 +341,11 @@ def solve(rules_cards_nums_list):
 def full_cwa_from_game_state(gs):
     return([rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
 
+def update_query_history(q_history, move, new_round: bool, result: bool):
+    if(new_round):
+        q_history.append([move[0]])
+    q_history[-1].append((move[1], result))
+
 def play(rc_nums_list):
     (rcs_list, evaluations_cache, initial_game_state) = solve(rc_nums_list)
     current_gs = initial_game_state
@@ -351,6 +356,7 @@ def play(rc_nums_list):
     display.print_all_possible_answers("\nAll possible answers:", possible_combos_with_answers)
     current_round_num = 0
     total_queries_made = 0
+    query_history = [] # each round is: [proposal, (verifier, result), . . .]
     while(len(fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = evaluations_cache[current_gs]
         possible_combos_with_answers = full_cwa_from_game_state(current_gs)
@@ -368,16 +374,18 @@ def play(rc_nums_list):
             expected_total_queries,
         )
         current_gs = gs_tup[result]
+        update_query_history(query_history, best_move_tup, mcost_tup[0], result)
         # query loop end
     # Found an answer
     # TODO: Print out the query table from the notepad in physical game.
     possible_combos_with_answers = full_cwa_from_game_state(current_gs)
     print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
+    display.display_query_history(query_history, len(rc_nums_list))
     display.print_final_answer("\nANSWER: ", possible_combos_with_answers)
 
 # DEBUG_MODE = False
 # play([2, 5, 9, 15, 18, 22])   # ID: B63 YRW 4. Takes 0 queries to solve.
 # play([4, 9, 11, 14])          # ID:         1.
-# play([3, 7, 10, 14])          # ID:         2. FTF 435.
-solve([3, 7, 10, 14])         # ID:         2. FOR PROFILING
+play([3, 7, 10, 14])          # ID:         2. FTF 435.
+# solve([3, 7, 10, 14])         # ID:         2. FOR PROFILING
 # play([9, 22, 24, 31, 37, 40]) # ID: C63 0YV B. Interesting b/c multiple combos lead to same answer here. T 351

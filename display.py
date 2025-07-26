@@ -1,6 +1,9 @@
 import string
 import rules
 
+RED = "\033[31m"
+CHECK_SEQ = "\033[97;42m"
+DEFAULT = "\033[0m"
 def answer_to_string(answer: tuple):
     return("".join(str(d) for d in answer) if (answer is not None) else "None")
 def rules_list_to_names(rl, pad=True):
@@ -56,6 +59,16 @@ def conduct_query(query_tup, expected_winning_round, expected_total_queries):
         exit()
     result = (result_raw in ['T', 't'])
     return(result)
+def display_query_history(query_history, num_rcs):
+    if(query_history):
+        print("\n" + (" " * 8) + f" ".join(string.ascii_uppercase[:num_rcs]))
+        # print((" " * 8) + f" ".join('🅰️🅱️A'[:num_rcs]))
+        for (round_num, round_info) in enumerate(query_history, start=1):
+            verifier_info = [2 for i in range(num_rcs)]
+            for (v, result) in round_info[1:]:
+                verifier_info[v] = result
+            print(f"{round_num}: {answer_to_string(round_info[0])}: {' '.join([[f'{RED}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
+            print(DEFAULT)
 
 
 # To be used for displaying things in debugging:
