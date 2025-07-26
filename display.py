@@ -10,8 +10,8 @@ CHECK_SEQ = "\033[97;42m"   # white text,   green background
 DEFAULT = "\033[0;0m"
 # DEFAULT = "\033[32;0m"
 ROUND_INDENT = " " * 14
-def answer_to_string(answer: tuple):
-    return("".join(str(d) for d in answer) if (answer is not None) else "None")
+# def answer_to_string(answer: tuple):
+    # return("".join(str(d) for d in answer) if (answer is not None) else "None")
 def rules_list_to_names(rl, pad=True):
     pad_spaces = rules.max_rule_name_length if(pad) else 0
     names = [f'{r.name:<{pad_spaces}}' for r in rl]
@@ -28,7 +28,7 @@ def print_all_possible_answers(message, possible_combos_with_answers):
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
         relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
         answer_number_str = '    ' if final_answer else f'{answer_index:>3}: '
-        print(f"{answer_number_str}{answer_to_string(possible_answer)} {rules_list_to_names(relevant_combos[0])} {[r.card_index for r in relevant_combos[0]]}")
+        print(f"{answer_number_str}{possible_answer} {rules_list_to_names(relevant_combos[0])} {[r.card_index for r in relevant_combos[0]]}")
         for c in relevant_combos[1:]:
             print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(c)} {[r.card_index for r in c]}")
 def print_final_answer(message, cwas):
@@ -36,7 +36,7 @@ def print_final_answer(message, cwas):
     answer = cwas[0][1]
     (combos, _) = zip(*cwas)
     print(message, end="")
-    print(answer_to_string(answer))
+    print(answer)
     for c in combos:
         print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}")
 def print_list_cwa(cwa, message = "", use_round_indent=False):
@@ -50,7 +50,7 @@ def print_list_cwa(cwa, message = "", use_round_indent=False):
 def print_combo_with_answer(combo_with_answer_index, combo_with_answer, use_round_indent=False):
     indent = ROUND_INDENT if(use_round_indent) else ""
     (possible_combo, possible_answer) = combo_with_answer
-    print(f'{indent}{combo_with_answer_index + 1:>3}: {answer_to_string(possible_answer)} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
+    print(f'{indent}{combo_with_answer_index + 1:>3}: {possible_answer} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def print_problem(rcs_list, active=True):
     """
     NOTE: will have to change this for nightmare mode, since rules cards won't have corresponding letters, only numbers.
@@ -62,7 +62,7 @@ def print_problem(rcs_list, active=True):
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
     if(new_round):
         print(f"\nRound   : {current_round_num:>3}")
-        print(f"Proposal: {answer_to_string(proposal)}")
+        print(f"Proposal: {proposal}")
     q_newline = "\n" if(query_this_round == 1) else ""
     print(f"{q_newline}{ROUND_INDENT}Query: {query_this_round}. Total query: {total_query}.")
 def conduct_query(query_tup, expected_winning_round, expected_total_queries):
@@ -84,7 +84,7 @@ def display_query_history(query_history, num_rcs):
             verifier_info = [2 for i in range(num_rcs)]
             for (v, result) in round_info[1:]:
                 verifier_info[v] = result
-            print(f"{round_num}: {answer_to_string(round_info[0])}: {separator.join([[f'{X_SEQ}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
+            print(f"{round_num}: {round_info[0]}: {separator.join([[f'{X_SEQ}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
             print(DEFAULT, end="")
 
 
@@ -92,7 +92,7 @@ def display_query_history(query_history, num_rcs):
 def inner_dict_to_string(inner_dict):
     s = '{ '
     for (possibility, combos_list) in inner_dict.items():
-        s += f'{answer_to_string(possibility)}: {[[r.card_index for r in combo] for combo in combos_list]} '
+        s += f'{possibility}: {[[r.card_index for r in combo] for combo in combos_list]} '
     s += '}'
     return(s)
 
@@ -123,13 +123,13 @@ def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rc_list):
     print(f"# useful queries this card: {len(q_dict_this_card)}")
     for q in sorted(q_dict_this_card.keys()):
         q_info = q_dict_this_card[q]
-        print((' ' * 4) + answer_to_string(q))
+        print(f"{(' ' * 4)}{q}")
         print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
         print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
         print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
         print(f'{" " * 8} Combos remaining if query returns True:')
         for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_true, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
-            print(f'{" " * 12} {i:>3}: {answer_to_string(answer)} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
+            print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
         for i in sorted(q_info.set_indexes_cwa_remaining_true, key=lambda t:(t[1], t[0])):
             print(f'{" " * 14} {i}')
         print()
@@ -137,7 +137,7 @@ def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rc_list):
         print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
         print(f'{" " * 8} Combos remaining if query returns False:')
         for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_false, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
-            print(f'{" " * 12} {i:>3}: {answer_to_string(answer)} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
+            print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
         for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[1], t[0])):
             print(f'{" " * 14} {i}')
 
@@ -148,7 +148,7 @@ def print_game_state(gs, name="game_state", active=True):
     from tm import rc_indexes_cwa_to_full_combos_dict
     print(f'\n{name}')
     print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
-    print(f'proposal_used_this_round: {answer_to_string(gs.proposal_used_this_round)}')
+    print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
     print(f"Sorted cwa set:")
     for (i, cwa) in enumerate([
         rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[1])
@@ -156,7 +156,7 @@ def print_game_state(gs, name="game_state", active=True):
         print_combo_with_answer(i, cwa)
 
 def mov_to_str(move: tuple):
-    return(f"{answer_to_string(move[0])} to verifier {string.ascii_uppercase[move[1]]}.")
+    return(f"{move[0]} to verifier {string.ascii_uppercase[move[1]]}.")
 
 def print_evaluations_cache_info(gs, name="game state"):
     """

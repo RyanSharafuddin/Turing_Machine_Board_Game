@@ -89,6 +89,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                 bool(possible_accepting_rules_card_indices) and
                 bool(possible_rejecting_rules_card_indices)
             ):
+                # TODO: make both of the below sets right off the bat if you're going to make new useful queries dicts while solving the problem. And make them the set of (card_indices_combo, answer) immediately; don't waste time with anything unnecessary, like appending to any lists of full combos or calculating expected info gain. And get rid of the set_answers remaining (NOT the set_cwa_remaining)
                 possible_combos_with_answers_remaining_if_true = []
                 possible_combos_with_answers_remaining_if_false = []
                 for combo_with_answer in possible_combos_with_answers:
@@ -117,7 +118,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
 
                 # NOTE: It's okay if the number of answers remaining when true and when false don't add up to the number of answers currently, because it's not the case that every answer remains only when true or only when false. Every *combo* remains only when true or only when false, but sometimes one answer can have multiple combos, so it it remains when the query is true and when it's false. To see an example of this, uncomment the block below and try on problem [9, 22, 24, 31, 37, 40] ("C63 0YV B" online).
                 # if((num_answers_remaining_if_true + num_answers_remaining_if_false) != current_num_possible_answers):
-                #     print(f"Failed when considering query: {display.answer_tup_to_string(possible_query)} on card {string.ascii_uppercase[unsolved_card_index]}")
+                #     print(f"Failed when considering query: {possible_query} on card {string.ascii_uppercase[unsolved_card_index]}")
                 #     display.print_all_possible_answers("Combos remaining if true:", set_answers_remaining_if_true, possible_combos_with_answers_remaining_if_true)
                 #     display.print_all_possible_answers("Combos remaining if false:", set_answers_remaining_if_false, possible_combos_with_answers_remaining_if_false)
                 #     exit()
@@ -352,11 +353,6 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
     if(move[0] != q_history[-1][0]):
         print("ERROR! The current move's proposal does not match up with the proposal used this round, and so this should have been a new round, but it isn't.")
         exit()
-    # q_history is a list of rounds 
-    # [
-    #    [proposal, (verifier queried, result), (verifier queried, result), ...]
-    #    [next round] ...
-    # ]
 
 def play(rc_nums_list):
     (rcs_list, evaluations_cache, initial_game_state) = solve(rc_nums_list)

@@ -8,10 +8,15 @@ def get_digit(n, index, base=10):
     n = n // (base ** index)
     return (n % base)
 
-possibilities = [tuple([get_digit(n, d, 5) + 1 for d in range(2, -1, -1)]) for n in range(125)]
+possibilities = [sum([(get_digit(n, d, 5) + 1) * (10 ** d) for d in range(2, -1, -1)]) for n in range(125)]
 all_125_possibilities_set = set(possibilities)
-#NOTE: each possibility in the possibilities list is a tuple of the 3 digits. i.e. the answer
-#      524 is represented as the tuple (5, 2, 4), with tuple[0] being the most significant digit.
+
+def int_to_tri_sq_ci_tuple(n):
+    return(tuple([get_digit(n, i, 10) for i in range(2, -1, -1)]))
+
+# for (i, n) in enumerate(possibilities):
+#     print(f"{i:>3}: {n} {int_to_tri_sq_ci_tuple(n)}")
+
 Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index'])
 
 Query_Info = namedtuple(
@@ -24,7 +29,7 @@ Query_Info = namedtuple(
         'a_info_gain_false',
         'expected_a_info_gain',
         'expected_c_info_gain',
-        'set_indexes_cwa_remaining_true', # set of tuples (rc_indices of the cwa, (answer_tup)).
+        'set_indexes_cwa_remaining_true', # set of tuples (rc_indices of the cwa, (answer)).
         'set_indexes_cwa_remaining_false'
     ]
 )
@@ -38,17 +43,22 @@ Game_State = namedtuple(
     ]
 )
 
-
 # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list. That dict is:
 # rules_card_infos[i] = {
 #   key = rule_index (index within card of a possible rule that the ith card could be) : val = {
-#      key = possible answer tuple for that rules_card_index :
+#      key = possible answer int for that rules_card_index :
 #       val = [all rule combos that correspond to that answer tuple and rules_card_index]
 #   }
 # }
 
 # useful_queries_dict is {
-#     key = proposal (answer tuple): value = {
+#     key = proposal (answer int): value = {
 #        inner_key = index of a rule card this query goes to: value = Query_Info (see named tuple)
 #     }
 # }
+
+# q_history is a list of rounds 
+# [
+#    [proposal, (verifier queried, result), (verifier queried, result), ...]
+#    [next round] ...
+# ]

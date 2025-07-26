@@ -1,4 +1,4 @@
-from definitions import Rule, all_125_possibilities_set
+from definitions import Rule, all_125_possibilities_set, int_to_tri_sq_ci_tuple
 
 # rule 1
 def triangle_eq_1(triangle, square, circle):
@@ -176,7 +176,7 @@ max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_dec
 # print(longest_rule_name, max_rule_name_length)
 # card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
 def _func_to_Rule(func, card_index):
-    reject_set = {p for p in all_125_possibilities_set if not(func(*p))}
+    reject_set = {p for p in all_125_possibilities_set if not(func(*(int_to_tri_sq_ci_tuple(p))))}
     return(Rule(func.__name__, reject_set, func, card_index))
 
 for (rule_card_num, rule_card) in rcs_deck.items():
