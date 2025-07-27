@@ -175,6 +175,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                     useful_queries_dict[possible_query] = {
                         unsolved_card_index: query_info
                     }
+        # display.print_useful_qs_dict_info(useful_queries_dict, unsolved_card_index, rc_infos, rcs_list)
     return(useful_queries_dict)
 
 def fset_answers_from_cwa_iterable(cwa_iterable):
@@ -306,12 +307,13 @@ def calculate_expected_cost(mcost, probs, gss_costs):
 
 def solve(rules_cards_nums_list):
     """
-    rules_card_nums_list is a list of the names (numbers) of the rules cards in this problem. Solve will print out which queries to perform, and (TBD) either print out what to do in all possible cases, or ask for the answers of the queries and proceed from there.
+    Returns a tuple (rcs_list, evaluations_cache, initial_game_state).
+    Evaluations_cache is None if the problem can be solved in 0 queries.
     """
     # globals for debugging purposes
     global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug
-    global initial_game_state
-    global evaluations_cache
+    global initial_game_state                 # TODO: remove the global modifier on this after debug
+    global evaluations_cache                  # TODO: remove the global modifier on this after debug
 
     # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
     rcs_list = [rules.rcs_deck[num] for num in rules_cards_nums_list]
@@ -345,78 +347,3 @@ def solve(rules_cards_nums_list):
 
 def full_cwa_from_game_state(gs):
     return([rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
-
-def update_query_history(q_history, move, new_round: bool, result: bool):
-    if(new_round):
-        q_history.append([move[0]])
-    q_history[-1].append((move[1], result))
-    if(move[0] != q_history[-1][0]):
-        print("ERROR! The current move's proposal does not match up with the proposal used this round, and so this should have been a new round, but it isn't.")
-        exit()
-
-def play(rc_nums_list):
-    (rcs_list, evaluations_cache, initial_game_state) = solve(rc_nums_list)
-    current_gs = initial_game_state
-    # NOTE: below line for display purposes only
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, active=True)
-    full_cwa = full_cwa_from_game_state(current_gs)
-    display.print_all_possible_answers("\nAll possible answers:", full_cwa)
-    current_round_num = 0
-    total_queries_made = 0
-    query_history = [] # each round is: [proposal, (verifier, result), . . .]
-    while(len(fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
-        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = evaluations_cache[current_gs]
-        full_cwa = full_cwa_from_game_state(current_gs)
-        expected_winning_round = current_round_num + expected_cost_tup[0]
-        expected_total_queries = total_queries_made + expected_cost_tup[1]
-        display.print_list_cwa(full_cwa, "\nRemaining Combos:", use_round_indent=True, active=PRINT_COMBOS)
-        current_round_num += mcost_tup[0]
-        total_queries_made += mcost_tup[1]
-        query_this_round = 1 if (mcost_tup[0]) else current_gs.num_queries_this_round + 1
-        display.display_query_num_info(current_round_num, query_this_round, total_queries_made, mcost_tup[0], best_move_tup[0])
-        result = display.conduct_query(
-            best_move_tup,
-            expected_winning_round,
-            expected_total_queries,
-        )
-        current_gs = gs_tup[result]
-        update_query_history(query_history, best_move_tup, mcost_tup[0], result)
-    # Found an answer
-    full_cwa = full_cwa_from_game_state(current_gs)
-    print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
-    display.display_query_history(query_history, len(rc_nums_list))
-    display.print_final_answer("\nANSWER: ", full_cwa)
-
-def display_problem_solution(rc_nums_list):
-    """
-    Prints best move tree (subject to change).
-    """
-    (rcs_list, evaluations_cache, initial_game_state) = solve(rc_nums_list)
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, active=True)
-    full_cwa = full_cwa_from_game_state(initial_game_state)
-    if(len(fset_answers_from_cwa_iterable(initial_game_state.fset_cwa_indexes_remaining)) == 1):
-        display.print_final_answer("\nANSWER: ", full_cwa)
-    else:
-        display.print_all_possible_answers("\nAll possible answers:", full_cwa)
-        display.print_best_move_tree(evaluations_cache, initial_game_state) # TODO: put this display elsewhere
-
-PRINT_COMBOS = True             # whether or not to print combos after every query when playing
-# problems
-zero_query = [2, 5, 9, 15, 18, 22] # ID: B63 YRW 4. Takes 0 queries to solve.
-p1 = [4, 9, 11, 14]                # ID:         1.
-p2 = [3, 7, 10, 14]                # ID:         2. Useful for profiling
-c63 = [9, 22, 24, 31, 37, 40]      # ID: C63 0YV B. Interesting b/c multiple combos lead to same answer here.
-
-# DEBUG_MODE = False
-
-# play(zero_query)
-# play(p1)
-# play(p2)
-# play(c63) 
-
-# solve(p2)         # ID:         2. FOR PROFILING
-
-# display_problem_solution(zero_query)
-display_problem_solution(p2)

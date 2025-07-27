@@ -104,12 +104,12 @@ def print_rc_info(rc_infos, rc_index):
             print(f'    possible rule index: {rule_index_within_card}: {inner_dict_to_string(inner_dict)}')
     print('}')
 
-def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rc_list):
+def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rcs_list):
     """
     Displays all information in the useful_queries_dict about a specific rules card. Note: will need the rc_infos used to make the useful_queries_dict, and the rc_list.
     """
     q_dict_this_card = dict()
-    corresponding_rc = rc_list[rc_index]
+    corresponding_rc = rcs_list[rc_index]
     corresponding_rc_info = rc_infos[rc_index]
     possible_rules_this_card = [
         corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
@@ -146,7 +146,7 @@ def print_game_state(gs, name="game_state", active=True):
     if(not active):
         return
     # global rc_indexes_cwa_to_full_combos_dict # NOTE: use this for debugging session
-    from tm import rc_indexes_cwa_to_full_combos_dict
+    from solver import rc_indexes_cwa_to_full_combos_dict
     print(f'\n{name}')
     print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
     print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
@@ -162,9 +162,11 @@ def mov_to_str(move: tuple):
 def print_evaluations_cache_info(gs, name="game state"):
     """
     Returns a tuple (gs_false, gs_true) for game states that could result from executing the best query. For use in interactive debugging sessions.
+    NOTE: in interactive debugging session, use like this:
+    (gs_false, gs_true) = display.print_evaluations_cache_info(gs, name)
     """
     # global rc_indexes_cwa_to_full_combos_dict # NOTE: use this for debugging session
-    from tm import evaluations_cache
+    from solver import evaluations_cache
     # global evaluations_cache
     (best_mov, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup) = evaluations_cache[gs]
     (gs_false, gs_true) = best_gs_tup
@@ -212,34 +214,76 @@ def print_evaluations_cache_info(gs, name="game state"):
         exit()
     return(best_gs_tup)
 
+
+class Tree:
+    show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
+    def __init__(self, gs, evaluations_cache, prob=1.0):
+        # prob is the probability of getting to this gs from the query above it in the best move tree
+        self.gs = gs
+        self.evaluations_cache = evaluations_cache
+        self.prob = prob
+
 def get_children(tree):
-    (evaluations_cache, gs) = tree
-    if((evaluations_cache is not None) and (gs in evaluations_cache)):
-        result = evaluations_cache.get(gs)
+    if((tree.evaluations_cache is not None) and (tree.gs in tree.evaluations_cache)):
+        result = tree.evaluations_cache.get(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
-            children = ((evaluations_cache, gs_tup[0]), (evaluations_cache, gs_tup[1]))
+            current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
+            num_combos_if_q_true = len(gs_tup[1].fset_cwa_indexes_remaining)
+            p_true = num_combos_if_q_true / current_num_combos
+            p_false = 1 - p_true
+            prob_tup = (p_false, p_true)
+            children = [Tree(gs_tup[i], tree.evaluations_cache, prob_tup[i]) for i in range(2)]
             return(children)
     return([])
 def node_to_str(tree):
-    (evaluations_cache, gs) = tree
-    if((evaluations_cache is not None) and (gs in evaluations_cache)):
-        result = evaluations_cache.get(gs)
+    nl = '\n'
+    if((tree.evaluations_cache is not None) and (tree.gs in tree.evaluations_cache)):
+        result = tree.evaluations_cache.get(tree.gs)
         if(result is not None): # internal node
             # NOTE: consider displaying cost of this move, either in edge or in node.
+            combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+            combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(i) for i in c[0])}" for (n, c) in enumerate(combos_l, start=1)]
+            prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
+            prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
             move_str = f"{best_move[0]} {string.ascii_uppercase[best_move[1]]}"
-            node_str = f"{' '.join([f'{total_expected_cost[i]:.3f}' for i in range(2)])}\n{move_str}"
+            expected_cost_from_here_str = ' '.join([f'{total_expected_cost[i]:.3f}' for i in range(2)])
+            verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
+                [string.ascii_uppercase[i] for i in range(len(combos_l[0][0]))]
+            )
+            if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
+                combos_lines = [verifier_names_str] + combos_strs
+            else:
+                combos_lines = []
+
+            if(tree.prob == 1):
+                prob_line = [] # don't show probability for initial game state where probability is 1
+            else:
+                prob_line = [prob_str]
+
+            lines = (
+                prob_line +
+                [expected_cost_from_here_str] +
+                combos_lines +
+                [move_str]
+            )
+            max_line_length = max([len(l) for l in lines])
+            lines = [f"{l:^{max_line_length}}" for l in lines]
+            # lines = lines[1:] if tree.prob == 1 else lines # don't print prob = 1.000 for initial state
+            node_str = f"{nl.join(lines)}"
             return(node_str)
     else: # leaf node
         # NOTE: consider displaying the combos remaining as well
-        l = list(gs.fset_cwa_indexes_remaining)
+        l = list(tree.gs.fset_cwa_indexes_remaining)
         answer = l[0][1]
         return(answer)
-# The 'tree' that PrettyPrintTree will be called on is a tuple (evaluations_cache, game_state)
-def print_best_move_tree(evaluations_cache, gs):
-    # if(evaluations_cache is None):
+
+def print_best_move_tree(evaluations_cache, gs, show_combos):
+    # if(tree.evaluations_cache is None):
     #     return
     print()
+    Tree.show_combos_in_tree = show_combos
+    tree = Tree(gs, evaluations_cache)
     pt = PrettyPrintTree(get_children, node_to_str)
-    pt((evaluations_cache, gs))
+    pt(tree)
