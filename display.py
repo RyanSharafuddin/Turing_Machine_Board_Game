@@ -217,11 +217,16 @@ def print_evaluations_cache_info(gs, name="game state"):
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
-    def __init__(self, gs, evaluations_cache, prob=1.0):
+    def __init__(self, gs, evaluations_cache, prob=1.0, cost_to_get_here=(0, 0)):
         # prob is the probability of getting to this gs from the query above it in the best move tree
         self.gs = gs
         self.evaluations_cache = evaluations_cache
         self.prob = prob
+        self.cost_to_get_here = cost_to_get_here
+
+def add_tups(*tups):
+    result = tuple([sum([t[i] for t in tups]) for i in range(len(tups))])
+    return(result)
 
 def get_children(tree):
     if((tree.evaluations_cache is not None) and (tree.gs in tree.evaluations_cache)):
@@ -233,7 +238,7 @@ def get_children(tree):
             p_true = num_combos_if_q_true / current_num_combos
             p_false = 1 - p_true
             prob_tup = (p_false, p_true)
-            children = [Tree(gs_tup[i], tree.evaluations_cache, prob_tup[i]) for i in range(2)]
+            children = [Tree(gs=gs_tup[i], evaluations_cache=tree.evaluations_cache, prob=prob_tup[i], cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost)) for i in range(2)]
             return(children)
     return([])
 def node_to_str(tree):
@@ -248,7 +253,10 @@ def node_to_str(tree):
             prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
             prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
             move_str = f"{best_move[0]} {string.ascii_uppercase[best_move[1]]}"
-            expected_cost_from_here_str = ' '.join([f'{total_expected_cost[i]:.3f}' for i in range(2)])
+            # NOTE: comment out below if block to not mark new rounds in the best move tree
+            if(best_move_cost[0] == 1): # if the best move costs a round
+                move_str += ' (R)'
+            cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
             verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
                 [string.ascii_uppercase[i] for i in range(len(combos_l[0][0]))]
             )
@@ -264,7 +272,7 @@ def node_to_str(tree):
 
             lines = (
                 prob_line +
-                [expected_cost_from_here_str] +
+                [cost_of_node_str] +
                 combos_lines +
                 [move_str]
             )
