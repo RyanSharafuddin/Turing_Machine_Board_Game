@@ -1,17 +1,16 @@
 import string
 import rules
+from PrettyPrint import PrettyPrintTree
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
-# NOTE: for some reason that probably has to do with VS Code color themes, the checks and Xs don't display how I want them to in the terminal when using the Radical theme, but they do display correctly when using the Terminal app on the computer, or with certain other VS Code themes.
+# NOTE: for some reason that probably has to do with VS Code color themes, the checks and Xs don't display how I want them to in the terminal when using the Radical theme, but they do display correctly when using the Terminal app, or with certain other VS Code themes.
 # RED = "\033[31m"            #   red text, default background
 X_SEQ = "\033[97;41m"       # white text,     red background
 CHECK_SEQ = "\033[97;42m"   # white text,   green background
 DEFAULT = "\033[0;0m"
 # DEFAULT = "\033[32;0m"
 ROUND_INDENT = " " * 14
-# def answer_to_string(answer: tuple):
-    # return("".join(str(d) for d in answer) if (answer is not None) else "None")
 def rules_list_to_names(rl, pad=True):
     pad_spaces = rules.max_rule_name_length if(pad) else 0
     names = [f'{r.name:<{pad_spaces}}' for r in rl]
@@ -39,7 +38,9 @@ def print_final_answer(message, cwas):
     print(answer)
     for c in combos:
         print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}")
-def print_list_cwa(cwa, message = "", use_round_indent=False):
+def print_list_cwa(cwa, message = "", use_round_indent=False, active=True):
+    if(not active):
+        return
     indent = ROUND_INDENT if(use_round_indent) else ""
     if(message[0] == '\n'):
         indent = '\n' + indent
@@ -63,7 +64,7 @@ def display_query_num_info(current_round_num, query_this_round, total_query, new
     if(new_round):
         print(f"\nRound   : {current_round_num:>3}")
         print(f"Proposal: {proposal}")
-    q_newline = "\n" if(query_this_round == 1) else ""
+    q_newline = "\n" #if(query_this_round == 1) else ""
     print(f"{q_newline}{ROUND_INDENT}Query: {query_this_round}. Total query: {total_query}.")
 def conduct_query(query_tup, expected_winning_round, expected_total_queries):
     """
@@ -210,3 +211,35 @@ def print_evaluations_cache_info(gs, name="game state"):
         # print(f"Is              : {ec_queries}.")
         exit()
     return(best_gs_tup)
+
+def get_children(tree):
+    (evaluations_cache, gs) = tree
+    if((evaluations_cache is not None) and (gs in evaluations_cache)):
+        result = evaluations_cache.get(gs)
+        if(result is not None):
+            (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+            children = ((evaluations_cache, gs_tup[0]), (evaluations_cache, gs_tup[1]))
+            return(children)
+    return([])
+def node_to_str(tree):
+    (evaluations_cache, gs) = tree
+    if((evaluations_cache is not None) and (gs in evaluations_cache)):
+        result = evaluations_cache.get(gs)
+        if(result is not None): # internal node
+            # NOTE: consider displaying cost of this move, either in edge or in node.
+            (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+            move_str = f"{best_move[0]} {string.ascii_uppercase[best_move[1]]}"
+            node_str = f"{' '.join([f'{total_expected_cost[i]:.3f}' for i in range(2)])}\n{move_str}"
+            return(node_str)
+    else: # leaf node
+        # NOTE: consider displaying the combos remaining as well
+        l = list(gs.fset_cwa_indexes_remaining)
+        answer = l[0][1]
+        return(answer)
+# The 'tree' that PrettyPrintTree will be called on is a tuple (evaluations_cache, game_state)
+def print_best_move_tree(evaluations_cache, gs):
+    # if(evaluations_cache is None):
+    #     return
+    print()
+    pt = PrettyPrintTree(get_children, node_to_str)
+    pt((evaluations_cache, gs))
