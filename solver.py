@@ -251,7 +251,7 @@ def get_and_apply_moves(game_state, qs_dict):
 # see get_moves docstring for definitions of move and cost.
 # NOTE: do I actually need current_round_num or total_queries_made parameters in args to below? Yes, for pruning purposes. Or is it? See todo item about pruning.
 def calculate_best_move(
-        qs_dict,               # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future.
+        qs_dict,               # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
         game_state,
         previous_best,         # NOTE: not used currently
         current_round_num,     # NOTE: not used currently
@@ -269,8 +269,18 @@ def calculate_best_move(
         return( (None, None, None, (0,0)) )
     best_expected_cost_tup = (float('inf'), float('inf'))
     found_zero_more_round_sol = False
+    exist_moves_that_dont_cost_a_round = False
     for move_info in get_and_apply_moves(game_state, qs_dict):
         (move, mcost, gs_tup, p_tup) = move_info
+        if(mcost[0] == 0):
+            exist_moves_that_dont_cost_a_round = True
+        if(exist_moves_that_dont_cost_a_round and (mcost[0] == 1)):
+            # there are moves that don't cost a new round, so don't consider any moves that do cost a round.
+            # NOTE: although this significantly prunes the tree, I'm not convinced this will necessarily find a best move.
+            # TODO: if you want to return early, just break instead of the 3 lines below. Do for 2 other early returns as well. Test.
+            answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
+            evaluations_cache[game_state] = answer
+            return(answer)
         if(found_zero_more_round_sol and (mcost[0] == 1)): 
             # have found a 0 round soln, and this move costs a round, and so do all others after it, b/c all moves that cost 0 rounds are yielded before any that cost a round. So return early.
             answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
@@ -326,38 +336,45 @@ EXTREME = 1
 NIGHTMARE = 2
 
 class Solver:
-
     def __init__(self, rc_nums_list, mode=STANDARD):
         self.rc_nums_list = rc_nums_list
         self.evaluations_cache = None
         self.mode = mode
+        # self.rcs_list
+        # self.initial_game_state
+        # self.qs_dict
+        # self.evaluations_cache set after solving
 
         # globals for debugging purposes
-        global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug
+        global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug. Make this an attribute of the solver.
         global initial_game_state                 # TODO: remove the global modifier on this after debug
         global evaluations_cache                  # TODO: remove the global modifier on this after debug
         evaluations_cache = self.evaluations_cache
 
-        # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
         if(mode == STANDARD):
             self.rcs_list = [rules.rcs_deck[num] for num in self.rc_nums_list]
         if(mode == EXTREME):
+            # TODO: make everything inside this if (mode == EXTREME) block a function, to clean up __init__
             self.rcs_list = [(rules.rcs_deck[rc_nums_list[2 * n]] + rules.rcs_deck[rc_nums_list[(2 * n) + 1]]) for n in range(len(rc_nums_list) // 2)]
-            for rc in self.rcs_list:
-                for (i, r) in enumerate(rc):
-                    # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
-                    rc[i] = Rule(r.name, r.reject_set, r.func, i)
+            # deduplicate rules in the rules card, b/c some extreme problems, like F5X TDF, have duplicates
+            for rc_index in range(len(self.rcs_list)):
+                rc = self.rcs_list[rc_index]
+                new_rc = []
+                rc_reject_sets_dict = dict()
+                for rule in rc:
+                    fs_reject_set = frozenset(rule.reject_set)
+                    if(fs_reject_set in rc_reject_sets_dict):
+                        print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rc {string.ascii_uppercase[rc_index]}')
+                    else:
+                        new_rc.append(rule)
+                        rc_reject_sets_dict[fs_reject_set] = rule.name
+                self.rcs_list[rc_index] = new_rc
 
-            # for (i, c) in enumerate(self.rcs_list):
-            #     print(f"\nRule card {string.ascii_uppercase[i]}")
-            #     for r in c:
-            #         print(r.name)
+                # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
+                for (i, r) in enumerate(new_rc):
+                    new_rc[i] = Rule(r.name, r.reject_set, r.func, i)
 
         possible_combos_with_answers = get_possible_rules_combos_with_answers(self.rcs_list)
-
-        # below block is some quick debugging. Delete later.
-        if(mode == EXTREME): # TODO: delete
-            display.print_all_possible_answers("\nAll answers: ", possible_combos_with_answers) # TODO: delete
 
         if(not(possible_combos_with_answers)):
             display.print_problem(self.rcs_list)
@@ -391,8 +408,6 @@ class Solver:
                 total_queries_made = 0,
                 evaluations_cache = self.evaluations_cache
             )
-        # return((rcs_list, self.evaluations_cache, initial_game_state))
-
 
 def solve(rc_nums_list, mode=STANDARD):
     s = Solver(rc_nums_list, mode)

@@ -22,13 +22,13 @@ Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index'])
 Query_Info = namedtuple(
     'Query_Info',
     [
-        'possible_combos_with_answers_remaining_if_true',
-        'possible_combos_with_answers_remaining_if_false',
-        'p_true',
-        'a_info_gain_true',
-        'a_info_gain_false',
-        'expected_a_info_gain',
-        'expected_c_info_gain',
+        'possible_combos_with_answers_remaining_if_true', # unneeded
+        'possible_combos_with_answers_remaining_if_false', # unneeded
+        'p_true',                                          # unneeded
+        'a_info_gain_true',                                # unneeded
+        'a_info_gain_false',                               # unneeded
+        'expected_a_info_gain',                            # unneeded
+        'expected_c_info_gain',                            # unneeded
         'set_indexes_cwa_remaining_true', # set of tuples (rc_indices of the cwa, (answer)).
         'set_indexes_cwa_remaining_false'
     ]
@@ -39,7 +39,7 @@ Game_State = namedtuple(
     [
         'num_queries_this_round',
         'proposal_used_this_round',
-        'fset_cwa_indexes_remaining',
+        'fset_cwa_indexes_remaining', # {((2, 3, 4, 7), 121), ...}
     ]
 )
 

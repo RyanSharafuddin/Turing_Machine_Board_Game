@@ -142,7 +142,7 @@ def no_rep(triangle, square, circle):
 
 # rule 21:
 def no_pairs(triangle, square, circle):
-    return(not(triple_rep(triangle, square, circle) or no_rep(triangle, square, circle)))
+    return(not(double_rep(triangle, square, circle)))
 
 #rule 22
 def strictly_ascending(triangle, square, circle):
@@ -152,6 +152,14 @@ def strictly_descending(triangle, square, circle):
 def neither_asc_desc(triangle, square, circle):
     return(not(strictly_ascending(triangle, square, circle) or strictly_descending(triangle, square, circle)))
 
+# rule 23
+def sum_digits_lt_6(triangle, square, circle):
+    return((triangle + square + circle) < 6)
+def sum_digits_eq_6(triangle, square, circle):
+    return((triangle + square + circle) == 6)
+def sum_digits_gt_6(triangle, square, circle):
+    return((triangle + square + circle) > 6)
+
 #rule 24
 def cons_seq_cons_asc_3(triangle, square, circle):
     return(((square == (triangle + 1)) and (circle == (square + 1))))
@@ -159,6 +167,14 @@ def cons_seq_cons_asc_2(triangle, square, circle):
     return(((square == (triangle + 1)) != (circle == (square + 1))))
 def cons_seq_cons_asc_0(triangle, square, circle):
     return(not((square == (triangle + 1)) or (circle == (square + 1))))
+
+#rule 25
+def cons_seq_cons_0(triangle, square, circle):
+    return(not (cons_seq_cons_2(triangle, square, circle) or cons_seq_cons_3(triangle, square, circle)))
+def cons_seq_cons_2(triangle, square, circle):
+    return(cons_seq_cons_asc_2(triangle, square, circle) or ((square == (triangle - 1)) != (circle == (square - 1))))
+def cons_seq_cons_3(triangle, square, circle):
+    return(cons_seq_cons_asc_3(triangle, square, circle) or ((square == (triangle - 1)) and (circle == (square - 1))))
 
 # rule 27
 # rule 28
@@ -217,6 +233,13 @@ def circle_eq_4(triangle, square, circle):
 def circle_gt_4(triangle, square, circle):
     return(circle > 4)
 
+# rule 44
+def square_lt_circle(triangle, square, circle):
+    return(square < circle)
+def square_eq_circle(triangle, square, circle):
+    return(square == circle)
+def square_gt_circle(triangle, square, circle):
+    return(square > circle)
 rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of reading/changing
      1: [triangle_eq_1, triangle_gt_1],
      2: [triangle_lt_3, triangle_eq_3, triangle_gt_3],
@@ -240,9 +263,9 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     20: [triple_rep, double_rep, no_rep],
     21: [no_pairs, double_rep],
     22: [strictly_ascending, strictly_descending, neither_asc_desc],
-
+    23: [sum_digits_lt_6, sum_digits_eq_6, sum_digits_gt_6],
     24: [cons_seq_cons_asc_3, cons_seq_cons_asc_2, cons_seq_cons_asc_0],
-
+    25: [cons_seq_cons_0, cons_seq_cons_2, cons_seq_cons_3],
 
     27: [triangle_lt_4, square_lt_4, circle_lt_4],
     28: [triangle_eq_1, square_eq_1, circle_eq_1],
@@ -251,7 +274,6 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     31: [triangle_gt_1, square_gt_1, circle_gt_1],
 
     33: [triangle_even, triangle_odd, square_even, square_odd, circle_even, circle_odd],
-
 
 
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
@@ -270,7 +292,12 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
         ],
 
 
+    44: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
+         square_lt_circle, square_eq_circle, square_gt_circle],
+
+
     47: [zero_1, one_1, two_1, zero_4, one_4, two_4]
+
 }
 
 max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])

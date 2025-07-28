@@ -17,7 +17,7 @@ def rules_list_to_names(rl, pad=True):
     return(', '.join(names))
 def print_all_possible_answers(message, possible_combos_with_answers):
     """
-    The difference between this and print_list_combos is that this prints each unique answer only once, and, following each unique answer, is a list of all rules combinations that lead to that answer. In print_list_combos, an answer is printed multiple times if it shows up in multiple combos. Also, this function doesn't print rules_card_indices, though that is subject to change.
+    The difference between this and print_list_combos is that this prints each unique answer only once, and, following each unique answer, is a list of all rules combinations that lead to that answer. In print_list_combos, an answer is printed multiple times if it shows up in multiple combos.
     """
     (combos, answers) = zip(*possible_combos_with_answers)
     set_possible_answers = set(answers)
@@ -53,9 +53,6 @@ def print_combo_with_answer(combo_with_answer_index, combo_with_answer, use_roun
     (possible_combo, possible_answer) = combo_with_answer
     print(f'{indent}{combo_with_answer_index + 1:>3}: {possible_answer} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
 def print_problem(rcs_list, active=True):
-    """
-    NOTE: will have to change this for nightmare mode, since rules cards won't have corresponding letters, only numbers.
-    """
     if(active):
         print("\nProblem")
         for (i, rc) in enumerate(rcs_list):
@@ -291,13 +288,15 @@ def get_children(tree):
     return([])
 def node_to_str(tree):
     nl = '\n'
+    rcs_lengths = [len(rc) for rc in tree.solver.rcs_list]
+    chars_to_print = [ 2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to bring
     if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
         result = Tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None): # internal node
             # NOTE: consider displaying cost of this move, either in edge or in node.
             combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
-            combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(i) for i in c[0])}" for (n, c) in enumerate(combos_l, start=1)]
+            combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
             prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
             prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
             move_str = f"{best_move[0]} {string.ascii_uppercase[best_move[1]]}"
@@ -306,7 +305,7 @@ def node_to_str(tree):
                 move_str += ' (R)'
             cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
             verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
-                [string.ascii_uppercase[i] for i in range(len(combos_l[0][0]))]
+                [f'{string.ascii_uppercase[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
             )
             if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
                 combos_lines = [verifier_names_str] + combos_strs
