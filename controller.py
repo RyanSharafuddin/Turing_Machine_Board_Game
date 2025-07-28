@@ -71,8 +71,8 @@ def display_problem_solution(rc_nums_list, mode=solver.STANDARD):
 
 # PRINT_COMBOS = False                # whether or not to print combos after every query when playing
 PRINT_COMBOS = True                # whether or not to print combos after every query when playing
-# SHOW_COMBOS_IN_TREE = False         # Print combos in trees when displaying problem solution
-SHOW_COMBOS_IN_TREE = True         # Print combos in trees when displaying problem solution
+SHOW_COMBOS_IN_TREE = False         # Print combos in trees when displaying problem solution
+# SHOW_COMBOS_IN_TREE = True         # Print combos in trees when displaying problem solution
 
 # problems
 zero_query = [2, 5, 9, 15, 18, 22] # ID: B63 YRW 4. Takes 0 queries to solve.
@@ -86,7 +86,8 @@ f5x = [28, 14, 19,  6, 27, 16,  9, 47, 20, 21] # ID: F5X TDF. Extreme. Actually 
 e63 = [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9] # ID: E63 YF4 H. Extreme. Very easy, tho.
 f63 = [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3] # ID: F63 EZQ M. Extreme. "Hard" difficulty.
 f52 = [15, 16, 23,  8, 46, 13, 34, 17, 9, 37]          # ID: F52 LUJ G. Extreme. "Hard".
-latest_extreme = f52
+f43 = [13,  9, 11, 40,  7, 18, 43, 15]                 # ID:   F43 5FE. Extreme. "Hard". Hard.
+latest_extreme = f43
 
 # Playing
 # play(zero_query)
@@ -96,7 +97,7 @@ latest_extreme = f52
 # play(c46)
 # play(a52)
 # play(f5x, mode=solver.EXTREME)
-# play(latest_extreme, mode=solver.EXTREME)
+play(latest_extreme, mode=solver.EXTREME)
 
 # Profiling
 # s = solver.solve(p2)         # ID:         2. FOR PROFILING
