@@ -84,8 +84,9 @@ a52 = [ 7,  8, 12, 14, 17]           # ID: A52 F7E 1
 c5h = [ 2, 15, 30, 31, 33]          # ID: C5H CBJ
 f5x = [28, 14, 19,  6, 27, 16,  9, 47, 20, 21] # ID: F5X TDF. Extreme. Actually hard. Takes ~220 seconds.
 e63 = [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9] # ID: E63 YF4 H. Extreme. Very easy, tho.
-f63 = [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3] # ID #F63 EZQ M. Extreme. "hard" difficulty. 
-latest_extreme = f63
+f63 = [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3] # ID: F63 EZQ M. Extreme. "Hard" difficulty.
+f52 = [15, 16, 23,  8, 46, 13, 34, 17, 9, 37]          # ID: F52 LUJ G. Extreme. "Hard".
+latest_extreme = f52
 
 # Playing
 # play(zero_query)
@@ -110,7 +111,7 @@ latest_extreme = f63
 # display_problem_solution(a52)
 # display_problem_solution(latest_extreme, mode=solver.EXTREME)
 # display_problem_solution(f5x, mode=solver.EXTREME) # may want to turn off SHOW_COMBOS_IN_TREE, unless have horizontal scrolling terminal (Ghostty?)
-# display_problem_solution(latest_extreme, mode=solver.EXTREME)
+display_problem_solution(latest_extreme, mode=solver.EXTREME)
 
 # For interactive debugging purposes
 # inspect solver.evaluations_cache and solver.initial_game_state using the debugging functions in display
@@ -124,5 +125,6 @@ latest_extreme = f63
 
 # f63, extreme.
 # e63, extreme. Turn off tree combo printing, though. Takes ~3.5 minutes
+# f52, extreme. Great tree. Full combos
 
 # play(f5x, mode=solver.EXTREME)

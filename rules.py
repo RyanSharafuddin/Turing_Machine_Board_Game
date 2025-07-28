@@ -193,6 +193,13 @@ def circle_gt_1(triangle, square, circle):
     return(circle > 1)
 
 # rule 33 (all rules found in other cards)
+# rule 34
+def triangle_a_min(triangle, square, circle):
+    return((triangle <= square) and (triangle <= circle))
+def square_a_min(triangle, square, circle):
+    return((square <= triangle) and (square <= circle))
+def circle_a_min(triangle, square, circle):
+    return((circle <= triangle) and (circle <= square))
 
 # rule 36
 def sum_dig_3x(triangle, square, circle):
@@ -253,7 +260,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     10: [zero_4, one_4, two_4, three_4],
     11: [triangle_lt_square, triangle_eq_square, triangle_gt_square],
     12: [triangle_lt_circle, triangle_eq_circle, triangle_gt_circle],
-
+    13: [square_lt_circle, square_eq_circle, square_gt_circle],
     14: [triangle_strict_min, square_strict_min, circle_strict_min],
     15: [triangle_strict_max, square_strict_max, circle_strict_max],
     16: [more_evens, more_odds],
@@ -274,7 +281,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     31: [triangle_gt_1, square_gt_1, circle_gt_1],
 
     33: [triangle_even, triangle_odd, square_even, square_odd, circle_even, circle_odd],
-
+    34: [triangle_a_min, square_a_min, circle_a_min],
 
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
@@ -295,7 +302,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     44: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
          square_lt_circle, square_eq_circle, square_gt_circle],
 
-
+    46: [zero_3, one_3, two_3, zero_4, one_4, two_4],
     47: [zero_1, one_1, two_1, zero_4, one_4, two_4]
 
 }
