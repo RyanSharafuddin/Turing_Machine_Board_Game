@@ -217,20 +217,68 @@ def print_evaluations_cache_info(gs, name="game state"):
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
-    def __init__(self, gs, evaluations_cache, prob=1.0, cost_to_get_here=(0, 0)):
+    solver = None               # Now the Tree class has access to the solver used to create all its info.
+    def __init__(
+            self,
+            gs,
+            prob=1.0,
+            cost_to_get_here=(0, 0),
+            type='gs',
+            move=None
+    ):
         # prob is the probability of getting to this gs from the query above it in the best move tree
         self.gs = gs
-        self.evaluations_cache = evaluations_cache
         self.prob = prob
         self.cost_to_get_here = cost_to_get_here
+        self.type = 'gs'
+
+        # TODO: fields to be added to be used for 'move' type trees:
+        self.move = move
+        # prob_tup # probabilities of the move being (false, true)
+        # gs_tup   # resulting game states from the move being false, true
+        # m_cost   # the cost the move in self.move
 
 def add_tups(*tups):
     result = tuple([sum([t[i] for t in tups]) for i in range(len(tups))])
     return(result)
 
+def get_children_multi_move(tree):
+    if(tree.type == 'move'):
+        # TODO: implement
+        # should have set tree.gs_tup and tree.prob_tup for this move, so just return those.
+        raise Exception("Unimplemented")
+    else:
+        # tree is type game state
+        if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
+            result = Tree.solver.evaluations_cache.get(tree.gs)
+            if(result is not None):
+                (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+                current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
+                num_combos_if_q_true = len(gs_tup[1].fset_cwa_indexes_remaining)
+                p_true = num_combos_if_q_true / current_num_combos
+                p_false = 1 - p_true
+                prob_tup = (p_false, p_true)
+
+                raise Exception("Unimplemented")
+                m = Tree(gs=tree.gs, cost_to_get_here=tree.cost_to_get_here, type='move', move=best_move)
+                # return a list of several moves that lead to different evaluations, if there are any
+                # TODO: use the Tree.solver to get some other useful moves that lead to different tree shapes than the best move, get their costs and resulting gs_tups and probabilities, and return some children moves that you want to see. Pretty sure you can do this with get_and_apply_moves.
+                return[m]
+        # finished game; no children. This is an answer node
+        return([])
+
+def node_to_str_multi_move(tree):
+    if(tree.type == 'gs'):
+        # I think I can just call my regular node_to_str(tree) function below.
+        # Ah, but I'll have to pass in a new parameter that tells it not to print the best move beneath all the gs info in the node, since the best move will now be its own node. Well, pass in or set. Maybe make it a class field in tree, and have print_multi_move_tree and print_best_move_tree set it when you first call them. Should also stop the regular node_to_str function from printing the probability of reaching a game state in the game state nodes when using it from here.
+        pass
+    else: # move type node
+        pass
+    raise Exception("Unimplemented")
+
 def get_children(tree):
-    if((tree.evaluations_cache is not None) and (tree.gs in tree.evaluations_cache)):
-        result = tree.evaluations_cache.get(tree.gs)
+    if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
+        result = Tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
             current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
@@ -238,13 +286,13 @@ def get_children(tree):
             p_true = num_combos_if_q_true / current_num_combos
             p_false = 1 - p_true
             prob_tup = (p_false, p_true)
-            children = [Tree(gs=gs_tup[i], evaluations_cache=tree.evaluations_cache, prob=prob_tup[i], cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost)) for i in range(2)]
+            children = [Tree(gs=gs_tup[i], prob=prob_tup[i], cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost)) for i in range(2)]
             return(children)
     return([])
 def node_to_str(tree):
     nl = '\n'
-    if((tree.evaluations_cache is not None) and (tree.gs in tree.evaluations_cache)):
-        result = tree.evaluations_cache.get(tree.gs)
+    if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
+        result = Tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None): # internal node
             # NOTE: consider displaying cost of this move, either in edge or in node.
             combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
@@ -287,11 +335,21 @@ def node_to_str(tree):
         answer = l[0][1]
         return(answer)
 
-def print_best_move_tree(evaluations_cache, gs, show_combos):
-    # if(tree.evaluations_cache is None):
+def print_best_move_tree(gs, show_combos, solver):
+    # if(Tree.solver.evaluations_cache is None):
     #     return
     print()
     Tree.show_combos_in_tree = show_combos
-    tree = Tree(gs, evaluations_cache)
+    Tree.solver = solver
+    tree = Tree(gs)
     pt = PrettyPrintTree(get_children, node_to_str)
+    pt(tree)
+
+def print_multi_move_tree(gs, show_combos, solver):
+    raise Exception("Unimplemented")
+    print()
+    Tree.show_combos_in_tree = show_combos
+    Tree.solver = solver
+    tree = Tree(gs)
+    pt = PrettyPrintTree(get_children_multi_move, node_to_str_multi_move)
     pt(tree)

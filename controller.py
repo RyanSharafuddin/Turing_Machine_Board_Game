@@ -10,8 +10,9 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
         print("ERROR! The current move's proposal does not match up with the proposal used this round, and so this should have been a new round, but it isn't.")
         exit()
 
-def play(rc_nums_list):
-    (rcs_list, evaluations_cache, initial_game_state) = solver.solve(rc_nums_list)
+def play(rc_nums_list, mode=solver.STANDARD):
+    s = solver.solve(rc_nums_list, mode=mode)
+    (rcs_list, evaluations_cache, initial_game_state) = (s.rcs_list, s.evaluations_cache, s.initial_game_state)
     current_gs = initial_game_state
     # NOTE: below line for display purposes only
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
@@ -44,11 +45,13 @@ def play(rc_nums_list):
     display.display_query_history(query_history, len(rc_nums_list))
     display.print_final_answer("\nANSWER: ", full_cwa)
 
-def display_problem_solution(rc_nums_list):
+def display_problem_solution(rc_nums_list, mode=solver.STANDARD):
     """
     Prints best move tree (subject to change).
     """
-    (rcs_list, evaluations_cache, initial_game_state) = solver.solve(rc_nums_list)
+    s = solver.Solver(rc_nums_list, mode=mode)
+    s.solve()
+    (rcs_list, evaluations_cache, initial_game_state) = (s.rcs_list, s.evaluations_cache, s.initial_game_state)
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
     display.print_problem(rcs_list, active=True)
     full_cwa = solver.full_cwa_from_game_state(initial_game_state)
@@ -56,7 +59,9 @@ def display_problem_solution(rc_nums_list):
         display.print_final_answer("\nANSWER: ", full_cwa)
     else:
         display.print_all_possible_answers("\nAll possible answers:", full_cwa)
-        display.print_best_move_tree(evaluations_cache, initial_game_state, SHOW_COMBOS_IN_TREE)
+        display.print_best_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
+        # TODO: uncomment when done with adding the correct functions to display
+        # display.print_multi_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 PRINT_COMBOS = True                # whether or not to print combos after every query when playing
 SHOW_COMBOS_IN_TREE = True         # Print combos in trees when displaying problem solution
@@ -65,21 +70,29 @@ zero_query = [2, 5, 9, 15, 18, 22] # ID: B63 YRW 4. Takes 0 queries to solve.
 p1 = [4, 9, 11, 14]                # ID:         1.
 p2 = [3, 7, 10, 14]                # ID:         2. Useful for profiling
 c63 = [9, 22, 24, 31, 37, 40]      # ID: C63 0YV B. Interesting b/c multiple combos lead to same answer here.
-
-# DEBUG_MODE = False
+c46 = [19, 22, 36, 41]             # ID: C46 43N
+a52 = [7, 8, 12, 14, 17]           # ID: A52 F7E 1
+c5h = [2, 15, 30, 31, 33]          # ID: C5H CBJ
+f5x = [28, 14, 19, 6, 27, 16, 9, 47, 20, 21] # ID: F5X TDF. Extreme
+latest = f5x
 
 # play(zero_query)
 # play(p1)
 # play(p2)
 # play(c63)
+# play(c46)
+# play(a52)
+# play(f5x, mode=solver.EXTREME)
 
-# solver.solve(p2)         # ID:         2. FOR PROFILING
+# s = solver.solve(p2)         # ID:         2. FOR PROFILING
 
-display_problem_solution(zero_query)
-display_problem_solution(p1)
+# display_problem_solution(zero_query)
+# display_problem_solution(p1)
 display_problem_solution(p2)
-display_problem_solution(c63)
-
+# display_problem_solution(c63)
+# display_problem_solution(c46)
+# display_problem_solution(a52)
+# display_problem_solution(f5x, mode=solver.EXTREME)
 
 # For interactive debugging purposes
-# (rcs_list, evaluations_cache, initial_game_state) = solver.solve(p2)
+# solver.solve(p2) # inspect solver.evaluations_cache and solver.initial_game_state

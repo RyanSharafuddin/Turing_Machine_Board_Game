@@ -1,4 +1,4 @@
-import math
+import math, string
 import display, rules
 from definitions import *
 
@@ -251,7 +251,7 @@ def get_and_apply_moves(game_state, qs_dict):
 # see get_moves docstring for definitions of move and cost.
 # NOTE: do I actually need current_round_num or total_queries_made parameters in args to below? Yes, for pruning purposes. Or is it? See todo item about pruning.
 def calculate_best_move(
-        qs_dict,
+        qs_dict,               # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future.
         game_state,
         previous_best,         # NOTE: not used currently
         current_round_num,     # NOTE: not used currently
@@ -305,45 +305,73 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
     return((expected_r_cost, expected_q_cost))
 
-def solve(rules_cards_nums_list):
-    """
-    Returns a tuple (rcs_list, evaluations_cache, initial_game_state).
-    Evaluations_cache is None if the problem can be solved in 0 queries.
-    """
-    # globals for debugging purposes
-    global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug
-    global initial_game_state                 # TODO: remove the global modifier on this after debug
-    global evaluations_cache                  # TODO: remove the global modifier on this after debug
-
-    # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
-    rcs_list = [rules.rcs_deck[num] for num in rules_cards_nums_list]
-    possible_combos_with_answers = get_possible_rules_combos_with_answers(rcs_list)
-    if(not(possible_combos_with_answers)):
-        display.print_problem(rcs_list)
-        print("User error: you have entered a problem which has no valid solutions. Exiting.")
-        exit()
-    fset_cwa_indexes_remaining = frozenset(
-        [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in possible_combos_with_answers]
-    )
-    rc_indexes_cwa_to_full_combos_dict = {}
-    for cwa in possible_combos_with_answers:
-        rc_indexes_cwa_to_full_combos_dict[(tuple([r.card_index for r in cwa[0]]), cwa[1])] = cwa
-    fset_possible_answers = fset_answers_from_cwa_iterable(possible_combos_with_answers)
-
-    evaluations_cache = None
-    initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining)
-    if(len(fset_possible_answers) > 1):
-        qs_dict = populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos_with_answers)
-        evaluations_cache = dict()
-        calculate_best_move(
-            qs_dict = qs_dict,
-            game_state = initial_game_state,
-            previous_best = float('inf'),
-            current_round_num = 0,
-            total_queries_made = 0,
-            evaluations_cache = evaluations_cache
-        )
-    return((rcs_list, evaluations_cache, initial_game_state))
 
 def full_cwa_from_game_state(gs):
     return([rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
+
+STANDARD = 0
+EXTREME = 1
+NIGHTMARE = 2
+
+class Solver:
+
+    def __init__(self, rc_nums_list, mode=STANDARD):
+        self.rc_nums_list = rc_nums_list
+        self.evaluations_cache = None
+        self.mode = mode
+
+        # globals for debugging purposes
+        global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug
+        global initial_game_state                 # TODO: remove the global modifier on this after debug
+        global evaluations_cache                  # TODO: remove the global modifier on this after debug
+        evaluations_cache = self.evaluations_cache
+
+        # TODO: change below for extreme mode. Will also need to change the card_index of each rules in a rules card in extreme mode, since each card is now a combo of 2 cards.
+        if(mode == STANDARD):
+            self.rcs_list = [rules.rcs_deck[num] for num in self.rc_nums_list]
+        if(mode == EXTREME):
+            self.rcs_list = [(rules.rcs_deck[rc_nums_list[2 * n]] + rules.rcs_deck[rc_nums_list[(2 * n) + 1]]) for n in range(len(rc_nums_list) // 2)]
+            for (i, c) in enumerate(self.rcs_list):
+                print(f"\nRule card {string.ascii_uppercase[i]}")
+                for r in c:
+                    print(r.name)
+        possible_combos_with_answers = get_possible_rules_combos_with_answers(self.rcs_list)
+        if(not(possible_combos_with_answers)):
+            display.print_problem(self.rcs_list)
+            print("User error: you have entered a problem which has no valid solutions. Exiting.")
+            exit()
+        fset_cwa_indexes_remaining = frozenset(
+            [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in possible_combos_with_answers]
+        )
+        rc_indexes_cwa_to_full_combos_dict = {}
+        for cwa in possible_combos_with_answers:
+            rc_indexes_cwa_to_full_combos_dict[(tuple([r.card_index for r in cwa[0]]), cwa[1])] = cwa
+
+        self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining)
+        self.qs_dict = populate_useful_qs_dict(self.rcs_list, all_125_possibilities_set, possible_combos_with_answers)
+
+    def solve(self):
+        """
+        Returns a tuple (rcs_list, evaluations_cache, initial_game_state).
+        Evaluations_cache is None if the problem can be solved in 0 queries.
+        """
+        fset_possible_answers = fset_answers_from_cwa_iterable(self.initial_game_state.fset_cwa_indexes_remaining)
+        if(len(fset_possible_answers) > 1):
+            self.evaluations_cache = dict()
+            global evaluations_cache
+            evaluations_cache = self.evaluations_cache
+            calculate_best_move(
+                qs_dict = self.qs_dict,
+                game_state = self.initial_game_state,
+                previous_best = float('inf'),
+                current_round_num = 0,
+                total_queries_made = 0,
+                evaluations_cache = self.evaluations_cache
+            )
+        # return((rcs_list, self.evaluations_cache, initial_game_state))
+
+
+def solve(rc_nums_list, mode=STANDARD):
+    s = Solver(rc_nums_list, mode)
+    s.solve()
+    return(s)
