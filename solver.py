@@ -268,8 +268,14 @@ def calculate_best_move(
         # don't bother filling up the cache with already-won states.
         return( (None, None, None, (0,0)) )
     best_expected_cost_tup = (float('inf'), float('inf'))
+    found_zero_more_round_sol = False
     for move_info in get_and_apply_moves(game_state, qs_dict):
         (move, mcost, gs_tup, p_tup) = move_info
+        if(found_zero_more_round_sol and (mcost[0] == 1)): 
+            # have found a 0 round soln, and this move costs a round, and so do all others after it, b/c all moves that cost 0 rounds are yielded before any that cost a round. So return early.
+            answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
+            evaluations_cache[game_state] = answer
+            return(answer)
         gs_false_expected_cost = calculate_best_move(
             qs_dict,
             gs_tup[0],
@@ -289,10 +295,16 @@ def calculate_best_move(
         gss_costs = (gs_false_expected_cost, gs_true_expected_cost)
         expected_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
         if(expected_cost_tup < best_expected_cost_tup):
+            if(expected_cost_tup[0] == 0):
+                found_zero_more_round_sol = True
             best_expected_cost_tup = expected_cost_tup
             best_move_tup = move
             best_mov_cost_tup = mcost
             best_gs_tup = gs_tup
+            if((expected_cost_tup == (0, 1)) or ((expected_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)): # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
+                evaluations_cache[game_state] = answer
+                return(answer)
     answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
     evaluations_cache[game_state] = answer
     return(answer)
@@ -331,11 +343,22 @@ class Solver:
             self.rcs_list = [rules.rcs_deck[num] for num in self.rc_nums_list]
         if(mode == EXTREME):
             self.rcs_list = [(rules.rcs_deck[rc_nums_list[2 * n]] + rules.rcs_deck[rc_nums_list[(2 * n) + 1]]) for n in range(len(rc_nums_list) // 2)]
-            for (i, c) in enumerate(self.rcs_list):
-                print(f"\nRule card {string.ascii_uppercase[i]}")
-                for r in c:
-                    print(r.name)
+            for rc in self.rcs_list:
+                for (i, r) in enumerate(rc):
+                    # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
+                    rc[i] = Rule(r.name, r.reject_set, r.func, i)
+
+            # for (i, c) in enumerate(self.rcs_list):
+            #     print(f"\nRule card {string.ascii_uppercase[i]}")
+            #     for r in c:
+            #         print(r.name)
+
         possible_combos_with_answers = get_possible_rules_combos_with_answers(self.rcs_list)
+
+        # below block is some quick debugging. Delete later.
+        if(mode == EXTREME): # TODO: delete
+            display.print_all_possible_answers("\nAll answers: ", possible_combos_with_answers) # TODO: delete
+
         if(not(possible_combos_with_answers)):
             display.print_problem(self.rcs_list)
             print("User error: you have entered a problem which has no valid solutions. Exiting.")

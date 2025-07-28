@@ -82,17 +82,19 @@ latest = f5x
 # play(c63)
 # play(c46)
 # play(a52)
+
 # play(f5x, mode=solver.EXTREME)
 
 # s = solver.solve(p2)         # ID:         2. FOR PROFILING
 
 # display_problem_solution(zero_query)
 # display_problem_solution(p1)
-display_problem_solution(p2)
+# display_problem_solution(p2)
 # display_problem_solution(c63)
 # display_problem_solution(c46)
 # display_problem_solution(a52)
-# display_problem_solution(f5x, mode=solver.EXTREME)
+
+display_problem_solution(f5x, mode=solver.EXTREME)
 
 # For interactive debugging purposes
 # solver.solve(p2) # inspect solver.evaluations_cache and solver.initial_game_state
