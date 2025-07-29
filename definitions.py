@@ -14,9 +14,6 @@ all_125_possibilities_set = set(possibilities)
 def int_to_tri_sq_ci_tuple(n):
     return(tuple([get_digit(n, i, 10) for i in range(2, -1, -1)]))
 
-# for (i, n) in enumerate(possibilities):
-#     print(f"{i:>3}: {n} {int_to_tri_sq_ci_tuple(n)}")
-
 Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index'])
 
 Query_Info = namedtuple(
@@ -40,6 +37,15 @@ Game_State = namedtuple(
         'num_queries_this_round',
         'proposal_used_this_round',
         'fset_cwa_indexes_remaining', # {((2, 3, 4, 7), 121), ...}
+    ]
+)
+
+Problem = namedtuple(
+    'Problem',
+    [
+        'rc_nums_list',
+        'identity',     # This is the full ID, without spaces, from the website. string.
+        'mode',         # 0, 1, or 2 for standard, extreme, or nightmare.
     ]
 )
 

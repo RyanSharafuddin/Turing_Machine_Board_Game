@@ -1,4 +1,4 @@
-import math, string
+import math, string, itertools
 import display, rules
 from definitions import *
 
@@ -328,22 +328,32 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     return((expected_r_cost, expected_q_cost))
 
 
-def full_cwa_from_game_state(gs):
-    return([rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
-
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
 
+
+
+def fset_cwa_indexes_remaining_from_full_cwa(full_cwa, mode=STANDARD):
+    if((mode == STANDARD) or (mode == EXTREME)):
+        fset_cwa_indexes_remaining = frozenset(
+            [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in full_cwa]
+        )
+    if(mode == NIGHTMARE):
+        fset_cwa_indexes_remaining = frozenset(
+            [(tuple([r.card_index for r in cwa[0]]), cwa[1], cwa[2]) for cwa in full_cwa]
+        )
+    return(fset_cwa_indexes_remaining)
+
 class Solver:
-    def __init__(self, rc_nums_list, mode=STANDARD):
-        self.rc_nums_list = rc_nums_list
+    def __init__(self, problem):
+        self.problem = problem
         self.evaluations_cache = None
-        self.mode = mode
         # self.rcs_list
         # self.initial_game_state
         # self.qs_dict
         # self.evaluations_cache set after solving
+        # self.rc_indexes_cwa_to_full_combos_dict (change later)
 
         # globals for debugging purposes
         global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug. Make this an attribute of the solver.
@@ -351,11 +361,11 @@ class Solver:
         global evaluations_cache                  # TODO: remove the global modifier on this after debug
         evaluations_cache = self.evaluations_cache
 
-        if(mode == STANDARD):
-            self.rcs_list = [rules.rcs_deck[num] for num in self.rc_nums_list]
-        if(mode == EXTREME):
+        if(problem.mode == STANDARD):
+            self.rcs_list = [rules.rcs_deck[num] for num in problem.rc_nums_list]
+        if(problem.mode == EXTREME):
             # TODO: make everything inside this if (mode == EXTREME) block a function, to clean up __init__
-            self.rcs_list = [(rules.rcs_deck[rc_nums_list[2 * n]] + rules.rcs_deck[rc_nums_list[(2 * n) + 1]]) for n in range(len(rc_nums_list) // 2)]
+            self.rcs_list = [(rules.rcs_deck[problem.rc_nums_list[2 * n]] + rules.rcs_deck[problem.rc_nums_list[(2 * n) + 1]]) for n in range(len(problem.rc_nums_list) // 2)]
             # deduplicate rules in the rules card, b/c some extreme problems, like F5X TDF, have duplicates
             for rc_index in range(len(self.rcs_list)):
                 rc = self.rcs_list[rc_index]
@@ -369,30 +379,42 @@ class Solver:
                         new_rc.append(rule)
                         rc_reject_sets_dict[fs_reject_set] = rule.name
                 self.rcs_list[rc_index] = new_rc
-
                 # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
                 for (i, r) in enumerate(new_rc):
                     new_rc[i] = Rule(r.name, r.reject_set, r.func, i)
 
         possible_combos_with_answers = get_possible_rules_combos_with_answers(self.rcs_list)
+        if(problem.mode == NIGHTMARE):
+            nightmare_possible_combos_with_answers = []
+            vs = list(range(len(self.rcs_list))) # vs = [0, 1, 2, . . . for number of verifiers]
+            # NOTE: the line 2 above this one, in between the extreme block and the nightmare block, needs to be there.
+            verifier_permutations = tuple(itertools.permutations(vs))
+            for v_permutation in verifier_permutations:
+                for original_cwa in possible_combos_with_answers:
+                    nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
+            possible_combos_with_answers = nightmare_possible_combos_with_answers
+            # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
 
         if(not(possible_combos_with_answers)):
             display.print_problem(self.rcs_list)
             print("User error: you have entered a problem which has no valid solutions. Exiting.")
             exit()
-        fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in possible_combos_with_answers]
-        )
-        rc_indexes_cwa_to_full_combos_dict = {}
+        fset_cwa_indexes_remaining = fset_cwa_indexes_remaining_from_full_cwa(possible_combos_with_answers, mode=problem.mode)
+
+        self.rc_indexes_cwa_to_full_combos_dict = {}
+        rc_indexes_cwa_to_full_combos_dict = self.rc_indexes_cwa_to_full_combos_dict
         for cwa in possible_combos_with_answers:
-            rc_indexes_cwa_to_full_combos_dict[(tuple([r.card_index for r in cwa[0]]), cwa[1])] = cwa
+            if(problem.mode == NIGHTMARE):
+                dict_key = (tuple([r.card_index for r in cwa[0]]), cwa[1], cwa[2])
+            else:
+                dict_key = (tuple([r.card_index for r in cwa[0]]), cwa[1])
+            rc_indexes_cwa_to_full_combos_dict[dict_key] = cwa
 
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining)
         self.qs_dict = populate_useful_qs_dict(self.rcs_list, all_125_possibilities_set, possible_combos_with_answers)
 
     def solve(self):
         """
-        Returns a tuple (rcs_list, evaluations_cache, initial_game_state).
         Evaluations_cache is None if the problem can be solved in 0 queries.
         """
         fset_possible_answers = fset_answers_from_cwa_iterable(self.initial_game_state.fset_cwa_indexes_remaining)
@@ -409,7 +431,10 @@ class Solver:
                 evaluations_cache = self.evaluations_cache
             )
 
-def solve(rc_nums_list, mode=STANDARD):
-    s = Solver(rc_nums_list, mode)
+    def full_cwa_from_game_state(self, gs):
+        return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
+
+def solve(problem):
+    s = Solver(problem)
     s.solve()
     return(s)
