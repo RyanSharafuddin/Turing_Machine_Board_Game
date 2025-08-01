@@ -54,9 +54,10 @@ def print_combo_with_answer(combo_with_answer_index, combo_with_answer, use_roun
     indent = ROUND_INDENT if(use_round_indent) else ""
     (possible_combo, possible_answer) = combo_with_answer
     print(f'{indent}{combo_with_answer_index + 1:>3}: {possible_answer} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
-def print_problem(rcs_list, active=True):
+def print_problem(rcs_list, problem, active=True):
+    modes = ["Standard", "Extreme", "Nightmare"]
     if(active):
-        print("\nProblem")
+        print(f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}")
         for (i, rc) in enumerate(rcs_list):
             print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):

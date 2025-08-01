@@ -23,7 +23,7 @@ def play_from_solver(s):
     current_gs = initial_game_state
     # NOTE: below line for display purposes only
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, active=True)
+    display.print_problem(rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(current_gs)
     display.print_all_possible_answers("\nAll possible answers:", full_cwa)
     current_round_num = 0
@@ -59,7 +59,7 @@ def display_solution_from_solver(s):
     """
     (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, active=True)
+    display.print_problem(rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(initial_game_state)
     if(len(solver.fset_answers_from_cwa_iterable(initial_game_state.fset_cwa_indexes_remaining)) == 1):
         display.print_final_answer("\nANSWER: ", full_cwa)
@@ -120,7 +120,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     s = solver.Solver(problem)
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
-    display.print_problem(s.rcs_list, active=True)
+    display.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     display.print_all_possible_answers("\nAll possible answers:", full_cwa)
     print("\nSolving . . .")
@@ -231,5 +231,5 @@ SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_so
 # f43       Large tree. Hardest problem yet, at nearly an hour.
 
 latest = f52
-display_problem_solution(latest, force_overwrite=False)
+display_problem_solution(latest, force_overwrite=True)
 # play(latest)

@@ -256,10 +256,6 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
     return((expected_r_cost, expected_q_cost))
 
-STANDARD = 0
-EXTREME = 1
-NIGHTMARE = 2
-
 def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
     fset_cwa_indexes_remaining = frozenset(
             [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
@@ -301,7 +297,7 @@ def make_full_cwa(problem, rcs_list):
         possible_combos_with_answers = nightmare_possible_combos_with_answers
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
     if(not(possible_combos_with_answers)):
-        display.print_problem(rcs_list)
+        display.print_problem(rcs_list, problem)
         print("User error: you have entered a problem which has no valid solutions. Check that you entered the problem in correctly and that you defined the rules correctly in rules.py. Exiting.")
         exit()
     return(possible_combos_with_answers)

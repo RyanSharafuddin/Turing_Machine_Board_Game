@@ -19,7 +19,7 @@ Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index'])
 Query_Info = namedtuple(
     'Query_Info',
     [
-        'possible_combos_with_answers_remaining_if_true', # unneeded
+        'possible_combos_with_answers_remaining_if_true',  # unneeded
         'possible_combos_with_answers_remaining_if_false', # unneeded
         'p_true',                                          # unneeded
         'a_info_gain_true',                                # unneeded
@@ -48,6 +48,10 @@ Problem = namedtuple(
         'mode',         # 0, 1, or 2 for standard, extreme, or nightmare.
     ]
 )
+
+STANDARD = 0
+EXTREME = 1
+NIGHTMARE = 2
 
 # rules_card_infos[i] is a dict for the ith rules card in rules_cards_list. That dict is:
 # rules_card_infos[i] = {
