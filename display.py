@@ -2,6 +2,7 @@ import string
 import rules
 from collections import deque
 from PrettyPrint import PrettyPrintTree
+import colorama
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -88,6 +89,76 @@ def display_query_history(query_history, num_rcs):
 
 
 # To be used for displaying things in debugging:
+
+class Solver_Displayer:
+    def __init__(self, solver):
+        self.solver = solver
+
+    def print_evaluations_cache_info(self, gs, name="game state"):
+        """
+        Returns a tuple (gs_false, gs_true) for game states that could result from executing the best query. For use in interactive debugging sessions.
+        NOTE: in interactive debugging session, use like this:
+        (gs_false, gs_true) = sd.print_evaluations_cache_info(gs, name)
+        """
+        evaluations_cache = self.solver.evaluations_cache
+        (best_mov, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup) = evaluations_cache[gs]
+        (gs_false, gs_true) = best_gs_tup
+        cwa_remaining_if_false = gs_false.fset_cwa_indexes_remaining
+        num_cwa_false = len(cwa_remaining_if_false)
+
+        cwa_remaining_if_true = gs_true.fset_cwa_indexes_remaining
+        num_cwa_true = len(cwa_remaining_if_true)
+
+        num_cwa_now = len(gs.fset_cwa_indexes_remaining)
+        p_true = num_cwa_true / num_cwa_now
+        p_false = num_cwa_false / num_cwa_now
+
+        # Remember that the cache does not contain already-won states.
+        expected_cost_false = evaluations_cache.get(gs_false, (None, None, None, (0,0)))[3]
+        expected_cost_true = evaluations_cache.get(gs_true, (None, None, None, (0,0)))[3]
+
+        (ec_rounds, ec_queries) = best_expected_cost_tup
+        self.print_game_state(gs, name=name)
+        print(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
+        print(f"Best move: {mov_to_str(best_mov)}")
+        (r_cost, q_cost) = best_mov_cost_tup
+        print(f"Cost of best move: {r_cost} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
+        print(f"Probability query returns False: {p_false:0.3f}")
+        print(f"Probability query returns True : { p_true:0.3f}")
+
+        print(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds. {expected_cost_false[1]:0.3f} queries.")
+        print(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds. {expected_cost_true[1]:0.3f} queries.")
+        self.print_game_state(gs_false, "Game State if query returns false:")
+        self.print_game_state(gs_true, "Game State if query returns true:")
+        tolerance = .01
+        ec_rounds_calculated = r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0]
+        ec_queries_calculated = q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1]
+        if(abs(ec_rounds - ec_rounds_calculated) > tolerance):
+            print("O noes! But maybe floating point error?")
+            print(f"Difference is: {abs(ec_rounds - ec_rounds_calculated)}")
+            # print(f"Should have been: {(r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0])}.")
+            # print(f"Is              : {ec_rounds}.")
+            exit()
+        if(abs(ec_queries - ec_queries_calculated) > tolerance):
+            print("O noes! But maybe floating point error?")
+            print(f"Difference is: {abs(ec_queries - ec_queries_calculated)}")
+            # print(f"Should have been: {(q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1])}.")
+            # print(f"Is              : {ec_queries}.")
+            exit()
+        return(best_gs_tup)
+
+    def print_game_state(self, gs, name="game_state", active=True):
+        if(not active):
+            return
+        print(f'\n{name}')
+        print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
+        print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
+        print(f"Sorted cwa set:")
+        for (i, cwa) in enumerate([
+            self.solver.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[1])
+        ]):
+            print_combo_with_answer(i, cwa)
+
 def inner_dict_to_string(inner_dict):
     s = '{ '
     for (possibility, combos_list) in inner_dict.items():
@@ -140,77 +211,8 @@ def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rcs_list)
         for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[1], t[0])):
             print(f'{" " * 14} {i}')
 
-def print_game_state(gs, name="game_state", active=True):
-    if(not active):
-        return
-    # global rc_indexes_cwa_to_full_combos_dict # NOTE: use this for debugging session
-    from solver import rc_indexes_cwa_to_full_combos_dict
-    print(f'\n{name}')
-    print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
-    print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
-    print(f"Sorted cwa set:")
-    for (i, cwa) in enumerate([
-        rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[1])
-    ]):
-        print_combo_with_answer(i, cwa)
-
 def mov_to_str(move: tuple):
     return(f"{move[0]} to verifier {string.ascii_uppercase[move[1]]}.")
-
-def print_evaluations_cache_info(gs, name="game state"):
-    """
-    Returns a tuple (gs_false, gs_true) for game states that could result from executing the best query. For use in interactive debugging sessions.
-    NOTE: in interactive debugging session, use like this:
-    (gs_false, gs_true) = display.print_evaluations_cache_info(gs, name)
-    """
-    # global rc_indexes_cwa_to_full_combos_dict # NOTE: use this for debugging session
-    from solver import evaluations_cache
-    # global evaluations_cache
-    (best_mov, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup) = evaluations_cache[gs]
-    (gs_false, gs_true) = best_gs_tup
-    cwa_remaining_if_false = gs_false.fset_cwa_indexes_remaining
-    num_cwa_false = len(cwa_remaining_if_false)
-
-    cwa_remaining_if_true = gs_true.fset_cwa_indexes_remaining
-    num_cwa_true = len(cwa_remaining_if_true)
-
-    num_cwa_now = len(gs.fset_cwa_indexes_remaining)
-    p_true = num_cwa_true / num_cwa_now
-    p_false = num_cwa_false / num_cwa_now
-
-    # Remember that the cache does not contain already-won states.
-    (_, _, _, expected_cost_false) = evaluations_cache.get(gs_false, (None, None, None, (0,0)))
-    (_, _, _, expected_cost_true) = evaluations_cache.get(gs_true, (None, None, None, (0,0)))
-
-    (ec_rounds, ec_queries) = best_expected_cost_tup
-    print_game_state(gs, name=name)
-    print(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
-    print(f"Best move: {mov_to_str(best_mov)}")
-    (r_cost, q_cost) = best_mov_cost_tup
-    print(f"Cost of best move: {r_cost} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
-    print(f"Probability query returns False: {p_false:0.3f}")
-    print(f"Probability query returns True : { p_true:0.3f}")
-
-    print(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds. {expected_cost_false[1]:0.3f} queries.")
-    print(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds. {expected_cost_true[1]:0.3f} queries.")
-    print_game_state(gs_false, "Game State if query returns false:")
-    print_game_state(gs_true, "Game State if query returns true:")
-    tolerance = .01
-    ec_rounds_calculated = r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0]
-    ec_queries_calculated = q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1]
-    if(abs(ec_rounds - ec_rounds_calculated) > tolerance):
-        print("O noes! But maybe floating point error?")
-        print(f"Difference is: {abs(ec_rounds - ec_rounds_calculated)}")
-        # print(f"Should have been: {(r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0])}.")
-        # print(f"Is              : {ec_rounds}.")
-        exit()
-    if(abs(ec_queries - ec_queries_calculated) > tolerance):
-        print("O noes! But maybe floating point error?")
-        print(f"Difference is: {abs(ec_queries - ec_queries_calculated)}")
-        # print(f"Should have been: {(q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1])}.")
-        # print(f"Is              : {ec_queries}.")
-        exit()
-    return(best_gs_tup)
 
 def get_max_string_height_by_depth(tree):
     """

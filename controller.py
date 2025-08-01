@@ -30,9 +30,8 @@ def play_from_solver(s):
     total_queries_made = 0
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     # s.solve()
-    evaluations_cache = s.evaluations_cache
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
-        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = evaluations_cache[current_gs]
+        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
         full_cwa = s.full_cwa_from_game_state(current_gs)
         expected_winning_round = current_round_num + expected_cost_tup[0]
         expected_total_queries = total_queries_made + expected_cost_tup[1]
@@ -196,7 +195,11 @@ f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME
 # Then, can use one of 3 main functions:
 #   1) play(problem)
 #   2) display_problem_solution(problem)
-#   3) get_or_make_solver(problem, pickle_entire, force_overwrite) mainly for debugging/inspection
+#   3) get_or_make_solver(problem, pickle_entire, force_overwrite) mainly for debugging/inspection.
+# NOTE: If a tree is too big to fit on screen of terminal, can use the following command:
+# python controller.py | less -SR -# 3
+
+# less, with the -S option, allows you to scroll horizontally. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 # options
 PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go.
@@ -207,10 +210,6 @@ SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_so
 
 # Playing
 # play(zero_query)
-# play(p1)
-# play(p2)
-# play(c63)
-# play(c46)
 # play(a52)
 
 # Profiling
@@ -220,24 +219,17 @@ SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_so
 # Displaying best move tree
 # display_problem_solution(zero_query)
 # display_problem_solution(p1)
-# display_problem_solution(p2)
-# display_problem_solution(c63)
-# display_problem_solution(c46)
 # display_problem_solution(a52)
-
 
 # Good problems for demonstration purposes:
 # zero_query
 # p2        which is actually harder than any of the "hard" standard modes I've come across
 # c63       multiple combos, same answer
-#           For below get a terminal that has horizontal scroll, so can print the full tree. Look into
-#           Ghostty. Is a terminal w/horizontal scroll.
-#           Ghostty requires upgrade to MacOS.
 # f5x       Nice tree, but turn off tree combo printing. Kinda hard: 180 seconds.
 # f63       Nice tree.      Full combos.
 # f52       Excellent tree. Full combos
+# f43       Large tree. Hardest problem yet, at nearly an hour.
 
-to_display = f43
-to_play = c63
-display_problem_solution(to_display)
-# play(to_play)
+latest = f52
+display_problem_solution(latest, force_overwrite=False)
+# play(latest)

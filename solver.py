@@ -179,7 +179,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
     return(useful_queries_dict)
 
 def fset_answers_from_cwa_iterable(cwa_iterable):
-    return(frozenset([cwa[1] for cwa in cwa_iterable]))
+    return(frozenset([cwa[-1] for cwa in cwa_iterable]))
 
 def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
     """
@@ -248,77 +248,6 @@ def get_and_apply_moves(game_state, qs_dict):
             else:
                 pass # not a useful query
 
-# see get_moves docstring for definitions of move and cost.
-# NOTE: do I actually need current_round_num or total_queries_made parameters in args to below? Yes, for pruning purposes. Or is it? See todo item about pruning.
-def calculate_best_move(
-        qs_dict,               # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
-        game_state,
-        previous_best,         # NOTE: not used currently
-        current_round_num,     # NOTE: not used currently
-        total_queries_made,    # NOTE: not used currently
-        evaluations_cache
-    ):
-    """
-    Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
-    best_move_tup is a tup of (proposal, rc_index)
-    """
-    if(game_state in evaluations_cache):
-        return(evaluations_cache[game_state])
-    if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
-        # don't bother filling up the cache with already-won states.
-        return( (None, None, None, (0,0)) )
-    best_expected_cost_tup = (float('inf'), float('inf'))
-    found_zero_more_round_sol = False
-    exist_moves_that_dont_cost_a_round = False
-    for move_info in get_and_apply_moves(game_state, qs_dict):
-        (move, mcost, gs_tup, p_tup) = move_info
-        if(mcost[0] == 0):
-            exist_moves_that_dont_cost_a_round = True
-        if(exist_moves_that_dont_cost_a_round and (mcost[0] == 1)):
-            # there are moves that don't cost a new round, so don't consider any moves that do cost a round.
-            # NOTE: although this significantly prunes the tree, I'm not convinced this will necessarily find a best move.
-            # TODO: if you want to return early, just break instead of the 3 lines below. Do for 2 other early returns as well. Test.
-            answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
-            evaluations_cache[game_state] = answer
-            return(answer)
-        if(found_zero_more_round_sol and (mcost[0] == 1)): 
-            # have found a 0 round soln, and this move costs a round, and so do all others after it, b/c all moves that cost 0 rounds are yielded before any that cost a round. So return early.
-            answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
-            evaluations_cache[game_state] = answer
-            return(answer)
-        gs_false_expected_cost = calculate_best_move(
-            qs_dict,
-            gs_tup[0],
-            previous_best,
-            current_round_num + mcost[0],
-            total_queries_made + 1,
-            evaluations_cache=evaluations_cache
-        )[3]
-        gs_true_expected_cost = calculate_best_move(
-            qs_dict,
-            gs_tup[1],
-            previous_best,
-            current_round_num + mcost[0],
-            total_queries_made + 1,
-            evaluations_cache=evaluations_cache
-        )[3]
-        gss_costs = (gs_false_expected_cost, gs_true_expected_cost)
-        expected_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
-        if(expected_cost_tup < best_expected_cost_tup):
-            if(expected_cost_tup[0] == 0):
-                found_zero_more_round_sol = True
-            best_expected_cost_tup = expected_cost_tup
-            best_move_tup = move
-            best_mov_cost_tup = mcost
-            best_gs_tup = gs_tup
-            if((expected_cost_tup == (0, 1)) or ((expected_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)): # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
-                answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
-                evaluations_cache[game_state] = answer
-                return(answer)
-    answer = (best_move_tup, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup)
-    evaluations_cache[game_state] = answer
-    return(answer)
-
 def calculate_expected_cost(mcost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = mcost
     (p_false, p_true) = probs
@@ -327,109 +256,115 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
     return((expected_r_cost, expected_q_cost))
 
-
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
 
-
-
-def fset_cwa_indexes_remaining_from_full_cwa(full_cwa, mode=STANDARD):
-    if((mode == STANDARD) or (mode == EXTREME)):
-        fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]), cwa[1]) for cwa in full_cwa]
-        )
-    if(mode == NIGHTMARE):
-        fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]), cwa[1], cwa[2]) for cwa in full_cwa]
+def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
+    fset_cwa_indexes_remaining = frozenset(
+            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
         )
     return(fset_cwa_indexes_remaining)
 
+def make_rcs_list(problem):
+    if((problem.mode == STANDARD) or (problem.mode == NIGHTMARE)):
+        rcs_list = [rules.rcs_deck[num] for num in problem.rc_nums_list]
+    if(problem.mode == EXTREME):
+        rcs_list = [(rules.rcs_deck[problem.rc_nums_list[2 * n]] + rules.rcs_deck[problem.rc_nums_list[(2 * n) + 1]]) for n in range(len(problem.rc_nums_list) // 2)]
+        # deduplicate rules in each rules card, b/c some extreme problems, like F5XTDF, have duplicates
+        for rc_index in range(len(rcs_list)):
+            rc = rcs_list[rc_index]
+            new_rc = []
+            rc_reject_sets_dict = dict() # key: reject set. value: name of the rule with that reject set.
+            for rule in rc:
+                fs_reject_set = frozenset(rule.reject_set)
+                if(fs_reject_set in rc_reject_sets_dict):
+                    print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rc {string.ascii_uppercase[rc_index]}')
+                else:
+                    new_rc.append(rule)
+                    rc_reject_sets_dict[fs_reject_set] = rule.name
+            rcs_list[rc_index] = new_rc
+            # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
+            for (i, r) in enumerate(new_rc):
+                new_rc[i] = Rule(r.name, r.reject_set, r.func, i)
+    return(rcs_list)
+
+def make_full_cwa(problem, rcs_list):
+    possible_combos_with_answers = get_possible_rules_combos_with_answers(rcs_list)
+    if(problem.mode == NIGHTMARE):
+        nightmare_possible_combos_with_answers = []
+        vs = list(range(len(rcs_list))) # vs = [0, 1, 2, . . . for number of verifiers]
+        verifier_permutations = tuple(itertools.permutations(vs))
+        for original_cwa in possible_combos_with_answers:
+            for v_permutation in verifier_permutations:
+                nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
+        possible_combos_with_answers = nightmare_possible_combos_with_answers
+        # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
+    if(not(possible_combos_with_answers)):
+        display.print_problem(rcs_list)
+        print("User error: you have entered a problem which has no valid solutions. Check that you entered the problem in correctly and that you defined the rules correctly in rules.py. Exiting.")
+        exit()
+    return(possible_combos_with_answers)
+
 class Solver:
     def __init__(self, problem):
-        self.problem = problem
-        self.evaluations_cache = None
-        # self.rcs_list
-        # self.initial_game_state
-        # self.qs_dict
-        # self.evaluations_cache set after solving
-        # self.rc_indexes_cwa_to_full_combos_dict (change later)
+        self.problem            = problem
+        self.evaluations_cache  = dict()
+        self.rcs_list           = make_rcs_list(problem)
+        self.full_cwa           = make_full_cwa(problem, self.rcs_list)
+        self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
+        self.qs_dict        = populate_useful_qs_dict(self.rcs_list, all_125_possibilities_set, self.full_cwa)
+        # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.
+        self.rc_indexes_cwa_to_full_combos_dict = {
+            (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
+        }
 
-        # globals for debugging purposes
-        global rc_indexes_cwa_to_full_combos_dict # TODO: remove the global modifier on this after debug. Make this an attribute of the solver.
-        global initial_game_state                 # TODO: remove the global modifier on this after debug
-        global evaluations_cache                  # TODO: remove the global modifier on this after debug
-        evaluations_cache = self.evaluations_cache
-
-        if(problem.mode == STANDARD):
-            self.rcs_list = [rules.rcs_deck[num] for num in problem.rc_nums_list]
-        if(problem.mode == EXTREME):
-            # TODO: make everything inside this if (mode == EXTREME) block a function, to clean up __init__
-            self.rcs_list = [(rules.rcs_deck[problem.rc_nums_list[2 * n]] + rules.rcs_deck[problem.rc_nums_list[(2 * n) + 1]]) for n in range(len(problem.rc_nums_list) // 2)]
-            # deduplicate rules in the rules card, b/c some extreme problems, like F5X TDF, have duplicates
-            for rc_index in range(len(self.rcs_list)):
-                rc = self.rcs_list[rc_index]
-                new_rc = []
-                rc_reject_sets_dict = dict()
-                for rule in rc:
-                    fs_reject_set = frozenset(rule.reject_set)
-                    if(fs_reject_set in rc_reject_sets_dict):
-                        print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rc {string.ascii_uppercase[rc_index]}')
-                    else:
-                        new_rc.append(rule)
-                        rc_reject_sets_dict[fs_reject_set] = rule.name
-                self.rcs_list[rc_index] = new_rc
-                # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
-                for (i, r) in enumerate(new_rc):
-                    new_rc[i] = Rule(r.name, r.reject_set, r.func, i)
-
-        possible_combos_with_answers = get_possible_rules_combos_with_answers(self.rcs_list)
-        if(problem.mode == NIGHTMARE):
-            nightmare_possible_combos_with_answers = []
-            vs = list(range(len(self.rcs_list))) # vs = [0, 1, 2, . . . for number of verifiers]
-            # NOTE: the line 2 above this one, in between the extreme block and the nightmare block, needs to be there.
-            verifier_permutations = tuple(itertools.permutations(vs))
-            for v_permutation in verifier_permutations:
-                for original_cwa in possible_combos_with_answers:
-                    nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
-            possible_combos_with_answers = nightmare_possible_combos_with_answers
-            # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
-
-        if(not(possible_combos_with_answers)):
-            display.print_problem(self.rcs_list)
-            print("User error: you have entered a problem which has no valid solutions. Exiting.")
-            exit()
-        fset_cwa_indexes_remaining = fset_cwa_indexes_remaining_from_full_cwa(possible_combos_with_answers, mode=problem.mode)
-
-        self.rc_indexes_cwa_to_full_combos_dict = {}
-        rc_indexes_cwa_to_full_combos_dict = self.rc_indexes_cwa_to_full_combos_dict
-        for cwa in possible_combos_with_answers:
-            if(problem.mode == NIGHTMARE):
-                dict_key = (tuple([r.card_index for r in cwa[0]]), cwa[1], cwa[2])
-            else:
-                dict_key = (tuple([r.card_index for r in cwa[0]]), cwa[1])
-            rc_indexes_cwa_to_full_combos_dict[dict_key] = cwa
-
-        self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining)
-        self.qs_dict = populate_useful_qs_dict(self.rcs_list, all_125_possibilities_set, possible_combos_with_answers)
+    # see get_moves docstring for definitions of move and cost.
+    # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
+    def calculate_best_move(self, qs_dict, game_state):
+        """
+        Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
+        best_move_tup is a tup of (proposal, rc_index)
+        """
+        if(game_state in self.evaluations_cache):
+            return(self.evaluations_cache[game_state])
+        if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
+            # don't bother filling up the cache with already-won states.
+            return( (None, None, None, (0,0)) )
+        best_expected_cost = (float('inf'), float('inf'))
+        found_zero_more_round_sol = False
+        exist_moves_that_dont_cost_a_round = False
+        for move_info in get_and_apply_moves(game_state, qs_dict):
+            (move, mcost, gs_tup, p_tup) = move_info
+            if(mcost[0] == 0):
+                exist_moves_that_dont_cost_a_round = True
+            if((mcost[0] == 1) and (exist_moves_that_dont_cost_a_round or found_zero_more_round_sol)):
+                # there are moves that don't cost a new round, so don't consider any moves that cost a round.
+                # or have found a 0 round soln, so don't consider any moves that do cost a round.
+                # NOTE: although exist_moves_that_dont_cost_a_round significantly prunes the tree, I'm not convinced this will necessarily find a best move.
+                break
+            gs_false_expected_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
+            gs_true_expected_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
+            gss_costs = (gs_false_expected_cost, gs_true_expected_cost)
+            expected_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
+            if(expected_cost_tup < best_expected_cost):
+                if(expected_cost_tup[0] == 0):
+                    found_zero_more_round_sol = True
+                best_expected_cost = expected_cost_tup
+                best_move = move
+                best_mov_cost = mcost
+                best_gs_tup = gs_tup
+                if((expected_cost_tup == (0, 1)) or ((expected_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)): # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                    break
+        answer = (best_move, best_mov_cost, best_gs_tup, best_expected_cost)
+        self.evaluations_cache[game_state] = answer
+        return(answer)
 
     def solve(self):
         """
-        Evaluations_cache is None if the problem can be solved in 0 queries.
+        Sets up evaluations_cache with the evaluations of all necessary game states.
         """
-        fset_possible_answers = fset_answers_from_cwa_iterable(self.initial_game_state.fset_cwa_indexes_remaining)
-        if(len(fset_possible_answers) > 1):
-            self.evaluations_cache = dict()
-            global evaluations_cache
-            evaluations_cache = self.evaluations_cache
-            calculate_best_move(
-                qs_dict = self.qs_dict,
-                game_state = self.initial_game_state,
-                previous_best = float('inf'),
-                current_round_num = 0,
-                total_queries_made = 0,
-                evaluations_cache = self.evaluations_cache
-            )
+        self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
