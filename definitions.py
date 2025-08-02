@@ -26,8 +26,8 @@ Query_Info = namedtuple(
         'a_info_gain_false',                               # unneeded
         'expected_a_info_gain',                            # unneeded
         'expected_c_info_gain',                            # unneeded
-        'set_indexes_cwa_remaining_true', # set of tuples (rc_indices of the cwa, (answer)).
-        'set_indexes_cwa_remaining_false'
+        'set_indexes_cwa_remaining_true', # corresponds to game state sets of indexes remaining
+        'set_indexes_cwa_remaining_false' # corresponds to game state sets of indexes remaining
     ]
 )
 
@@ -37,6 +37,8 @@ Game_State = namedtuple(
         'num_queries_this_round',
         'proposal_used_this_round',
         'fset_cwa_indexes_remaining', # {((2, 3, 4, 7), 121), ...}
+        # In nightmare mode, each item in fset_cwa_indexes_remaining is:
+        # ((card_indices of rules in combo), (verifier permutation tuple), answer int)
     ]
 )
 
@@ -53,11 +55,16 @@ STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
 
-# rules_card_infos[i] is a dict for the ith rules card in rules_cards_list. That dict is:
+# rules_card_infos[i] is a dict for the ith verifier (which, in a non-nightmare game, corresponds to the ith rules card in rules_cards_list). That dict is:
+
 # rules_card_infos[i] = {
-#   key = rule_index (index within card of a possible rule that the ith card could be) : val = {
-#      key = possible answer int for that rules_card_index :
-#       val = [all rule combos that correspond to that answer tuple and rules_card_index]
+#   outer_key = rule_index (index within card of a possible rule that the ith card could be):
+#   if nightmare mode, key = (corresponding_rc_index, rule_index). corresponding_rc_index is an index of a rule card that this verifier card could correspond to, and rule_index is the index of a rule on that card that this verifier could be verifying.
+#   val = {
+#       key = possible answer int that could be the case if the verifier is checking for the rule given by the outer key :
+#       val = [all rule combos that correspond to that answer tuple and outer_key]
+#             in nightmare mode, each item in above list is a tuple of (combo, permutation)
+#             otherwise, each list item is just the combo
 #   }
 # }
 

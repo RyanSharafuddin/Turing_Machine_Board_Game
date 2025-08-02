@@ -1,8 +1,9 @@
 import string
-import rules
 from collections import deque
 from PrettyPrint import PrettyPrintTree
-import colorama
+# import colorama
+import rules
+from definitions import NIGHTMARE
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -17,30 +18,41 @@ def rules_list_to_names(rl, pad=True):
     pad_spaces = rules.max_rule_name_length if(pad) else 0
     names = [f'{r.name:<{pad_spaces}}' for r in rl]
     return(', '.join(names))
-def print_all_possible_answers(message, possible_combos_with_answers):
+def print_all_possible_answers(message, possible_combos_with_answers, mode):
     """
     The difference between this and print_list_combos is that this prints each unique answer only once, and, following each unique answer, is a list of all rules combinations that lead to that answer. In print_list_combos, an answer is printed multiple times if it shows up in multiple combos.
     """
-    (combos, answers) = zip(*possible_combos_with_answers)
+    unzipped_cwa = list(zip(*possible_combos_with_answers))
+    (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
     set_possible_answers = set(answers)
     print(message)
+    print(f"Answer number, answer, rules names, rule_indices within card, verifier permutation (if nightmare mode)")
     final_answer = (len(set_possible_answers) == 1)
     multiple_combo_spacing = 7 if final_answer else 9
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
-        relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
+        if(mode == NIGHTMARE):
+            relevant_combos = [(c, p) for (c, p, a) in possible_combos_with_answers if (a == possible_answer)]
+        else:
+            relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
         answer_number_str = '    ' if final_answer else f'{answer_index:>3}: '
-        print(f"{answer_number_str}{possible_answer} {rules_list_to_names(relevant_combos[0])} {[r.card_index for r in relevant_combos[0]]}")
+        zeroth_rules_list = relevant_combos[0][0] if(mode == NIGHTMARE) else relevant_combos[0]
+        zeroth_permutation = relevant_combos[0][1] if(mode == NIGHTMARE) else ""
+        print(f"{answer_number_str}{possible_answer} {rules_list_to_names(zeroth_rules_list)} {[r.card_index for r in zeroth_rules_list]} {zeroth_permutation}")
         for c in relevant_combos[1:]:
-            print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(c)} {[r.card_index for r in c]}")
-def print_final_answer(message, cwas):
+            rules_list = c[0] if (mode == NIGHTMARE) else c
+            permutation = c[1] if(mode == NIGHTMARE) else ""
+            print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(rules_list)} {[r.card_index for r in rules_list]} {permutation}")
+def print_final_answer(message, cwas, mode):
     # NOTE: it's possible that there are multiple possible combinations that lead to this answer, and the program has not figured out which rule combination is actually the case (since the goal is only to figure out the answer). Therefore, print *all* rule combinations that could be true, from the program's perspective.
-    answer = cwas[0][1]
-    (combos, _) = zip(*cwas)
+    answer = cwas[0][-1]
+    unzipped_cwa = list(zip(*cwas))
+    (combos, permutations) = [unzipped_cwa[i] for i in (0, 1)]
     print(message, end="")
     print(answer)
-    for c in combos:
-        print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}")
-def print_list_cwa(cwa, message = "", use_round_indent=False, active=True):
+    for (index, c) in enumerate(combos):
+        permutation_string = f", permutation: {permutations[index]}" if(mode == NIGHTMARE) else ''
+        print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}{permutation_string}")
+def print_list_cwa(cwa, mode, message = "", use_round_indent=False, active=True):
     if(not active):
         return
     indent = ROUND_INDENT if(use_round_indent) else ""
@@ -48,12 +60,13 @@ def print_list_cwa(cwa, message = "", use_round_indent=False, active=True):
         indent = '\n' + indent
         message = message[1:]
     print(indent + message)
-    for (i, cwa) in enumerate(sorted(cwa, key=lambda t:t[1])):
-        print_combo_with_answer(i, cwa, use_round_indent)
-def print_combo_with_answer(combo_with_answer_index, combo_with_answer, use_round_indent=False):
+    for (i, cwa) in enumerate(sorted(cwa, key=lambda t:t[-1])):
+        print_combo_with_answer(i, cwa, mode, use_round_indent)
+def print_combo_with_answer(combo_with_answer_index, combo_with_answer, mode, use_round_indent=False):
     indent = ROUND_INDENT if(use_round_indent) else ""
-    (possible_combo, possible_answer) = combo_with_answer
-    print(f'{indent}{combo_with_answer_index + 1:>3}: {possible_answer} {rules_list_to_names(possible_combo)}, rules_card_indices: {[r.card_index for r in possible_combo]}')
+    (combo, permutation, answer) = [combo_with_answer[i] for i in (0, 1, -1)]
+    permutation_string = f", permutation: {permutation}" if(mode == NIGHTMARE) else ''
+    print(f'{indent}{combo_with_answer_index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
 def print_problem(rcs_list, problem, active=True):
     modes = ["Standard", "Extreme", "Nightmare"]
     if(active):
@@ -156,22 +169,33 @@ class Solver_Displayer:
         print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
         print(f"Sorted cwa set:")
         for (i, cwa) in enumerate([
-            self.solver.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[1])
+            self.solver.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[-1])
         ]):
-            print_combo_with_answer(i, cwa)
+            print_combo_with_answer(i, cwa, self.solver.problem.mode)
 
-def inner_dict_to_string(inner_dict):
+def rc_infos_inner_dict_to_string(inner_dict, mode):
     s = '{ '
-    for (possibility, combos_list) in inner_dict.items():
-        s += f'{possibility}: {[[r.card_index for r in combo] for combo in combos_list]} '
-    s += '}'
+    for (possibility, inner_list) in inner_dict.items():
+        if(mode == NIGHTMARE):
+            inner_list_to_print = [([r.card_index for r in combo], permutation) for (combo, permutation) in inner_list]
+        else:
+            inner_list_to_print = [[r.card_index for r in combo] for combo in inner_list]
+        inner_list_item_indent_str = "\n" + (' ' * 12)
+        inner_list_str = inner_list_item_indent_str.join([str(item) for item in inner_list_to_print])
+        s += f'\n        {possibility}:{inner_list_item_indent_str}{inner_list_str} '
+    s += '\n    }'
     return(s)
 
-def print_rc_info(rc_infos, rc_index):
+def print_rc_info(rc_infos, rc_index, mode):
     rc_info = rc_infos[rc_index]
-    print(f'\nrules card {rc_index}:' + ' {')
-    for (rule_index_within_card, inner_dict) in rc_info.items():
-            print(f'    possible rule index: {rule_index_within_card}: {inner_dict_to_string(inner_dict)}')
+    print(f'\nVerifier {string.ascii_uppercase[rc_index]}:' + ' {')
+    for (outer_dict_key, inner_dict) in rc_info.items():
+            if(mode == NIGHTMARE):
+                (rc_num, rule_index) = outer_dict_key
+                outer_key_str = f"\n    Rule Card {string.ascii_uppercase[rc_num]}, Rule Index {rule_index} :"
+            else:
+                outer_key_str = f"\n    Rule Index {outer_dict_key} :"
+            print(f'    {outer_key_str} {rc_infos_inner_dict_to_string(inner_dict, mode)}')
     print('}')
 
 def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rcs_list):
@@ -199,17 +223,19 @@ def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rcs_list)
         print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
         print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
         print(f'{" " * 8} Combos remaining if query returns True:')
+        # TODO: replace code below with print_list_cwa
         for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_true, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
             print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
-        for i in sorted(q_info.set_indexes_cwa_remaining_true, key=lambda t:(t[1], t[0])):
+        for i in sorted(q_info.set_indexes_cwa_remaining_true, key=lambda t:(t[-1], t[0])):
             print(f'{" " * 14} {i}')
         print()
         print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
         print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
         print(f'{" " * 8} Combos remaining if query returns False:')
+        # TODO: replace code below with print_list_cwa
         for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_false, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
             print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
-        for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[1], t[0])):
+        for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[-1], t[0])):
             print(f'{" " * 14} {i}')
 
 def mov_to_str(move: tuple):
@@ -360,7 +386,6 @@ def node_to_str(tree):
             node_str = f"{nl.join(lines)}"
             return(node_str)
     else: # leaf node
-        # NOTE: consider displaying the combos remaining as well
         l = list(tree.gs.fset_cwa_indexes_remaining)
         answer = l[0][1]
         return(answer)

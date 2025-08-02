@@ -44,42 +44,58 @@ def get_possible_rules_combos_with_answers(rules_cards_list):
     all_rules_combos = get_all_rules_combinations(rules_cards_list)
     return([(c, a) for (c,a) in [(c, is_combo_possible(c)) for c in all_rules_combos] if(a is not None)])
 
-def make_rc_infos(num_rcs, possible_combos_with_answers):
+def make_rc_infos(num_rcs, possible_combos_with_answers, mode):
     """ O(n) in length of possible_combos_with_answers """
     rc_infos = [dict() for _ in range(num_rcs)]
-    for (c, a) in possible_combos_with_answers:
-        for (rc_index, rule) in enumerate(c):
-            rc_info_dict = rc_infos[rc_index]
-            if(rule.card_index in rc_info_dict):
-                this_rule_s_inner_dict = rc_info_dict[rule.card_index]
+    for cwa in possible_combos_with_answers:
+        (c, p, a) = (cwa[0], cwa[1], cwa[-1]) # p is permutation if mode is NIGHTMARE
+        for (verifier_index, rule) in enumerate(c):
+            rc_info_dict = rc_infos[verifier_index]
+            # in NIGHTMARE mode, the outer key is a tuple of ints
+            # outer key = (index of the rc this verifier corresponds to, index of the rule within that rc)
+            # otherwise, it's just an int that is the index of the rule within that rc
+            outer_key = (p[verifier_index], c[p[verifier_index]].card_index) if (mode == NIGHTMARE) else rule.card_index
+            inner_val_list_item = (c, p) if (mode == NIGHTMARE) else c
+            if(outer_key in rc_info_dict):
+                this_rule_s_inner_dict = rc_info_dict[outer_key]
                 if(a) in this_rule_s_inner_dict:
-                    this_rule_s_inner_dict[a].append(c)
+                    this_rule_s_inner_dict[a].append(inner_val_list_item)
                 else:
-                    this_rule_s_inner_dict[a] = [c]
+                    this_rule_s_inner_dict[a] = [inner_val_list_item]
             else:
-                rc_info_dict[rule.card_index] = {a: [c]}
+                rc_info_dict[outer_key] = {a: [inner_val_list_item]}
     return(rc_infos)
 
 def get_unsolved_rules_card_indices(rc_infos):
     unsolved_rc_indices = [rc_index for (rc_index, rc_info) in enumerate(rc_infos) if(len(rc_info) > 1)]
     return(unsolved_rc_indices)
 
-def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos_with_answers):
+def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos_with_answers, mode):
     useful_queries_dict = dict()
-    rc_infos = make_rc_infos(len(rcs_list), possible_combos_with_answers)
-    (possible_combos, possible_answers) = zip(*possible_combos_with_answers)
+    rc_infos = make_rc_infos(len(rcs_list), possible_combos_with_answers, mode)
+    unzipped_full_cwa = list(zip(*possible_combos_with_answers))
+    (possible_combos, possible_permutations, possible_answers) = [unzipped_full_cwa[i] for i in (0, 1, -1)]
+    # NOTE: possible_permutations should only be used if mode is NIGHTMARE
+
+    # TODO: delete testing lines from here down to exit()
+    for rc_index in range(len(rcs_list)):
+        display.print_rc_info(rc_infos, rc_index, mode)
+    exit()
+    # END delete testing lines
+
     set_possible_answers = frozenset(possible_answers)
     current_num_possible_combos = len(possible_combos)
     current_num_possible_answers = len(set_possible_answers)
+    # TODO: rename unsolved_card_index to unsolved_verifier_index. And rename get_unsolved_rules_card_indices to get_unsolved_verifier_indices.
     for unsolved_card_index in get_unsolved_rules_card_indices(rc_infos):
-        corresponding_rc = rcs_list[unsolved_card_index]
+        corresponding_rc = rcs_list[unsolved_card_index] # TODO: nightmare mode changes here, since in nightmare mode, the rc that corresponds to the verifier may not be this. corresponding_rc is only used in order to make possible_rules_this_card
         corresponding_rc_info = rc_infos[unsolved_card_index]
-        possible_rules_this_card = [
+        possible_rules_this_card = [ # TODO: whatever changes make here, also make to display.print_useful_qs_dict_info
             corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
         ]
         for possible_query in all_125_possibilities_set:
-            possible_accepting_rules_card_indices = set()
-            possible_rejecting_rules_card_indices = set()
+            possible_accepting_rules_card_indices = set() # TODO: change card_indices name to rule_identifier, since in nightmare mode, the rule will be identified by both its index within the card and its rules_card index within the rcs list.
+            possible_rejecting_rules_card_indices = set() # TODO: change card_indices name to rule_identifier, since in nightmare mode, the rule will be identified by both its index within the card and its rules_card index within the rcs list.
             for possible_rule in possible_rules_this_card:
                 if(possible_query in possible_rule.reject_set):
                     possible_rejecting_rules_card_indices.add(possible_rule.card_index)
@@ -309,11 +325,20 @@ class Solver:
         self.rcs_list           = make_rcs_list(problem)
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
-        self.qs_dict        = populate_useful_qs_dict(self.rcs_list, all_125_possibilities_set, self.full_cwa)
+
+        # TODO delete testing lines below
+        display.print_problem(self.rcs_list, problem)
+        display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode)
+        # END delete testing lines
+
+        self.qs_dict        = populate_useful_qs_dict(
+            self.rcs_list, all_125_possibilities_set, self.full_cwa, problem.mode
+        )
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.
         self.rc_indexes_cwa_to_full_combos_dict = {
             (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
         }
+
 
     # see get_moves docstring for definitions of move and cost.
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
