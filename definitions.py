@@ -59,7 +59,7 @@ NIGHTMARE = 2
 
 # rules_card_infos[i] = {
 #   outer_key = rule_index (index within card of a possible rule that the ith card could be):
-#   if nightmare mode, key = (corresponding_rc_index, rule_index). corresponding_rc_index is an index of a rule card that this verifier card could correspond to, and rule_index is the index of a rule on that card that this verifier could be verifying.
+#   if nightmare mode, outer_key = (corresponding_rc_index, rule_index). corresponding_rc_index is an index of a rule card that this verifier card could correspond to, and rule_index is the index of a rule on that card that this verifier could be verifying.
 #   val = {
 #       key = possible answer int that could be the case if the verifier is checking for the rule given by the outer key :
 #       val = [all rule combos that correspond to that answer tuple and outer_key]

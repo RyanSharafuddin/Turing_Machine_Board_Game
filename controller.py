@@ -185,7 +185,7 @@ f63 = Problem([15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3], "F63EZQM", solve
 f52 = Problem([15, 16, 23,  8, 46, 13, 34, 17, 9, 37]         , "F52LUJG", solver.EXTREME) # "Hard".
 
 
-p1_nightmare  = Problem([ 4,  9, 11, 14],                 "1", solver.NIGHTMARE)
+p1_nightmare  = Problem([ 4,  9, 11, 14],               "1_N", solver.NIGHTMARE)
 p2_nightmare  = Problem([ 3,  7, 10, 14],               "2_N", solver.NIGHTMARE)
 c63_nightmare = Problem([ 9, 22, 24, 31, 37, 40],   "C630YVB", solver.NIGHTMARE)      # Interesting b/c multiple combos lead to same answer here.
 

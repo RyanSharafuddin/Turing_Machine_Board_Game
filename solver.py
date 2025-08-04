@@ -66,9 +66,9 @@ def make_rc_infos(num_rcs, possible_combos_with_answers, mode):
                 rc_info_dict[outer_key] = {a: [inner_val_list_item]}
     return(rc_infos)
 
-def get_unsolved_rules_card_indices(rc_infos):
-    unsolved_rc_indices = [rc_index for (rc_index, rc_info) in enumerate(rc_infos) if(len(rc_info) > 1)]
-    return(unsolved_rc_indices)
+def get_unsolved_verifier_indices(rc_infos):
+    unsolved_verifier_indices = [verifier_index for (verifier_index, rc_info) in enumerate(rc_infos) if(len(rc_info) > 1)]
+    return(unsolved_verifier_indices)
 
 def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos_with_answers, mode):
     useful_queries_dict = dict()
@@ -86,17 +86,20 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
     set_possible_answers = frozenset(possible_answers)
     current_num_possible_combos = len(possible_combos)
     current_num_possible_answers = len(set_possible_answers)
-    # TODO: rename unsolved_card_index to unsolved_verifier_index. And rename get_unsolved_rules_card_indices to get_unsolved_verifier_indices.
-    for unsolved_card_index in get_unsolved_rules_card_indices(rc_infos):
-        corresponding_rc = rcs_list[unsolved_card_index] # TODO: nightmare mode changes here, since in nightmare mode, the rc that corresponds to the verifier may not be this. corresponding_rc is only used in order to make possible_rules_this_card
-        corresponding_rc_info = rc_infos[unsolved_card_index]
-        possible_rules_this_card = [ # TODO: whatever changes make here, also make to display.print_useful_qs_dict_info
-            corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
-        ]
+    for unsolved_verifier_index in get_unsolved_verifier_indices(rc_infos):
+        if(mode == NIGHTMARE):
+            
+            pass
+        else:
+            corresponding_rc = rcs_list[unsolved_verifier_index] # TODO: nightmare mode changes here, since in nightmare mode, the rc that corresponds to the verifier may not be this. corresponding_rc is only used in order to make possible_rules_this_card
+            corresponding_rc_info = rc_infos[unsolved_verifier_index]
+            possible_rules_this_verifier = [ # TODO: whatever changes make here, also make to display.print_useful_qs_dict_info
+                corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
+            ]
         for possible_query in all_125_possibilities_set:
             possible_accepting_rules_card_indices = set() # TODO: change card_indices name to rule_identifier, since in nightmare mode, the rule will be identified by both its index within the card and its rules_card index within the rcs list.
             possible_rejecting_rules_card_indices = set() # TODO: change card_indices name to rule_identifier, since in nightmare mode, the rule will be identified by both its index within the card and its rules_card index within the rcs list.
-            for possible_rule in possible_rules_this_card:
+            for possible_rule in possible_rules_this_verifier:
                 if(possible_query in possible_rule.reject_set):
                     possible_rejecting_rules_card_indices.add(possible_rule.card_index)
                 else:
@@ -110,9 +113,9 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                 possible_combos_with_answers_remaining_if_false = []
                 for combo_with_answer in possible_combos_with_answers:
                     (possible_combo, possible_answer) = combo_with_answer
-                    if (possible_combo[unsolved_card_index].card_index in possible_accepting_rules_card_indices):
+                    if (possible_combo[unsolved_verifier_index].card_index in possible_accepting_rules_card_indices):
                         possible_combos_with_answers_remaining_if_true.append(combo_with_answer)
-                    elif(possible_combo[unsolved_card_index].card_index in possible_rejecting_rules_card_indices):
+                    elif(possible_combo[unsolved_verifier_index].card_index in possible_rejecting_rules_card_indices):
                         possible_combos_with_answers_remaining_if_false.append(combo_with_answer)
                     else:
                         print("Teh program is broken if this happens")
@@ -182,14 +185,14 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                 )
                 if(possible_query in useful_queries_dict):
                     inner_dict = useful_queries_dict[possible_query]
-                    if(unsolved_card_index in inner_dict):
+                    if(unsolved_verifier_index in inner_dict):
                         print("This shouldn't happen, because you're going over every card/every possible query to that card only once.")
                         exit()
                     else:
-                        inner_dict[unsolved_card_index] = query_info
+                        inner_dict[unsolved_verifier_index] = query_info
                 else:
                     useful_queries_dict[possible_query] = {
-                        unsolved_card_index: query_info
+                        unsolved_verifier_index: query_info
                     }
         # display.print_useful_qs_dict_info(useful_queries_dict, unsolved_card_index, rc_infos, rcs_list)
     return(useful_queries_dict)
