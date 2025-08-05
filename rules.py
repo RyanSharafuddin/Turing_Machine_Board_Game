@@ -312,9 +312,12 @@ max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_dec
 # longest_rule_name = max([max([(len(r.__name__), r.__name__) for r in rc]) for rc in rcs_deck.values()])[1]
 # print(longest_rule_name, max_rule_name_length)
 # card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
+unique_id = -1
 def _func_to_Rule(func, card_index):
     reject_set = {p for p in all_125_possibilities_set if not(func(*(int_to_tri_sq_ci_tuple(p))))}
-    return(Rule(func.__name__, reject_set, func, card_index))
+    global unique_id
+    unique_id += 1
+    return(Rule(func.__name__, reject_set, func, card_index, unique_id))
 
 for (rule_card_num, rule_card) in rcs_deck.items():
     rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]

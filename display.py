@@ -52,7 +52,7 @@ def print_final_answer(message, cwas, mode):
     for (index, c) in enumerate(combos):
         permutation_string = f", permutation: {permutations[index]}" if(mode == NIGHTMARE) else ''
         print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}{permutation_string}")
-def print_list_cwa(cwa, mode, message = "", use_round_indent=False, active=True):
+def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
     if(not active):
         return
     indent = ROUND_INDENT if(use_round_indent) else ""
@@ -60,10 +60,12 @@ def print_list_cwa(cwa, mode, message = "", use_round_indent=False, active=True)
         indent = '\n' + indent
         message = message[1:]
     print(indent + message)
-    for (i, cwa) in enumerate(sorted(cwa, key=lambda t:t[-1])):
-        print_combo_with_answer(i, cwa, mode, use_round_indent)
-def print_combo_with_answer(combo_with_answer_index, combo_with_answer, mode, use_round_indent=False):
-    indent = ROUND_INDENT if(use_round_indent) else ""
+    sort_key = (lambda t: (t[2], t[1], [r.card_index for r in t[0]])) if (mode == NIGHTMARE) else \
+        (lambda t: (t[-1], [r.card_index for r in t[0]]))
+    for (i, cwa) in enumerate(sorted(cwas, key=sort_key)):
+        print_combo_with_answer(i, cwa, mode, use_round_indent, custom_indent=custom_indent)
+def print_combo_with_answer(combo_with_answer_index, combo_with_answer, mode, use_round_indent=False, custom_indent=0):
+    indent = ROUND_INDENT if(use_round_indent) else (" " * custom_indent)
     (combo, permutation, answer) = [combo_with_answer[i] for i in (0, 1, -1)]
     permutation_string = f", permutation: {permutation}" if(mode == NIGHTMARE) else ''
     print(f'{indent}{combo_with_answer_index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
@@ -173,6 +175,85 @@ class Solver_Displayer:
         ]):
             print_combo_with_answer(i, cwa, self.solver.problem.mode)
 
+    @staticmethod
+    def get_rl_by_card_dict(rcs_list, rc_infos, v_index):
+        """
+        In nightmare mode, given the rcs_list, the rc_infos (which can be obtained from the solver class static method) and a verifier index, returns a dictionary where the keys are the rc_indexes of rules cards this verifier could correspond to, and the values are lists of rules within this rules card that the verifier could be checking.
+        """
+        corresponding_rc_info = rc_infos[v_index]
+        rules_list_by_corresponding_card_dict = dict()
+        for (rc_index, rule_index) in corresponding_rc_info.keys():
+            rule = rcs_list[rc_index][rule_index]
+            if(rc_index in rules_list_by_corresponding_card_dict):
+                rules_list_by_corresponding_card_dict[rc_index].append(rule)
+            else:
+                rules_list_by_corresponding_card_dict[rc_index] = [rule]
+        for rc_index in rules_list_by_corresponding_card_dict:
+            rules_list_by_corresponding_card_dict[rc_index].sort(key=lambda r: r.card_index)
+        return(rules_list_by_corresponding_card_dict)
+
+    @staticmethod
+    def print_rules_this_verifier(rl_by_card_dict, v_index, include_v_name=True):
+        """
+        Given a dict from the get_rl_by_card_dict function and a verifier index, prints out a list of all the rules this verifier could correspond to. Mainly used in print_useful_qs_dict.
+        """
+        if(include_v_name):
+            print(f"\nFor Verifier {string.ascii_uppercase[v_index]}:")
+        for (rc_index, rule_list) in sorted(rl_by_card_dict.items()):
+            print(f"    Rule Card {string.ascii_uppercase[rc_index]}: {rules_list_to_names(rule_list)}")
+
+    def print_useful_qs_dict_info(self, useful_qs_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=True):
+        """
+        Displays all information in the useful_queries_dict about a specific rules card. Note: will need the rc_infos used to make the useful_queries_dict, and the rc_list.
+        """
+        q_dict_this_card = dict()
+        for (q, inner_dict) in sorted(useful_qs_dict.items()):
+            if(v_index in inner_dict):
+                q_info = inner_dict[v_index]
+                q_dict_this_card[q] = q_info
+        corresponding_rc_info = rc_infos[v_index]
+        if(mode == NIGHTMARE):
+            rules_list_by_corresponding_card_dict = self.get_rl_by_card_dict(rcs_list, rc_infos, v_index)
+            self.print_rules_this_verifier(rules_list_by_corresponding_card_dict, v_index)
+        else:
+            possible_rules_this_verifier = \
+                [rcs_list[v_index][rule_index] for rule_index in corresponding_rc_info.keys()]
+            possible_rules_this_verifier.sort(key = lambda r: r.card_index)
+            print(f'\nFor Verifier {string.ascii_uppercase[v_index]}. Possible rules: {rules_list_to_names(possible_rules_this_verifier)}')
+
+        print(f"# useful queries this card: {len(q_dict_this_card)}")
+        for (q, q_info) in sorted(q_dict_this_card.items()):
+            print(f"\n{(' ' * 0)}{q} {string.ascii_uppercase[v_index]}") # print query
+
+            # print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
+            # print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
+            # print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
+
+            custom_indent = 4
+            message_indent = 4
+            (full_cwa_false, full_cwa_true) = \
+                [[self.solver.rc_indexes_cwa_to_full_combos_dict[indexes] for indexes in q_info_set_indexes] for q_info_set_indexes in (q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true)]
+
+            if(mode == NIGHTMARE):
+                (rc_infos_false, rc_infos_true) = [self.solver.make_rc_infos(len(rcs_list), cwa, NIGHTMARE) for cwa in (full_cwa_false, full_cwa_true)]
+                (rlbccd_false, rlbccd_true) = [self.get_rl_by_card_dict(rcs_list, rc_info, v_index) for rc_info in (rc_infos_false, rc_infos_true)]
+                print(f"Possible rules if query returns True:")
+                self.print_rules_this_verifier(rlbccd_true, v_index, include_v_name=False)
+
+                print(f"\nPossible rules if query returns False:")
+                self.print_rules_this_verifier(rlbccd_false, v_index, include_v_name=False)
+
+            if(see_all_combos):
+                print_list_cwa(full_cwa_true, mode, f'\n{" " * message_indent}Combos remaining if query returns True:', custom_indent=custom_indent)
+
+                # print()
+                # print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
+                # print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
+
+                print_list_cwa(full_cwa_false, mode, f'\n{" " * message_indent}Combos remaining if query returns False:', custom_indent=custom_indent)
+
+
+
 def rc_infos_inner_dict_to_string(inner_dict, mode):
     s = '{ '
     for (possibility, inner_list) in inner_dict.items():
@@ -198,45 +279,6 @@ def print_rc_info(rc_infos, rc_index, mode):
             print(f'    {outer_key_str} {rc_infos_inner_dict_to_string(inner_dict, mode)}')
     print('}')
 
-def print_useful_qs_dict_info(useful_queries_dict, rc_index, rc_infos, rcs_list):
-    """
-    Displays all information in the useful_queries_dict about a specific rules card. Note: will need the rc_infos used to make the useful_queries_dict, and the rc_list.
-    """
-    q_dict_this_card = dict()
-    corresponding_rc = rcs_list[rc_index]
-    corresponding_rc_info = rc_infos[rc_index]
-    possible_rules_this_card = [
-        corresponding_rc[possible_rule_index] for possible_rule_index in corresponding_rc_info.keys()
-    ]
-    print()
-    for q in sorted(useful_queries_dict.keys()):
-        inner_dict = useful_queries_dict[q]
-        if(rc_index in useful_queries_dict[q]):
-            q_info = inner_dict[rc_index]
-            q_dict_this_card[q] = q_info
-    print(f'For card {string.ascii_uppercase[rc_index]}. Possible rules: {rules_list_to_names(possible_rules_this_card)}')
-    print(f"# useful queries this card: {len(q_dict_this_card)}")
-    for q in sorted(q_dict_this_card.keys()):
-        q_info = q_dict_this_card[q]
-        print(f"{(' ' * 4)}{q}")
-        print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
-        print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
-        print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
-        print(f'{" " * 8} Combos remaining if query returns True:')
-        # TODO: replace code below with print_list_cwa
-        for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_true, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
-            print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
-        for i in sorted(q_info.set_indexes_cwa_remaining_true, key=lambda t:(t[-1], t[0])):
-            print(f'{" " * 14} {i}')
-        print()
-        print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
-        print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
-        print(f'{" " * 8} Combos remaining if query returns False:')
-        # TODO: replace code below with print_list_cwa
-        for (i, (combo, answer)) in enumerate(sorted(q_info.possible_combos_with_answers_remaining_if_false, key=lambda t:(t[1], tuple([r.card_index for r in t[0]]))), start=1):
-            print(f'{" " * 12} {i:>3}: {answer} {rules_list_to_names(combo)}, {tuple([r.card_index for r in combo])}')
-        for i in sorted(q_info.set_indexes_cwa_remaining_false, key=lambda t:(t[-1], t[0])):
-            print(f'{" " * 14} {i}')
 
 def mov_to_str(move: tuple):
     return(f"{move[0]} to verifier {string.ascii_uppercase[move[1]]}.")
@@ -387,7 +429,7 @@ def node_to_str(tree):
             return(node_str)
     else: # leaf node
         l = list(tree.gs.fset_cwa_indexes_remaining)
-        answer = l[0][1]
+        answer = l[0][-1]
         return(answer)
 
 def print_best_move_tree(gs, show_combos, solver):
