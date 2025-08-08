@@ -367,6 +367,7 @@ class Solver:
         """
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
+        # TODO: consider replacing with a function called one_aanswer_left(cwa_indexes_remaining) that merely returns a boolean for whether there's exactly one answer left. May save time over making an entire set, b/c can stop once encounter the first repeat. Maybe use numpy arrays and see if that provides any speedup? i.e. each cwa_indexes remaining is just a numpy array of booleans of length (len(full_cwa)), and the boolean at index i is true if the ith cwa is still there, and false otherwise, and can then use np.and to intersect sets and np.count (or something) to see if there's one left? Profile and see if this saves time.
         if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
             # don't bother filling up the cache with already-won states.
             return( (None, None, None, (0,0)) )

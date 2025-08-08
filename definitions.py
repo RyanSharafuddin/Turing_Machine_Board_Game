@@ -45,8 +45,8 @@ Game_State = namedtuple(
 Problem = namedtuple(
     'Problem',
     [
-        'rc_nums_list',
         'identity',     # This is the full ID, without spaces, from the website. string.
+        'rc_nums_list',
         'mode',         # 0, 1, or 2 for standard, extreme, or nightmare.
     ]
 )

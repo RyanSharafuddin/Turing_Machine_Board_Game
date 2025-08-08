@@ -305,11 +305,11 @@ def get_max_string_height_by_depth(tree):
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
-    solver = None               # Now the Tree class has access to the solver used to create all its info.
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.
     def __init__(
             self,
             gs,
+            solver,
             prob=1.0,
             cost_to_get_here=(0, 0),
             depth=0,
@@ -318,6 +318,7 @@ class Tree:
     ):
         # prob is the probability of getting to this gs from the query above it in the best move tree
         self.gs = gs
+        self.solver = solver
         self.prob = prob
         self.cost_to_get_here = cost_to_get_here
         # self.num_newlines = num_newlines
@@ -341,8 +342,8 @@ def get_children_multi_move(tree):
         raise Exception("Unimplemented")
     else:
         # tree is type game state
-        if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
-            result = Tree.solver.evaluations_cache.get(tree.gs)
+        if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
+            result = tree.solver.evaluations_cache.get(tree.gs)
             if(result is not None):
                 (best_move, best_move_cost, gs_tup, total_expected_cost) = result
                 current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
@@ -354,7 +355,7 @@ def get_children_multi_move(tree):
                 raise Exception("Unimplemented")
                 m = Tree(gs=tree.gs, cost_to_get_here=tree.cost_to_get_here, tree_type='move', move=best_move)
                 # return a list of several moves that lead to different evaluations, if there are any
-                # TODO: use the Tree.solver to get some other useful moves that lead to different tree shapes than the best move, get their costs and resulting gs_tups and probabilities, and return some children moves that you want to see. Pretty sure you can do this with get_and_apply_moves.
+                # TODO: use the tree.solver to get some other useful moves that lead to different tree shapes than the best move, get their costs and resulting gs_tups and probabilities, and return some children moves that you want to see. Pretty sure you can do this with get_and_apply_moves.
                 return[m]
         # finished game; no children. This is an answer node
         return([])
@@ -369,8 +370,8 @@ def node_to_str_multi_move(tree):
     raise Exception("Unimplemented")
 
 def get_children(tree):
-    if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
-        result = Tree.solver.evaluations_cache.get(tree.gs)
+    if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
+        result = tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
             current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
@@ -381,6 +382,7 @@ def get_children(tree):
             children = [
                 Tree(
                     gs=gs_tup[i],
+                    solver=tree.solver,
                     prob=prob_tup[i],
                     cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost),
                     depth=tree.depth+1
@@ -392,8 +394,8 @@ def node_to_str(tree):
     nl = '\n'
     rcs_lengths = [len(rc) for rc in tree.solver.rcs_list]
     chars_to_print = [2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to print.
-    if((Tree.solver.evaluations_cache is not None) and (tree.gs in Tree.solver.evaluations_cache)):
-        result = Tree.solver.evaluations_cache.get(tree.gs)
+    if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
+        result = tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None): # internal node
             # NOTE: consider displaying cost of this move, either in edge or in node.
             combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
@@ -427,7 +429,6 @@ def node_to_str(tree):
             )
             max_line_length = max([len(l) for l in lines])
             lines = [f"{l:^{max_line_length}}" for l in lines]
-            # lines = lines[1:] if tree.prob == 1 else lines # don't print prob = 1.000 for initial state
             node_str = f"{nl.join(lines)}"
             return(node_str)
     else: # leaf node
@@ -438,8 +439,7 @@ def node_to_str(tree):
 def print_best_move_tree(gs, show_combos, solver):
     print()
     Tree.show_combos_in_tree = show_combos
-    Tree.solver = solver
-    tree = Tree(gs)
+    tree = Tree(gs=gs, solver=solver)
     Tree.max_combos_by_depth = get_max_string_height_by_depth(tree)
     pt = PrettyPrintTree(get_children, node_to_str)
     pt(tree)
@@ -448,7 +448,6 @@ def print_multi_move_tree(gs, show_combos, solver):
     raise Exception("Unimplemented")
     print()
     Tree.show_combos_in_tree = show_combos
-    Tree.solver = solver
     tree = Tree(gs)
     pt = PrettyPrintTree(get_children_multi_move, node_to_str_multi_move)
     pt(tree)

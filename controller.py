@@ -1,4 +1,5 @@
 import rules, display, solver
+from problems import get_problem_by_id as get
 from definitions import *
 import pickle, os, sys, platform
 
@@ -187,30 +188,6 @@ def play(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
     (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
     play_from_solver(s, display_problem=not(made_from_scatch))
 
-# problems
-zero_query = Problem([2, 5, 9, 15, 18, 22], "B63YRW4", solver.STANDARD) # Takes 0 queries to solve.
-p1  = Problem([ 4,  9, 11, 14],               "1", solver.STANDARD)
-p2  = Problem([ 3,  7, 10, 14],               "2", solver.STANDARD)      # Useful for profiling
-c63 = Problem([ 9, 22, 24, 31, 37, 40], "C630YVB", solver.STANDARD)      # multiple combos -> same answer
-c46 = Problem([19, 22, 36, 41],          "C4643N", solver.STANDARD)
-a52 = Problem([ 7,  8, 12, 14, 17],     "A52F7E1", solver.STANDARD)
-c5h = Problem([ 2, 15, 30, 31, 33],      "C5HCBJ", solver.STANDARD)
-
-e63 = Problem([18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9], "E63YF4H", solver.EXTREME) # "Hard". Easy.
-f63 = Problem([15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3], "F63EZQM", solver.EXTREME)
-f52 = Problem([15, 16, 23,  8, 46, 13, 34, 17, 9, 37]         , "F52LUJG", solver.EXTREME) # "Hard".
-
-
-p1_nightmare  = Problem([ 4,  9, 11, 14],               "1_N", solver.NIGHTMARE)
-p2_nightmare  = Problem([ 3,  7, 10, 14],               "2_N", solver.NIGHTMARE)
-c63_nightmare = Problem([ 9, 22, 24, 31, 37, 40],   "C630YVB", solver.NIGHTMARE)      # Interesting b/c multiple combos lead to same answer here.
-
-i4b = Problem([9, 23, 33, 34], "I4BYJK", solver.NIGHTMARE)
-
-# Actually hard problems:
-f43 = Problem([13,  9, 11, 40, 18,  7, 43, 15],         "F435FE", solver.EXTREME) # 3,545 seconds.
-f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME) #   168 seconds.
-
 
 # NOTE: How to use:
 # Make problems (see above. Get from www.turingmachine.info)
@@ -222,39 +199,31 @@ f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME
 # NOTE: If a tree is too big to fit on screen of terminal, can use the following command:
 # python controller.py | less -SR -# 3
 
-# less, with the -S option, allows you to scroll horizontally. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
+# less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 # options
 PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go.
 # PRINT_COMBOS = False               # whether or not to print remaining combos after every query in play()
 PRINT_COMBOS = True                # whether or not to print remaining combos after every query in play()
-SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
-# SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
+# SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
+SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
 
-# Playing
-# play(zero_query)
-# play(a52)
 
 # Profiling
 # (s, _) = get_or_make_solver(f5x, no_pickles=True) # ~3 minutes.
 # (s, _) = get_or_make_solver(f43, no_pickles=True) # 3,413 seconds.
 
-# Displaying best move tree
-# display_problem_solution(zero_query)
-# display_problem_solution(a52)
 
 # Good problems for demonstration purposes:
-# zero_query
-# p2        which is actually harder than any of the "hard" standard modes I've come across
-# c63       multiple combos, same answer
-# f5x       Nice tree, but turn off tree combo printing. Kinda hard: 168 seconds.
-# f63       Nice tree.      Full combos.
-# f52       Excellent tree. Full combos
-# f43       Large tree. Hardest problem yet, at nearly an hour.
+zero_query = get("B63YRW4")
+p2 = get("2")        # which is actually harder than any of the "hard" standard modes I've come across
+c63 = get("C630YVB") # multiple combos, same answer
+f5x = get("F5XTDF")  # Nice tree. May want to turn off combo printing. Kinda hard: 168 seconds.
+f63 = get("F63EZQM") # Nice tree.      Full combos.
+f52 = get("F52LUJG") # Excellent tree. Full combos
+f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
 
 print(f"Using {platform.python_implementation()}.")
-latest = f5x
-# latest = p1_nightmare
-# latest = i4b
-# display_problem_solution(latest, no_pickles=True)
-play(latest, no_pickles=True)
+latest = f52
+display_problem_solution(latest, no_pickles=True)
+# play(latest, no_pickles=True)
