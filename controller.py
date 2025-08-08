@@ -1,6 +1,6 @@
 import rules, display, solver
 from definitions import *
-import pickle, time, os, sys
+import pickle, os, sys, platform
 
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -15,21 +15,22 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
         print(f"Move: {move}")
         exit()
 
-def play_from_solver(s):
+def play_from_solver(s, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
+    If display_problem is off, will not display the problem
     """
     (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
     current_gs = initial_game_state
     # NOTE: below line for display purposes only
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(current_gs)
-    display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
     current_round_num = 0
     total_queries_made = 0
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
-    # s.solve()
+    if(display_problem):
+        display.print_problem(rcs_list, s.problem, active=True)
+        display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
         full_cwa = s.full_cwa_from_game_state(current_gs)
@@ -53,19 +54,20 @@ def play_from_solver(s):
     display.display_query_history(query_history, len(rcs_list))
     display.print_final_answer("\nANSWER: ", full_cwa, s.problem.mode)
 
-def display_solution_from_solver(s):
+def display_solution_from_solver(s, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     """
-    (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
-    display.print_problem(rcs_list, s.problem, active=True)
-    full_cwa = s.full_cwa_from_game_state(initial_game_state)
-    if(len(solver.fset_answers_from_cwa_iterable(initial_game_state.fset_cwa_indexes_remaining)) == 1):
+    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
+    if(display_problem):
+        display.print_problem(s.rcs_list, s.problem, active=True)
+    full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
+    if(len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1):
         display.print_final_answer("\nANSWER: ", full_cwa, s.problem.mode)
     else:
-        display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
-        display.print_best_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
+        if(display_problem):
+            display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
+        display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
         # TODO: uncomment when done with adding the correct functions to display (see todo.txt optional)
         # display.print_multi_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
@@ -114,10 +116,9 @@ def make_solver(problem):
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
     print("\nSolving . . .")
-    start = int(time.time())
     s.solve()
-    end = int(time.time())
-    print(f"\nIt took {end - start:,} seconds.")
+    print(f"Finished.")
+    print(f"It took {s.seconds_to_solve:,} seconds.")
     sys.stdout.flush()
     return(s)
 
@@ -144,51 +145,57 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
 
 def get_or_make_solver(problem, pickle_entire=False, force_overwrite=True, no_pickles=False):
     """
-    Given a Problem named tuple, if the solver is in file, gets and returns it. If it isn't in file, makes it, pickles it, then returns it.
+    Given a Problem named tuple, if the solver is in file, gets it. If it isn't in file, makes it, pickles it.
     If pickle_entire is True, pickles the entire solver; otherwise, only pickles the parts of the evaluations cache needed to play the game perfectly.
     If force_overwrite is true, makes solver and writes it to file regardless of whether or not it existed before.
-    If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles
+    If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles.
+    Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
     print(f"\nReturning solver for problem: {problem.identity}.")
     if(no_pickles):
         print("No pickles. Making solver from scratch.")
         s = make_solver(problem)
+        made_from_scratch = True
     else:
         f_name = f_name_from_id(problem.identity)
         if(os.path.exists(f_name)):
             if(not force_overwrite):
                 print(f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . .")
                 s = unpickle_solver(problem.identity)
+                made_from_scratch = False
             else:
                 print("This problem has been solved, but will forcibly overwrite the solver file.")
                 s = pickle_solver(problem, pickle_entire=pickle_entire, force_overwrite=force_overwrite)
+                made_from_scratch = True
         else:
             print(f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . .")
             s = pickle_solver(problem, pickle_entire=pickle_entire)
-    return(s)
+            made_from_scratch = True
+    return((s, made_from_scratch))
 
 def display_problem_solution(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
     """
     Given a Problem named tuple, gets or makes a solver for it (see get_or_make_solver), then prints the best move tree with the options that are currently set (SHOW_COMBOS_IN_TREE).
     """
-    s = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
-    display_solution_from_solver(s)
+    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    display_solution_from_solver(s, display_problem=not(made_from_scatch))
 
 def play(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
     """
     Given a Problem named tuple, gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
     """
-    s = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
-    play_from_solver(s)
+    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    play_from_solver(s, display_problem=not(made_from_scatch))
 
 # problems
 zero_query = Problem([2, 5, 9, 15, 18, 22], "B63YRW4", solver.STANDARD) # Takes 0 queries to solve.
 p1  = Problem([ 4,  9, 11, 14],               "1", solver.STANDARD)
 p2  = Problem([ 3,  7, 10, 14],               "2", solver.STANDARD)      # Useful for profiling
-c63 = Problem([ 9, 22, 24, 31, 37, 40], "C630YVB", solver.STANDARD)      # Interesting b/c multiple combos lead to same answer here.
+c63 = Problem([ 9, 22, 24, 31, 37, 40], "C630YVB", solver.STANDARD)      # multiple combos -> same answer
 c46 = Problem([19, 22, 36, 41],          "C4643N", solver.STANDARD)
 a52 = Problem([ 7,  8, 12, 14, 17],     "A52F7E1", solver.STANDARD)
 c5h = Problem([ 2, 15, 30, 31, 33],      "C5HCBJ", solver.STANDARD)
+
 e63 = Problem([18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9], "E63YF4H", solver.EXTREME) # "Hard". Easy.
 f63 = Problem([15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3], "F63EZQM", solver.EXTREME)
 f52 = Problem([15, 16, 23,  8, 46, 13, 34, 17, 9, 37]         , "F52LUJG", solver.EXTREME) # "Hard".
@@ -202,16 +209,16 @@ i4b = Problem([9, 23, 33, 34], "I4BYJK", solver.NIGHTMARE)
 
 # Actually hard problems:
 f43 = Problem([13,  9, 11, 40, 18,  7, 43, 15],         "F435FE", solver.EXTREME) # 3,545 seconds.
-f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME) #   180 seconds.
+f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME) #   168 seconds.
 
 
 # NOTE: How to use:
 # Make problems (see above. Get from www.turingmachine.info)
 # Problem are in form Problem(rc_nums_list, ID, mode (standard, extreme, or nightmare))
 # Then, can use one of 3 main functions:
-#   1) play(problem)
-#   2) display_problem_solution(problem)
-#   3) get_or_make_solver(problem, pickle_entire, force_overwrite) mainly for debugging/inspection.
+#   1) play(problem, pickle_entire, force_overwrite, no_pickles)
+#   2) display_problem_solution(problem, pickle_entire, force_overwrite, no_pickles)
+#   3) get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles) mainly for debugging/inspection.
 # NOTE: If a tree is too big to fit on screen of terminal, can use the following command:
 # python controller.py | less -SR -# 3
 
@@ -221,33 +228,33 @@ f5x = Problem([28, 14, 19,  6, 27, 16,  9, 47, 20, 21], "F5XTDF", solver.EXTREME
 PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go.
 # PRINT_COMBOS = False               # whether or not to print remaining combos after every query in play()
 PRINT_COMBOS = True                # whether or not to print remaining combos after every query in play()
-# SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
-SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
+SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
+# SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
 
 # Playing
 # play(zero_query)
 # play(a52)
 
 # Profiling
-# s = get_or_make_solver(f5x, pickle_entire=False, force_overwrite=True) # ~3 minutes.
-# s = get_or_make_solver(f43, pickle_entire=False, force_overwrite=True) # 3,413 seconds.
+# (s, _) = get_or_make_solver(f5x, no_pickles=True) # ~3 minutes.
+# (s, _) = get_or_make_solver(f43, no_pickles=True) # 3,413 seconds.
 
 # Displaying best move tree
 # display_problem_solution(zero_query)
-# display_problem_solution(p1)
 # display_problem_solution(a52)
 
 # Good problems for demonstration purposes:
 # zero_query
 # p2        which is actually harder than any of the "hard" standard modes I've come across
 # c63       multiple combos, same answer
-# f5x       Nice tree, but turn off tree combo printing. Kinda hard: 180 seconds.
+# f5x       Nice tree, but turn off tree combo printing. Kinda hard: 168 seconds.
 # f63       Nice tree.      Full combos.
 # f52       Excellent tree. Full combos
 # f43       Large tree. Hardest problem yet, at nearly an hour.
 
-# latest = p1
-latest = p1_nightmare
+print(f"Using {platform.python_implementation()}.")
+latest = f5x
+# latest = p1_nightmare
 # latest = i4b
 # display_problem_solution(latest, no_pickles=True)
 play(latest, no_pickles=True)

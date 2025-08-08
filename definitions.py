@@ -70,7 +70,7 @@ NIGHTMARE = 2
 
 # useful_queries_dict is {
 #     key = proposal (answer int): value = {
-#        inner_key = index of a rule card this query goes to: value = Query_Info (see named tuple)
+#        inner_key = index of a verifier card this query goes to: value = Query_Info (see named tuple)
 #     }
 # }
 

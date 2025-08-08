@@ -1,4 +1,4 @@
-import math, string, itertools
+import math, string, itertools, time
 import display, rules
 from definitions import *
 
@@ -44,7 +44,6 @@ def get_possible_rules_combos_with_answers(rules_cards_list):
     all_rules_combos = get_all_rules_combinations(rules_cards_list)
     return([(c, a) for (c,a) in [(c, is_combo_possible(c)) for c in all_rules_combos] if(a is not None)])
 
-
 def get_unsolved_verifier_indices(rc_infos):
     unsolved_verifier_indices = [verifier_index for (verifier_index, rc_info) in enumerate(rc_infos) if(len(rc_info) > 1)]
     return(unsolved_verifier_indices)
@@ -71,6 +70,12 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
             [rcs_list[unsolved_verifier_index][rule_index] for rule_index in corresponding_rc_info.keys()]
 
         for possible_query in all_125_possibilities_set:
+            # TODO: You don't actually need both accepting_rules_ids *and* rejecting_rules_ids. For any
+            #       query on any verifier, each possible rule is in exactly one of these sets, so all you
+            #       need to do is maintain one of them. The rejecting_rules_ids, for example.
+            #       Then, for the line that currently makes sure both sets are non-empty, you could instead
+            #       just make sure the length of rejecting_rules_ids is strictly less than the length of
+            #       possible_rules_this_verifier.
             accepting_rules_ids = set()
             rejecting_rules_ids = set()
             for possible_rule in possible_rules_this_verifier:
@@ -83,7 +88,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                 possible_combos_with_answers_remaining_if_true = []
                 possible_combos_with_answers_remaining_if_false = []
                 for combo_with_answer in possible_combos_with_answers:
-                    (combo, permutation, answer) = [combo_with_answer[i] for i in (0, 1, -1)]
+                    (combo, permutation) = [combo_with_answer[i] for i in (0, 1)]
                     combo_rule_id = \
                         combo[permutation[unsolved_verifier_index]].unique_id \
                         if(mode == NIGHTMARE) else \
@@ -95,12 +100,6 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                     else:
                         print("Teh program is broken if this happens")
                         exit()
-
-                # TODO: don't really need this block here, since each combo_with_answer is put into exactly one of the remaining if true or if false.
-                # num_combos_remaining_if_true = len(possible_combos_with_answers_remaining_if_true)
-                # num_combos_remaining_if_false = len(possible_combos_with_answers_remaining_if_false)
-                # if((num_combos_remaining_if_true + num_combos_remaining_if_false) != current_num_possible_combos):
-                #     raise Exception("FAIL")
 
                 # (combos_remaining_if_true, answers_remaining_if_true) = zip(*possible_combos_with_answers_remaining_if_true)
                 # # WARN: do not use set_answers_remaining... unless you plan to recalculate q_infos every query.
@@ -164,6 +163,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                 )
                 if(possible_query in useful_queries_dict):
                     inner_dict = useful_queries_dict[possible_query]
+                    # TODO: delete this block.
                     if(unsolved_verifier_index in inner_dict):
                         print("This shouldn't happen, because you're going over every card/every possible query to that card only once.")
                         exit()
@@ -175,10 +175,10 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
                     }
 
     # TODO delete this block
-    for v_index in range(len(rcs_list)):
-        sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode)
-        # sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=(mode != NIGHTMARE))
-        pass
+    # for v_index in range(len(rcs_list)):
+    #     # sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode)
+    #     # sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=(mode != NIGHTMARE))
+    #     pass
     # exit()
     return(useful_queries_dict)
 
@@ -190,8 +190,10 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
     num_queries_this_round is the number there will be after making this move.
     WARN: could be None
     """
-    fset_indexes_cwa_remaining_true = game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_true
-    fset_indexes_cwa_remaining_false = game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_false
+    fset_indexes_cwa_remaining_true = \
+        game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_true
+    fset_indexes_cwa_remaining_false = \
+        game_state.fset_cwa_indexes_remaining &  q_info.set_indexes_cwa_remaining_false
     if(bool(fset_indexes_cwa_remaining_false) and bool(fset_indexes_cwa_remaining_true)):
         # this is a useful query.
         num_combos_remaining_true = len(fset_indexes_cwa_remaining_true)
@@ -279,7 +281,7 @@ def make_rcs_list(problem):
             for rule in rc:
                 fs_reject_set = frozenset(rule.reject_set)
                 if(fs_reject_set in rc_reject_sets_dict):
-                    print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rc {string.ascii_uppercase[rc_index]}')
+                    print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rule card {string.ascii_uppercase[rc_index]}.')
                 else:
                     new_rc.append(rule)
                     rc_reject_sets_dict[fs_reject_set] = rule.name
@@ -313,10 +315,11 @@ class Solver:
         self.rcs_list           = make_rcs_list(problem)
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
+        self.seconds_to_solve   = -1 # have not called solve() yet.
 
         # TODO delete testing lines below
-        display.print_problem(self.rcs_list, problem)
-        display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode)
+        # display.print_problem(self.rcs_list, problem)
+        # display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode)
         # END delete testing lines
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.
@@ -400,7 +403,10 @@ class Solver:
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
+        start = time.time()
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        end = time.time()
+        self.seconds_to_solve = int(end - start)
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])

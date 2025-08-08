@@ -195,7 +195,7 @@ class Solver_Displayer:
     @staticmethod
     def print_rules_this_verifier(rl_by_card_dict, v_index, include_v_name=True):
         """
-        Given a dict from the get_rl_by_card_dict function and a verifier index, prints out a list of all the rules this verifier could correspond to. Mainly used in print_useful_qs_dict.
+        Only used in nightmare mode. Given a dict from the get_rl_by_card_dict function and a verifier index, prints out a list of all the rules this verifier could correspond to. Mainly used in print_useful_qs_dict.
         """
         if(include_v_name):
             print(f"\nFor Verifier {string.ascii_uppercase[v_index]}:")
@@ -312,10 +312,9 @@ class Tree:
             gs,
             prob=1.0,
             cost_to_get_here=(0, 0),
-            # num_newlines=0, # number of newlines to insert when printing combos
             depth=0,
             tree_type='gs',
-            move=None,
+            move=None,                  # NOTE: not currently used. Intended to be used for 'move' type trees, which show multiple move options other than best move, if that gets implemented.
     ):
         # prob is the probability of getting to this gs from the query above it in the best move tree
         self.gs = gs
@@ -376,13 +375,17 @@ def get_children(tree):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
             current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
             num_combos_if_q_true = len(gs_tup[1].fset_cwa_indexes_remaining)
-            # num_combos_if_q_false = current_num_combos - num_combos_if_q_true
-            # larger_num_combos = max(num_combos_if_q_true, num_combos_if_q_false)
-            # num_newlines_tup = (larger_num_combos - num_combos_if_q_false, larger_num_combos - num_combos_if_q_true)
             p_true = num_combos_if_q_true / current_num_combos
             p_false = 1 - p_true
             prob_tup = (p_false, p_true)
-            children = [Tree(gs=gs_tup[i], prob=prob_tup[i], cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost), depth=tree.depth+1) for i in range(2)]
+            children = [
+                Tree(
+                    gs=gs_tup[i],
+                    prob=prob_tup[i],
+                    cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost),
+                    depth=tree.depth+1
+                ) for i in range(2)
+            ]
             return(children)
     return([])
 def node_to_str(tree):
