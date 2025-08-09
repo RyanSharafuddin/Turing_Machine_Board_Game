@@ -176,7 +176,7 @@ def populate_useful_qs_dict(rcs_list, all_125_possibilities_set, possible_combos
 
     # TODO delete this block
     # for v_index in range(len(rcs_list)):
-    #     # sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode)
+    #     sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode)
     #     # sd.print_useful_qs_dict_info(useful_queries_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=(mode != NIGHTMARE))
     #     pass
     # exit()
@@ -238,6 +238,7 @@ def get_and_apply_moves(game_state, qs_dict):
                 if(move_info is not None):
                     yield(move_info)
                 else:
+                    # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
                     pass # not a useful query. See other comments.
 
     # Have finished yielding all moves that don't incur a round cost (if there were any). Now consider all moves which do incur a round cost.
@@ -319,7 +320,7 @@ class Solver:
 
         # TODO delete testing lines below
         # display.print_problem(self.rcs_list, problem)
-        # display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode)
+        # display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode, permutation_order=True)
         # END delete testing lines
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.
@@ -367,7 +368,7 @@ class Solver:
         """
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
-        # TODO: consider replacing with a function called one_aanswer_left(cwa_indexes_remaining) that merely returns a boolean for whether there's exactly one answer left. May save time over making an entire set, b/c can stop once encounter the first repeat. Maybe use numpy arrays and see if that provides any speedup? i.e. each cwa_indexes remaining is just a numpy array of booleans of length (len(full_cwa)), and the boolean at index i is true if the ith cwa is still there, and false otherwise, and can then use np.and to intersect sets and np.count (or something) to see if there's one left? Profile and see if this saves time.
+        # TODO: consider replacing with a function called one_answer_left(cwa_indexes_remaining) that merely returns a boolean for whether there's exactly one answer left. May save time over making an entire set, b/c can stop once encounter the first repeat. Can use line profiler to see if this change saves you time. Maybe use numpy arrays and see if that provides any speedup? i.e. each cwa_indexes remaining is just a numpy array of booleans of length (len(full_cwa)), and the boolean at index i is true if the ith cwa is still there, and false otherwise, and can then use np.and to intersect sets and np.count (or something) to see if there's one left? Profile and see if this saves time.
         if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
             # don't bother filling up the cache with already-won states.
             return( (None, None, None, (0,0)) )

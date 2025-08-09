@@ -2,8 +2,9 @@ import string
 from collections import deque
 from PrettyPrint import PrettyPrintTree
 # import colorama
+from rich.table import Table
 import rules
-from definitions import NIGHTMARE
+from definitions import NIGHTMARE, console
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -14,44 +15,76 @@ CHECK_SEQ = "\033[97;42m"   # white text,   green background
 DEFAULT = "\033[0;0m"
 # DEFAULT = "\033[32;0m"
 ROUND_INDENT = " " * 14
-def rules_list_to_names(rl, pad=True):
+def rules_list_to_names_list(rl, pad=True, permutation=None):
+    """ If a permutation is given, will list the rules in permutation order. """
     pad_spaces = rules.max_rule_name_length if(pad) else 0
-    names = [f'{r.name:<{pad_spaces}}' for r in rl]
-    return(', '.join(names))
-def print_all_possible_answers(message, possible_combos_with_answers, mode):
+    if(permutation is not None):
+        pad_spaces += 3 if pad else 0
+        names = [f'{string.ascii_uppercase[r_index]} {rl[r_index].name}'.ljust(pad_spaces) for r_index in permutation]
+    else:
+        names = [f'{r.name:<{pad_spaces}}' for r in rl]
+    return(names)
+def rules_list_to_names(rl, pad=True, permutation=None):
+    names = rules_list_to_names_list(rl, pad, permutation)
+    return(' '.join(names))
+def make_r_name_list(rules_list, permutation, permutation_order):
+    r_name_list = []
+    for r_name in rules_list_to_names_list(rules_list, permutation=permutation, pad=False):
+        if(permutation_order):
+            r_name_list.append(r_name[0])
+        r_name_list.append(r_name[(2 if permutation_order else 0):])
+    return(r_name_list)
+def print_all_possible_answers(message, cwas, mode, permutation_order=False):
     """
     The difference between this and print_list_combos is that this prints each unique answer only once, and, following each unique answer, is a list of all rules combinations that lead to that answer. In print_list_combos, an answer is printed multiple times if it shows up in multiple combos.
+    If permutation_order is True, will print the rules of each answer in permutation order (if nightmare mode, otherwise has no effect).
     """
-    unzipped_cwa = list(zip(*possible_combos_with_answers))
+    n_mode = (mode == NIGHTMARE)
+    permutation_order = permutation_order and n_mode
+    unzipped_cwa = list(zip(*cwas))
     (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
     set_possible_answers = set(answers)
     print(message)
-    print(f"Answer number, answer, rules names, rule_indices within card, verifier permutation (if nightmare mode)")
     final_answer = (len(set_possible_answers) == 1)
-    multiple_combo_spacing = 7 if final_answer else 9
+
+    table = Table(show_header=True, header_style="bold magenta")
+    # TODO: play around with the table: see what colors and styles are available. Make the rc index a different color from everything else; make each unique card_index list a different color; see how to add horizontal lines between table rows, etc.
+    if(not final_answer):
+        table.add_column("") # index column
+    table.add_column("Ans")
+    for (v_index, r) in enumerate(combos[0]):
+        if(permutation_order):
+            table.add_column("RC")
+        table.add_column(f"Verifier {string.ascii_uppercase[v_index]}")
+    table.add_column("Rule Indexes")
+    if(n_mode):
+        table.add_column("Permutation")
+
     for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
-        if(mode == NIGHTMARE):
-            relevant_combos = [(c, p) for (c, p, a) in possible_combos_with_answers if (a == possible_answer)]
+        if(n_mode):
+            relevant_combos = [(c, p) for (c, p, a) in cwas if (a == possible_answer)]
         else:
-            relevant_combos = [c for (c,a) in possible_combos_with_answers if (a == possible_answer)]
-        answer_number_str = '    ' if final_answer else f'{answer_index:>3}: '
-        zeroth_rules_list = relevant_combos[0][0] if(mode == NIGHTMARE) else relevant_combos[0]
-        zeroth_permutation = relevant_combos[0][1] if(mode == NIGHTMARE) else ""
-        print(f"{answer_number_str}{possible_answer} {rules_list_to_names(zeroth_rules_list)} {[r.card_index for r in zeroth_rules_list]} {zeroth_permutation}")
+            relevant_combos = [c for (c,a) in cwas if (a == possible_answer)]
+        zeroth_rules_list = relevant_combos[0][0] if(n_mode) else relevant_combos[0]
+        zeroth_permutation = relevant_combos[0][1] if(n_mode) else ""
+        rules_list_zero_permutation = zeroth_permutation if(permutation_order) else None
+        t_add_row_args = ((str(answer_index),) if(not final_answer) else tuple()) +\
+            (str(possible_answer),) +\
+            tuple(make_r_name_list(zeroth_rules_list, rules_list_zero_permutation, permutation_order)) +\
+            ( f'{[r.card_index for r in zeroth_rules_list]}',) +\
+            ((f'{zeroth_permutation}',) if (n_mode) else tuple())
+        table.add_row(*t_add_row_args)
         for c in relevant_combos[1:]:
-            rules_list = c[0] if (mode == NIGHTMARE) else c
-            permutation = c[1] if(mode == NIGHTMARE) else ""
-            print(f"{' ' * multiple_combo_spacing}{rules_list_to_names(rules_list)} {[r.card_index for r in rules_list]} {permutation}")
-def print_final_answer(message, cwas, mode):
-    # NOTE: it's possible that there are multiple possible combinations that lead to this answer, and the program has not figured out which rule combination is actually the case (since the goal is only to figure out the answer). Therefore, print *all* rule combinations that could be true, from the program's perspective.
-    answer = cwas[0][-1]
-    unzipped_cwa = list(zip(*cwas))
-    (combos, permutations) = [unzipped_cwa[i] for i in (0, 1)]
-    print(message, end="")
-    print(answer)
-    for (index, c) in enumerate(combos):
-        permutation_string = f", permutation: {permutations[index]}" if(mode == NIGHTMARE) else ''
-        print(f"{' ' * len(message.lstrip())}{rules_list_to_names(c)} {[r.card_index for r in c]}{permutation_string}")
+            rules_list = c[0] if (n_mode) else c
+            permutation = c[1] if(n_mode) else ""
+            rules_list_p = permutation if(permutation_order) else None
+            t_add_row_args = (('',) if(not final_answer) else tuple()) +\
+                ('',) +\
+                tuple(make_r_name_list(rules_list, rules_list_p, permutation_order)) +\
+                ( f'{[r.card_index for r in rules_list]}',) +\
+                ((f'{permutation}',) if (n_mode) else tuple())
+            table.add_row(*t_add_row_args)
+    console.print(table)
 def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
     if(not active):
         return
@@ -64,11 +97,11 @@ def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_inde
         (lambda t: (t[-1], [r.card_index for r in t[0]]))
     for (i, cwa) in enumerate(sorted(cwas, key=sort_key)):
         print_combo_with_answer(i, cwa, mode, use_round_indent, custom_indent=custom_indent)
-def print_combo_with_answer(combo_with_answer_index, combo_with_answer, mode, use_round_indent=False, custom_indent=0):
+def print_combo_with_answer(index, cwa, mode, use_round_indent=False, custom_indent=0):
     indent = ROUND_INDENT if(use_round_indent) else (" " * custom_indent)
-    (combo, permutation, answer) = [combo_with_answer[i] for i in (0, 1, -1)]
+    (combo, permutation, answer) = [cwa[i] for i in (0, 1, -1)]
     permutation_string = f", permutation: {permutation}" if(mode == NIGHTMARE) else ''
-    print(f'{indent}{combo_with_answer_index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
+    print(f'{indent}{index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
 def print_problem(rcs_list, problem, active=True):
     modes = ["Standard", "Extreme", "Nightmare"]
     if(active):

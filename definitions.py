@@ -1,4 +1,5 @@
 from collections import namedtuple
+from rich.console import Console
 
 
 def get_digit(n, index, base=10):
@@ -54,6 +55,7 @@ Problem = namedtuple(
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
+console = Console() # See https://rich.readthedocs.io/en/latest/console.html
 
 # rules_card_infos[i] is a dict for the ith verifier (which, in a non-nightmare game, corresponds to the ith rules card in rules_cards_list). That dict is:
 

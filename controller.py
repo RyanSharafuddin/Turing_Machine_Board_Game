@@ -31,7 +31,7 @@ def play_from_solver(s, display_problem = True):
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     if(display_problem):
         display.print_problem(rcs_list, s.problem, active=True)
-        display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
+        display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode, permutation_order=True)
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
         full_cwa = s.full_cwa_from_game_state(current_gs)
@@ -53,7 +53,7 @@ def play_from_solver(s, display_problem = True):
     full_cwa = s.full_cwa_from_game_state(current_gs)
     print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
     display.display_query_history(query_history, len(rcs_list))
-    display.print_final_answer("\nANSWER: ", full_cwa, s.problem.mode)
+    display.print_all_possible_answers("\nANSWER: ", full_cwa, s.problem.mode, permutation_order=True)
 
 def display_solution_from_solver(s, display_problem = True):
     """
@@ -64,10 +64,10 @@ def display_solution_from_solver(s, display_problem = True):
         display.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     if(len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1):
-        display.print_final_answer("\nANSWER: ", full_cwa, s.problem.mode)
+        display.print_all_possible_answers("\nANSWER: ", full_cwa, s.problem.mode, permutation_order=True)
     else:
         if(display_problem):
-            display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
+            display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode, permutation_order=True)
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
         # TODO: uncomment when done with adding the correct functions to display (see todo.txt optional)
         # display.print_multi_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
@@ -115,7 +115,7 @@ def make_solver(problem):
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     display.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
-    display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode)
+    display.print_all_possible_answers("\nAll possible answers:", full_cwa, s.problem.mode, permutation_order=True)
     print("\nSolving . . .")
     s.solve()
     print(f"Finished.")
@@ -216,6 +216,8 @@ SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_so
 
 # Good problems for demonstration purposes:
 zero_query = get("B63YRW4")
+p1 = get("1")
+p1_n = get("1_N")
 p2 = get("2")        # which is actually harder than any of the "hard" standard modes I've come across
 c63 = get("C630YVB") # multiple combos, same answer
 f5x = get("F5XTDF")  # Nice tree. May want to turn off combo printing. Kinda hard: 168 seconds.
@@ -224,6 +226,6 @@ f52 = get("F52LUJG") # Excellent tree. Full combos
 f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
 
 print(f"Using {platform.python_implementation()}.")
-latest = f52
+latest = f5x
 display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
