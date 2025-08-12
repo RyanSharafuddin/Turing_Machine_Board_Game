@@ -1,4 +1,4 @@
-import string
+import string, math
 from collections import deque
 from PrettyPrint import PrettyPrintTree
 # import colorama
@@ -14,7 +14,49 @@ X_SEQ = "\033[97;41m"       # white text,     red background
 CHECK_SEQ = "\033[97;42m"   # white text,   green background
 DEFAULT = "\033[0;0m"
 # DEFAULT = "\033[32;0m"
-ROUND_INDENT = " " * 14
+ROUND_INDENT_AMOUNT = 14
+ROUND_INDENT = " " * ROUND_INDENT_AMOUNT
+letters = string.ascii_uppercase
+# see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
+RULE_COLORS = [
+    "#79FB00",
+    "#FF9D00",
+    "#0800FF",
+    "#F1ADF5",
+    "#DF228B",
+    "#EBCB57",
+    "#8245BD",
+    "#FF69B4",
+    "#A71D44",
+    "#6FC4EE",
+    "#B20FFD",
+    "#1A9050",
+    "#FD9E7b",
+    "#593328",
+    "#351251",
+    "#00FF7F",
+    "#FF7780",
+    "#F22410",
+    "#EE8727",
+    "#AF4109",
+    "#F2E32D",
+    "#FFFFFF",
+    "#2BAE7B",
+    "#01FF01",
+    "#01796F",
+    "#CE5908",
+    "#A94064",
+    "#FF007F",
+    "#FF77FF",
+    "#FF66CC",
+    "#EDC9AF",
+    "#F0DC82",
+    "#0095FD",
+    "#40E0D0"
+    "#BE7437",
+    "#9BB09E",
+    "#FFBF00"
+]
 def rules_list_to_names_list(rl, pad=True, permutation=None):
     """
     Input: rl: the rule list of an answer combination.
@@ -23,7 +65,7 @@ def rules_list_to_names_list(rl, pad=True, permutation=None):
     pad_spaces = rules.max_rule_name_length if(pad) else 0
     if(permutation is not None):
         pad_spaces += 3 if pad else 0
-        names = [f'{string.ascii_uppercase[r_index]} {rl[r_index].name}'.ljust(pad_spaces) for r_index in permutation]
+        names = [f'{letters[r_index]} {rl[r_index].name}'.ljust(pad_spaces) for r_index in permutation]
     else:
         names = [f'{r.name:<{pad_spaces}}' for r in rl]
     return(names)
@@ -44,6 +86,17 @@ def make_r_name_list(rules_list, permutation, permutation_order):
             r_name_list.append(r_name[0]) # append the name of the rule card to list.
         r_name_list.append(r_name[(2 if permutation_order else 0):])
     return(r_name_list)
+def _make_rule_to_color_dict(combos):
+    d = dict()
+    color_index = 0
+    for c in combos:
+        for r in c:
+            if(r.unique_id not in d):
+                d[r.unique_id] = RULE_COLORS[color_index % len(RULE_COLORS)]
+                color_index += 1
+    if(color_index > len(RULE_COLORS)):
+        print("WARN: Add more rule colors, or programmatically generate them")
+    return(d)
 
 def _get_sort_key(n_mode, verifier_to_sort_by=None):
     if(verifier_to_sort_by is not None):
@@ -73,6 +126,17 @@ def _get_col_widths(table):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
 
+def print_indented_table(table, indent_amount):
+    """
+    table is the Rich python object.
+    """
+    # for some reason, returning the table as a string with indents inserted and printing that doesn't seem to work.
+    with console.capture() as capture:
+        console.print(table)
+    table_lines = capture.get().split("\n")
+    for line in table_lines:
+        print(f'{" " * indent_amount}{line}')
+
 def print_all_possible_answers(
         cwas,
         mode,
@@ -99,6 +163,7 @@ def print_all_possible_answers(
     (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
     set_possible_answers = set(answers)
     final_answer = (len(set_possible_answers) == 1)
+    rule_to_color_dict = _make_rule_to_color_dict(combos)
 
     table = Table(title=title, show_header=True, header_style="bold magenta")
     # TODO: play around with the table: see what colors and styles are available. Make the rc index a different color from everything else; make each unique card_index list a different color; see how to add horizontal lines between table rows, etc.
@@ -110,14 +175,13 @@ def print_all_possible_answers(
     for (v_index, r) in enumerate(combos[0]):
         if(permutation_order):
             table.add_column("RC")
-        table.add_column(f"Verifier {string.ascii_uppercase[v_index]}")
+        table.add_column(f"{'Rule Card' if (n_mode and not permutation_order) else 'Verifier'} {letters[v_index]}")
     table.add_column("Rule Indexes")
     if(n_mode):
         table.add_column("Permutation")
 
     a_index = 0
     prev_a = -1
-    new_ans = False
     col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
     for (c_index, cwa) in enumerate(sorted(cwas, key=_get_sort_key(n_mode, verifier_to_sort_by)), start=1):
         (c, a) = (cwa[0], cwa[-1])
@@ -125,20 +189,28 @@ def print_all_possible_answers(
         new_ans = (a != prev_a)
         a_index += new_ans
         prev_a = a if(new_ans) else prev_a
+        r_names_list = make_r_name_list(c, p, permutation_order)
+
+        # Below block colors the rule assigned to the verifier to sort by. Consider making it its own function, called color_r_names_list(r_names_list, verifier_to_color, permutation_order, c, p). Also consider coloring all the rules all the time.
+        # Note that if it's nightmare mode and permutation_order is off, instead of coloring the rule assigned to that verifier, this will just color the rule picked from the rule card of the same index, which is not directly related to which verifier you queried.
+        if(verifier_to_sort_by is not None):
+            r_names_indices_to_change = (
+                [verifier_to_sort_by * 2, verifier_to_sort_by * 2 + 1] if(permutation_order) else [verifier_to_sort_by]
+                )
+            rule_to_color = c[p[verifier_to_sort_by]] if(permutation_order) else c[verifier_to_sort_by]
+            color = rule_to_color_dict[rule_to_color.unique_id]
+            for i in r_names_indices_to_change:
+                r_names_list[i] = f'[{color}]{r_names_list[i]}[/{color}]'
 
         t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
             ((str(a),) if(new_ans) else ('',))  +\
             ((str(c_index),) if(display_combo_number) else tuple()) +\
-            tuple(make_r_name_list(c, p, permutation_order)) + \
+            tuple(r_names_list) + \
             ( f'{" ".join( [str(r.card_index).rjust(col_widths[col]) for (col, r) in enumerate(c)] )}',) + \
             ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
         table.add_row(*t_row_args)
     if(use_round_indent):
-        with console.capture() as capture:
-            console.print(table)
-        table_lines = capture.get().split("\n")
-        for line in table_lines:
-            print(f'{ROUND_INDENT}{line}')
+        print_indented_table(table, ROUND_INDENT_AMOUNT)
     else:
         console.print(table)
 def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
@@ -163,7 +235,7 @@ def print_problem(rcs_list, problem, active=True):
     if(active):
         print(f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}")
         for (i, rc) in enumerate(rcs_list):
-            print(f'{string.ascii_uppercase[i]}: {rules_list_to_names(rc)}')
+            print(f'{letters[i]}: {rules_list_to_names(rc)}')
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
     if(new_round):
         print(f"\nRound   : {current_round_num:>3}")
@@ -174,7 +246,7 @@ def conduct_query(query_tup, expected_winning_round, expected_total_queries):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
-    print(f"{ROUND_INDENT}Query verifier: {string.ascii_uppercase[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
+    print(f"{ROUND_INDENT}Query verifier: {letters[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
     print(f"{ROUND_INDENT}Result of query (T/F)\n{ROUND_INDENT}> ", end="")
     result_raw = input()
     if(result_raw == 'q'):
@@ -184,7 +256,7 @@ def conduct_query(query_tup, expected_winning_round, expected_total_queries):
 def display_query_history(query_history, num_rcs):
     separator = ""
     if(query_history):
-        print("\n" + (" " * 8) + separator.join(string.ascii_uppercase[:num_rcs]))
+        print("\n" + (" " * 8) + separator.join(letters[:num_rcs]))
         for (round_num, round_info) in enumerate(query_history, start=1):
             verifier_info = [2 for i in range(num_rcs)]
             for (v, result) in round_info[1:]:
@@ -199,7 +271,7 @@ class Solver_Displayer:
     def __init__(self, solver):
         self.solver = solver
 
-    def print_evaluations_cache_info(self, gs, name="game state"):
+    def print_evaluations_cache_info(self, gs, name="game state", permutation_order=True):
         """
         Returns a tuple (gs_false, gs_true) for game states that could result from executing the best query. For use in interactive debugging sessions.
         NOTE: in interactive debugging session, use like this:
@@ -223,7 +295,7 @@ class Solver_Displayer:
         expected_cost_true = evaluations_cache.get(gs_true, (None, None, None, (0,0)))[3]
 
         (ec_rounds, ec_queries) = best_expected_cost_tup
-        self.print_game_state(gs, name=name)
+        self.print_game_state(gs, name=name, permutation_order=permutation_order)
         print(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
         print(f"Best move: {mov_to_str(best_mov)}")
         (r_cost, q_cost) = best_mov_cost_tup
@@ -233,36 +305,44 @@ class Solver_Displayer:
 
         print(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds. {expected_cost_false[1]:0.3f} queries.")
         print(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds. {expected_cost_true[1]:0.3f} queries.")
-        self.print_game_state(gs_false, "Game State if query returns false:")
-        self.print_game_state(gs_true, "Game State if query returns true:")
-        tolerance = .01
+        self.print_game_state(
+            gs_false, "Game State if query returns false:", verifier_to_sort_by=best_mov[1], permutation_order=permutation_order
+        )
+        self.print_game_state(
+            gs_true, "Game State if query returns true:", verifier_to_sort_by=best_mov[1], permutation_order=permutation_order
+        )
         ec_rounds_calculated = r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0]
         ec_queries_calculated = q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1]
-        if(abs(ec_rounds - ec_rounds_calculated) > tolerance):
+        if(not(math.isclose(ec_rounds, ec_rounds_calculated))):
             print("O noes! But maybe floating point error?")
             print(f"Difference is: {abs(ec_rounds - ec_rounds_calculated)}")
-            # print(f"Should have been: {(r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0])}.")
-            # print(f"Is              : {ec_rounds}.")
             exit()
-        if(abs(ec_queries - ec_queries_calculated) > tolerance):
+        if(not(math.isclose(ec_queries, ec_queries_calculated))):
             print("O noes! But maybe floating point error?")
             print(f"Difference is: {abs(ec_queries - ec_queries_calculated)}")
-            # print(f"Should have been: {(q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1])}.")
-            # print(f"Is              : {ec_queries}.")
             exit()
         return(best_gs_tup)
 
-    def print_game_state(self, gs, name="game_state", active=True):
+    def print_game_state(
+            self,
+            gs,
+            name="game_state",
+            verifier_to_sort_by=None,
+            permutation_order=True,
+            active=True
+        ):
         if(not active):
             return
         print(f'\n{name}')
         print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
         print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
-        print(f"Sorted cwa set:")
-        for (i, cwa) in enumerate([
-            self.solver.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in sorted(gs.fset_cwa_indexes_remaining, key = lambda cwa: cwa[-1])
-        ]):
-            print_combo_with_answer(i, cwa, self.solver.problem.mode)
+        print_all_possible_answers(
+            cwas=self.solver.full_cwa_from_game_state(gs),
+            mode=self.solver.problem.mode,
+            title="Combos With Answers Remaining",
+            permutation_order=permutation_order,
+            verifier_to_sort_by=verifier_to_sort_by
+        )
 
     @staticmethod
     def get_rl_by_card_dict(rcs_list, rc_infos, v_index):
@@ -287,9 +367,9 @@ class Solver_Displayer:
         Only used in nightmare mode. Given a dict from the get_rl_by_card_dict function and a verifier index, prints out a list of all the rules this verifier could correspond to. Mainly used in print_useful_qs_dict.
         """
         if(include_v_name):
-            print(f"\nFor Verifier {string.ascii_uppercase[v_index]}:")
+            print(f"\nFor Verifier {letters[v_index]}:")
         for (rc_index, rule_list) in sorted(rl_by_card_dict.items()):
-            print(f"    Rule Card {string.ascii_uppercase[rc_index]}: {rules_list_to_names(rule_list)}")
+            print(f"    Rule Card {letters[rc_index]}: {rules_list_to_names(rule_list)}")
 
     def print_useful_qs_dict_info(self, useful_qs_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=True):
         """
@@ -308,11 +388,11 @@ class Solver_Displayer:
             possible_rules_this_verifier = \
                 [rcs_list[v_index][rule_index] for rule_index in corresponding_rc_info.keys()]
             possible_rules_this_verifier.sort(key = lambda r: r.card_index)
-            print(f'\nFor Verifier {string.ascii_uppercase[v_index]}. Possible rules: {rules_list_to_names(possible_rules_this_verifier)}')
+            print(f'\nFor Verifier {letters[v_index]}. Possible rules: {rules_list_to_names(possible_rules_this_verifier)}')
 
         print(f"# useful queries this card: {len(q_dict_this_card)}")
         for (q, q_info) in sorted(q_dict_this_card.items()):
-            print(f"\n{(' ' * 0)}{q} {string.ascii_uppercase[v_index]}") # print query
+            print(f"\n{(' ' * 0)}{q} {letters[v_index]}") # print query
 
             # print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
             # print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
@@ -358,19 +438,18 @@ def rc_infos_inner_dict_to_string(inner_dict, mode):
 
 def print_rc_info(rc_infos, rc_index, mode):
     rc_info = rc_infos[rc_index]
-    print(f'\nVerifier {string.ascii_uppercase[rc_index]}:' + ' {')
+    print(f'\nVerifier {letters[rc_index]}:' + ' {')
     for (outer_dict_key, inner_dict) in rc_info.items():
             if(mode == NIGHTMARE):
                 (rc_num, rule_index) = outer_dict_key
-                outer_key_str = f"\n    Rule Card {string.ascii_uppercase[rc_num]}, Rule Index {rule_index} :"
+                outer_key_str = f"\n    Rule Card {letters[rc_num]}, Rule Index {rule_index} :"
             else:
                 outer_key_str = f"\n    Rule Index {outer_dict_key} :"
             print(f'    {outer_key_str} {rc_infos_inner_dict_to_string(inner_dict, mode)}')
     print('}')
 
-
 def mov_to_str(move: tuple):
-    return(f"{move[0]} to verifier {string.ascii_uppercase[move[1]]}.")
+    return(f"{move[0]} {letters[move[1]]}.")
 
 def get_max_string_height_by_depth(tree):
     """
@@ -492,13 +571,13 @@ def node_to_str(tree):
             combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
             prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
             prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
-            move_str = f"{best_move[0]} {string.ascii_uppercase[best_move[1]]}"
+            move_str = f"{best_move[0]} {letters[best_move[1]]}"
             # NOTE: comment out below if block to not mark new rounds in the best move tree
             if(best_move_cost[0] == 1): # if the best move costs a round
                 move_str += ' (R)'
             cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
             verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
-                [f'{string.ascii_uppercase[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
+                [f'{letters[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
             )
             if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
                 combos_lines = [verifier_names_str] + combos_strs + ['' for i in range(Tree.max_combos_by_depth[tree.depth] - len(combos_strs))]
@@ -517,7 +596,7 @@ def node_to_str(tree):
                 [move_str]
             )
             max_line_length = max([len(l) for l in lines])
-            lines = [f"{l:^{max_line_length}}" for l in lines]
+            lines = [f"{l:^{max_line_length}}" for l in lines] # the ^ centers the lines
             node_str = f"{nl.join(lines)}"
             return(node_str)
     else: # leaf node

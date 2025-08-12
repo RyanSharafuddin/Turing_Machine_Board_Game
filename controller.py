@@ -214,9 +214,13 @@ PRINT_COMBOS = True                # whether or not to print remaining combos af
 SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
 
 
-# Profiling
+# Profiling/Interactive Debugging
 # (s, _) = get_or_make_solver(f5x, no_pickles=True) # ~3 minutes.
 # (s, _) = get_or_make_solver(f43, no_pickles=True) # 3,413 seconds.
+
+# Use the below 2 lines to get interactive debugging started
+# sd = display.Solver_Displayer(s)
+# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initital_game_state)
 
 
 # Good problems for demonstration purposes:
@@ -232,6 +236,12 @@ f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
 
 print(f"Using {platform.python_implementation()}.")
 # latest = f43
+# latest = f63
 latest = p1_n
 display_problem_solution(latest, no_pickles=True)
 play(latest, no_pickles=True)
+
+# (s, _) = get_or_make_solver(latest, no_pickles=True)
+# sd = display.Solver_Displayer(s)
+# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
+
