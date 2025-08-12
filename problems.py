@@ -41,4 +41,8 @@ for p in all_problems:
 id_to_problem_dict = {problem.identity: problem for problem in all_problems}
 def get_problem_by_id(problem_id: str):
     """ All problems should be defined in problems.py. See this file for how it all works."""
+    problem = id_to_problem_dict.get(problem_id)
+    if(problem is None):
+        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py. Exiting")
+        exit()
     return(id_to_problem_dict[problem_id])

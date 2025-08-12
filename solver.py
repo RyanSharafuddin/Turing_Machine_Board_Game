@@ -1,6 +1,7 @@
 import math, string, itertools, time
 import display, rules
 from definitions import *
+# from rich import print as rprint
 
 def get_all_rules_combinations(rcs_list):
     """ Returns all combinations of rules from the rules cards, whether possible or not. """
@@ -290,6 +291,7 @@ def make_rcs_list(problem):
             # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
             for (i, r) in enumerate(new_rc):
                 new_rc[i] = Rule(r.name, r.reject_set, r.func, i, r.unique_id)
+    rules.rcs_list_with_new_ids(rcs_list)
     return(rcs_list)
 
 def make_full_cwa(problem, rcs_list):
@@ -320,7 +322,7 @@ class Solver:
 
         # TODO delete testing lines below
         # display.print_problem(self.rcs_list, problem)
-        # display.print_all_possible_answers("\nAll possible answers:", self.full_cwa, problem.mode, permutation_order=True)
+        # display.print_all_possible_answers(self.full_cwa, problem.mode, "\nAll Possible Answers", permutation_order=True, display_combo_number=True)
         # END delete testing lines
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.

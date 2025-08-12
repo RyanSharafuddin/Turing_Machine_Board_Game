@@ -322,3 +322,18 @@ def _func_to_Rule(func, card_index):
 for (rule_card_num, rule_card) in rcs_deck.items():
     rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
     # now rcs_deck is a dict from rule_card_num to a list of Rules, where each rule consists of a name, reject_set, Python function, and index within its card
+
+def rule_with_new_id(old_rule, new_id):
+    return(Rule(old_rule.name, old_rule.reject_set, old_rule.func, old_rule.card_index, new_id))
+
+def rc_with_new_ids(rc, new_id_start):
+    curr_new_id = new_id_start
+    for rule_index in range(len(rc)):
+        rc[rule_index] = rule_with_new_id(rc[rule_index], curr_new_id)
+        curr_new_id += 1
+
+def rcs_list_with_new_ids(rcs_list):
+    curr_new_id = 0
+    for rc_index in range(len(rcs_list)):
+        rc_with_new_ids(rcs_list[rc_index], curr_new_id)
+        curr_new_id += len(rcs_list[rc_index])

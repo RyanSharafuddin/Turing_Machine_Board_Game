@@ -16,7 +16,10 @@ DEFAULT = "\033[0;0m"
 # DEFAULT = "\033[32;0m"
 ROUND_INDENT = " " * 14
 def rules_list_to_names_list(rl, pad=True, permutation=None):
-    """ If a permutation is given, will list the rules in permutation order. """
+    """
+    Input: rl: the rule list of an answer combination.
+    If a permutation is given, will list the rule names in permutation order w/"{name_of_rule_card}: " preceding it, otherwise, in standard order w/o name of rule card.
+    """
     pad_spaces = rules.max_rule_name_length if(pad) else 0
     if(permutation is not None):
         pad_spaces += 3 if pad else 0
@@ -28,30 +31,82 @@ def rules_list_to_names(rl, pad=True, permutation=None):
     names = rules_list_to_names_list(rl, pad, permutation)
     return(' '.join(names))
 def make_r_name_list(rules_list, permutation, permutation_order):
+    """
+    If permutation_order, will output a list like this:
+        ['C', 'square_lt_3', 'A', 'triangle_gt_square' . . .]
+    otherwise, will just output the names in rule card order, without a string for the rule card name.
+    """
+    if(not(permutation_order)):
+        permutation = None
     r_name_list = []
     for r_name in rules_list_to_names_list(rules_list, permutation=permutation, pad=False):
         if(permutation_order):
-            r_name_list.append(r_name[0])
+            r_name_list.append(r_name[0]) # append the name of the rule card to list.
         r_name_list.append(r_name[(2 if permutation_order else 0):])
     return(r_name_list)
-def print_all_possible_answers(message, cwas, mode, permutation_order=False):
+
+def _get_sort_key(n_mode, verifier_to_sort_by=None):
+    if(verifier_to_sort_by is not None):
+        def sort_by_rule_assigned_to_verifier(cwa):
+            (c, p, a) = (cwa[0], cwa[1], cwa[-1])
+            p = range (len(c)) if(not(n_mode)) else p
+            id_rule_assigned_to_verifier = c[p[verifier_to_sort_by]].unique_id
+            return(
+                (a, id_rule_assigned_to_verifier, tuple([r.unique_id for r in c])) +\
+                      ((p,) if n_mode else tuple())
+            )
+        return(sort_by_rule_assigned_to_verifier)
+    def default_sort(cwa):
+        (c, p, a) = (cwa[0], cwa[1], cwa[-1])
+        return((a, tuple([r.unique_id for r in c])) + ((p,) if n_mode else tuple()))
+    return(default_sort)
+
+def _get_col_widths(table):
     """
-    The difference between this and print_list_combos is that this prints each unique answer only once, and, following each unique answer, is a list of all rules combinations that lead to that answer. In print_list_combos, an answer is printed multiple times if it shows up in multiple combos.
-    If permutation_order is True, will print the rules of each answer in permutation order (if nightmare mode, otherwise has no effect).
+    Note: table is not a Rich table; it's just a 2d array of objects that will later be converted into strings and right adjusted.
     """
+    num_cols = len(table[0])
+    max_length_by_column = [0] * num_cols
+    new_table = [[str(elem) for elem in row] for row in table]
+    for row in new_table:
+        for (col, elem) in enumerate(row):
+            max_length_by_column[col] = max(max_length_by_column[col], len(elem))
+    return(max_length_by_column)
+
+def print_all_possible_answers(
+        cwas,
+        mode,
+        title                = "",
+        permutation_order    = False,
+        display_combo_number = True,
+        active               = True,
+        use_round_indent     = False,
+        verifier_to_sort_by  = None
+    ):
+    """
+    Pretty prints a table of all the combos_with_answers (cwas) given.
+    mode is game mode (standard, extreme, or nightmare)
+    title is the title of the table. Blank by default.
+    permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order.
+    active: if False, this function does nothing
+    use_round_indent: whether to indent the tables
+    """
+    if(not active):
+        return
     n_mode = (mode == NIGHTMARE)
     permutation_order = permutation_order and n_mode
     unzipped_cwa = list(zip(*cwas))
     (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
     set_possible_answers = set(answers)
-    print(message)
     final_answer = (len(set_possible_answers) == 1)
 
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(title=title, show_header=True, header_style="bold magenta")
     # TODO: play around with the table: see what colors and styles are available. Make the rc index a different color from everything else; make each unique card_index list a different color; see how to add horizontal lines between table rows, etc.
     if(not final_answer):
-        table.add_column("") # index column
+        table.add_column("", justify="right") # answer index column
     table.add_column("Ans")
+    if(display_combo_number):
+        table.add_column("", justify="right") # combo index column
     for (v_index, r) in enumerate(combos[0]):
         if(permutation_order):
             table.add_column("RC")
@@ -60,31 +115,32 @@ def print_all_possible_answers(message, cwas, mode, permutation_order=False):
     if(n_mode):
         table.add_column("Permutation")
 
-    for(answer_index, possible_answer) in enumerate(sorted(set_possible_answers), start=1):
-        if(n_mode):
-            relevant_combos = [(c, p) for (c, p, a) in cwas if (a == possible_answer)]
-        else:
-            relevant_combos = [c for (c,a) in cwas if (a == possible_answer)]
-        zeroth_rules_list = relevant_combos[0][0] if(n_mode) else relevant_combos[0]
-        zeroth_permutation = relevant_combos[0][1] if(n_mode) else ""
-        rules_list_zero_permutation = zeroth_permutation if(permutation_order) else None
-        t_add_row_args = ((str(answer_index),) if(not final_answer) else tuple()) +\
-            (str(possible_answer),) +\
-            tuple(make_r_name_list(zeroth_rules_list, rules_list_zero_permutation, permutation_order)) +\
-            ( f'{[r.card_index for r in zeroth_rules_list]}',) +\
-            ((f'{zeroth_permutation}',) if (n_mode) else tuple())
-        table.add_row(*t_add_row_args)
-        for c in relevant_combos[1:]:
-            rules_list = c[0] if (n_mode) else c
-            permutation = c[1] if(n_mode) else ""
-            rules_list_p = permutation if(permutation_order) else None
-            t_add_row_args = (('',) if(not final_answer) else tuple()) +\
-                ('',) +\
-                tuple(make_r_name_list(rules_list, rules_list_p, permutation_order)) +\
-                ( f'{[r.card_index for r in rules_list]}',) +\
-                ((f'{permutation}',) if (n_mode) else tuple())
-            table.add_row(*t_add_row_args)
-    console.print(table)
+    a_index = 0
+    prev_a = -1
+    new_ans = False
+    col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
+    for (c_index, cwa) in enumerate(sorted(cwas, key=_get_sort_key(n_mode, verifier_to_sort_by)), start=1):
+        (c, a) = (cwa[0], cwa[-1])
+        p = cwa[1] if (n_mode) else None
+        new_ans = (a != prev_a)
+        a_index += new_ans
+        prev_a = a if(new_ans) else prev_a
+
+        t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
+            ((str(a),) if(new_ans) else ('',))  +\
+            ((str(c_index),) if(display_combo_number) else tuple()) +\
+            tuple(make_r_name_list(c, p, permutation_order)) + \
+            ( f'{" ".join( [str(r.card_index).rjust(col_widths[col]) for (col, r) in enumerate(c)] )}',) + \
+            ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
+        table.add_row(*t_row_args)
+    if(use_round_indent):
+        with console.capture() as capture:
+            console.print(table)
+        table_lines = capture.get().split("\n")
+        for line in table_lines:
+            print(f'{ROUND_INDENT}{line}')
+    else:
+        console.print(table)
 def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
     if(not active):
         return
