@@ -3,6 +3,8 @@ from collections import deque
 from PrettyPrint import PrettyPrintTree
 # import colorama
 from rich.table import Table
+from rich.text import Text
+from rich import print as rprint
 import rules
 from definitions import NIGHTMARE, console
 
@@ -18,6 +20,7 @@ ROUND_INDENT_AMOUNT = 14
 ROUND_INDENT = " " * ROUND_INDENT_AMOUNT
 letters = string.ascii_uppercase
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
+# also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 RULE_COLORS = [
     "#79FB00",
     "#FF9D00",
@@ -33,7 +36,7 @@ RULE_COLORS = [
     "#1A9050",
     "#FD9E7b",
     "#593328",
-    "#351251",
+    "#521D7D",
     "#00FF7F",
     "#FF7780",
     "#F22410",
@@ -55,8 +58,13 @@ RULE_COLORS = [
     "#40E0D0"
     "#BE7437",
     "#9BB09E",
-    "#FFBF00"
+    "#FFBF00",
+    "#00FFFF",
+    "#D7AF00"
 ]
+def r_names_perm_order(rl, permutation, permutation_order):
+    permutation = permutation if(permutation_order) else range(len(rl))
+    return([rl[i].name for i in permutation])
 def rules_list_to_names_list(rl, pad=True, permutation=None):
     """
     Input: rl: the rule list of an answer combination.
@@ -98,8 +106,8 @@ def _make_rule_to_color_dict(combos):
         print("WARN: Add more rule colors, or programmatically generate them")
     return(d)
 
-def _get_sort_key(n_mode, verifier_to_sort_by=None):
-    if(verifier_to_sort_by is not None):
+def _get_sort_key(n_mode, n_wo_p, verifier_to_sort_by=None):
+    if((verifier_to_sort_by is not None) and not(n_wo_p)):
         def sort_by_rule_assigned_to_verifier(cwa):
             (c, p, a) = (cwa[0], cwa[1], cwa[-1])
             p = range (len(c)) if(not(n_mode)) else p
@@ -126,7 +134,7 @@ def _get_col_widths(table):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
 
-def print_indented_table(table, indent_amount):
+def _print_indented_table(table, indent_amount):
     """
     table is the Rich python object.
     """
@@ -144,12 +152,15 @@ def _apply_style_to_r_names(
         rule_to_style_dict,
         c,
         p,
-        color_all=False
+        color_all=False,
+        single_out_queried=True
     ):
-    """ Applies a style to each unique rule in r_names_list for print_all_possible_answers"""
+    """
+    Colors each unique rule with a different color. If color_all is on, colors every rule in the combo; otherwise only colors the rule in the column index specified by verifier_to_sort_by. Additionally
+    """
     if(color_all):
         v_indexes_to_change = range(len(c))
-    elif(verifier_to_sort_by is not None):
+    elif((verifier_to_sort_by is not None) and single_out_queried):
         v_indexes_to_change = [verifier_to_sort_by]
     else:
         return
@@ -157,83 +168,12 @@ def _apply_style_to_r_names(
         r_names_indices_to_change = ([v_index * 2, v_index * 2 + 1] if(permutation_order) else [v_index])
         rule_to_style = c[p[v_index]] if(permutation_order) else c[v_index]
         base_style = rule_to_style_dict[rule_to_style.unique_id]
-        v_sort_by_style = f"{base_style}"
-        apply_style = v_sort_by_style if(v_index == verifier_to_sort_by) else base_style
+        v_single_out_style = f"r {base_style}" if(color_all and single_out_queried) else base_style
+        single_out_this_v_index = ((v_index == verifier_to_sort_by) and single_out_queried)
+        apply_style = v_single_out_style if(single_out_this_v_index) else base_style
         for i in r_names_indices_to_change:
-            r_names_list[i] = f'[{apply_style}]{r_names_list[i]}[/{apply_style}]'
+            r_names_list[i] = Text(r_names_list[i], style=apply_style)
 
-def print_all_possible_answers(
-        cwas,
-        mode,
-        title                = "",
-        permutation_order    = False,
-        display_combo_number = True,
-        active               = True,
-        use_round_indent     = False,
-        verifier_to_sort_by  = None
-    ):
-    """
-    Pretty prints a table of all the combos_with_answers (cwas) given.
-    mode is game mode (standard, extreme, or nightmare)
-    title is the title of the table. Blank by default.
-    permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order.
-    active: if False, this function does nothing
-    use_round_indent: whether to indent the tables
-    """
-    if(not active):
-        return
-    n_mode = (mode == NIGHTMARE)
-    permutation_order = permutation_order and n_mode
-    unzipped_cwa = list(zip(*cwas))
-    (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
-    set_possible_answers = set(answers)
-    final_answer = (len(set_possible_answers) == 1)
-    rule_to_color_dict = _make_rule_to_color_dict(combos)
-
-    table = Table(title=title, show_header=True, header_style="magenta")
-    # TODO: play around with the table: see what colors and styles are available. Make the rc index a different color from everything else; make each unique card_index list a different color; see how to add horizontal lines between table rows, etc.
-    if(not final_answer):
-        table.add_column("", justify="right") # answer index column
-    table.add_column("Ans")
-    if(display_combo_number):
-        table.add_column("", justify="right") # combo index column
-    for (v_index, r) in enumerate(combos[0]):
-        if(permutation_order):
-            table.add_column("RC")
-        rule_column_name = f"{'Rule Card' if (n_mode and not permutation_order) else 'Verifier'} {letters[v_index]}"
-        table.add_column(f"{rule_column_name:^{rules.max_rule_name_length}}")
-    table.add_column("Rule Indexes")
-    if(n_mode):
-        table.add_column("Permutation")
-
-    a_index = 0
-    prev_a = -1
-    col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
-    for (c_index, cwa) in enumerate(sorted(cwas, key=_get_sort_key(n_mode, verifier_to_sort_by)), start=1):
-        (c, a) = (cwa[0], cwa[-1])
-        p = cwa[1] if (n_mode) else None
-        new_ans = (a != prev_a)
-        a_index += new_ans
-        prev_a = a if(new_ans) else prev_a
-        r_names_list = make_r_name_list(c, p, permutation_order)
-
-        # Below block colors the rule assigned to the verifier to sort by. Consider making it its own function, called color_r_names_list(r_names_list, verifier_to_color, permutation_order, c, p). Also consider coloring all the rules all the time.
-        # Note that if it's nightmare mode and permutation_order is off, instead of coloring the rule assigned to that verifier, this will just color the rule picked from the rule card of the same index, which is not directly related to which verifier you queried.
-        _apply_style_to_r_names(
-            r_names_list, verifier_to_sort_by, permutation_order, rule_to_color_dict, c, p, color_all=True
-        )
-
-        t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
-            ((str(a),) if(new_ans) else ('',))  +\
-            ((str(c_index),) if(display_combo_number) else tuple()) +\
-            tuple(r_names_list) + \
-            ( f'{" ".join( [str(r.card_index).rjust(col_widths[col]) for (col, r) in enumerate(c)] )}',) + \
-            ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
-        table.add_row(*t_row_args)
-    if(use_round_indent):
-        print_indented_table(table, ROUND_INDENT_AMOUNT)
-    else:
-        console.print(table)
 def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
     if(not active):
         return
@@ -291,6 +231,89 @@ def display_query_history(query_history, num_rcs):
 class Solver_Displayer:
     def __init__(self, solver):
         self.solver = solver
+        self.rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
+        # note that the below is different from the max rule name length in the problem, b/c not all rules in the problem are actually possible.
+        self.max_possible_rule_length = max([max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa])
+
+    def print_all_possible_answers(
+            self,
+            cwas,
+            title                = "",
+            permutation_order    = False,
+            display_combo_number = True,
+            active               = True,
+            use_round_indent     = False,
+            verifier_to_sort_by  = None
+        ):
+        """
+        Pretty prints a table of all the combos_with_answers (cwas) given.
+        title is the title of the table. Blank by default.
+        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order.
+        active: if False, this function does nothing
+        use_round_indent: whether to indent the tables
+        """
+        if(not active):
+            return
+        n_mode = (self.solver.problem.mode == NIGHTMARE)
+        permutation_order = permutation_order and n_mode
+        n_wo_p = n_mode and not(permutation_order)
+        unzipped_cwa = list(zip(*cwas))
+        (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
+        set_possible_answers = set(answers)
+        final_answer = (len(set_possible_answers) == 1)
+        # Printing multiple tables looks nicer when their column widths don't change and when all the rules columns are the same width. So don't use below commented-out code; use self.max_possible_rule_length instead.
+        # rule_col_widths = _get_col_widths([r_names_perm_order(c, p, permutation_order) for (c, p) in zip(combos, permutations)])
+        # rule_col_widths = list(map(lambda x: max(x, len("Verifier X")), rule_col_widths))
+        # rprint(rule_col_widths)
+
+        rule_col_width = max(len("Verifier X"), self.max_possible_rule_length)
+        # TODO: play around with the table: see table styles and box styles.
+        table = Table(title=title, show_header=True, header_style="magenta")
+        if(not final_answer):
+            table.add_column("", justify="right") # answer index column
+        table.add_column("Ans")
+        if(display_combo_number):
+            table.add_column("", justify="right") # combo index column
+        for (v_index, r) in enumerate(combos[0]):
+            if(permutation_order):
+                table.add_column("") # RC, but it took up unnecessary space
+            rule_column_name = f"{'Rule Card' if (n_wo_p) else 'Verifier'} {letters[v_index]}"
+            style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
+            col_text = Text(text=rule_column_name, style=style)
+            # below line is necessary so that all columns are the same length; otherwise some columns might be shorter, if they don't contain any long rule names.
+            col_text.align("center", rule_col_width)
+            table.add_column(col_text)
+        table.add_column("Rule Indexes")
+        if(n_mode):
+            table.add_column("Permutation")
+
+        a_index = 0
+        prev_a = -1
+        card_index_col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
+        for (c_index, cwa) in enumerate(sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by)), start=1):
+            (c, a) = (cwa[0], cwa[-1])
+            p = cwa[1] if (n_mode) else None
+            new_ans = (a != prev_a)
+            a_index += new_ans
+            prev_a = a if(new_ans) else prev_a
+            r_names_list = make_r_name_list(c, p, permutation_order)
+            card_indexes_str = " ".join( [str(r.card_index).rjust(card_index_col_widths[col]) for (col, r) in enumerate(c)] )
+            # card_indexes_text = Text(text=card_indexes_str, style=get style from dict), then use that below
+
+            _apply_style_to_r_names(
+                r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=True, single_out_queried=not(n_wo_p)
+            )
+            t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
+                ((str(a),) if(new_ans) else ('',))  +\
+                ((str(c_index),) if(display_combo_number) else tuple()) +\
+                tuple(r_names_list) + \
+                (card_indexes_str,) + \
+                ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
+            table.add_row(*t_row_args)
+        if(use_round_indent):
+            _print_indented_table(table, ROUND_INDENT_AMOUNT)
+        else:
+            console.print(table)
 
     def print_evaluations_cache_info(self, gs, name="game state", permutation_order=True):
         """
@@ -357,9 +380,8 @@ class Solver_Displayer:
         print(f'\n{name}')
         print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
         print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
-        print_all_possible_answers(
+        self.print_all_possible_answers(
             cwas=self.solver.full_cwa_from_game_state(gs),
-            mode=self.solver.problem.mode,
             title="Combos With Answers Remaining",
             permutation_order=permutation_order,
             verifier_to_sort_by=verifier_to_sort_by
@@ -586,7 +608,6 @@ def node_to_str(tree):
     if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
         result = tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None): # internal node
-            # NOTE: consider displaying cost of this move, either in edge or in node.
             combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
             combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]

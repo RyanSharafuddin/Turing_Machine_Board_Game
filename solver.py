@@ -320,9 +320,13 @@ class Solver:
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
         self.seconds_to_solve   = -1 # have not called solve() yet.
 
+        # TODO delete the testing lines below
+        global sd
+        sd = display.Solver_Displayer(self)
+
         # TODO delete testing lines below
         # display.print_problem(self.rcs_list, problem)
-        # display.print_all_possible_answers(self.full_cwa, problem.mode, "\nAll Possible Answers", permutation_order=True, display_combo_number=True)
+        # sd.print_all_possible_answers(self.full_cwa, "\nAll Possible Answers", permutation_order=True, display_combo_number=True)
         # END delete testing lines
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate in favor of simple possible_combos_with_answers list + integer indices everywhere, like in game states and q infos.
@@ -330,9 +334,6 @@ class Solver:
             (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
         }
 
-        # TODO delete the testing lines below
-        global sd
-        sd = display.Solver_Displayer(self)
 
         self.qs_dict        = populate_useful_qs_dict(
             self.rcs_list, all_125_possibilities_set, self.full_cwa, problem.mode

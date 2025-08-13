@@ -1,4 +1,5 @@
 import rules, display, solver
+from rich import print as rprint
 from problems import get_problem_by_id as get
 from definitions import *
 import pickle, os, sys, platform
@@ -21,6 +22,7 @@ def play_from_solver(s, display_problem = True):
     This function assumes that the solver s has already been solved.
     If display_problem is off, will not display the problem
     """
+    sd = display.Solver_Displayer(s)
     (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
     current_gs = initial_game_state
     # NOTE: below line for display purposes only
@@ -31,7 +33,7 @@ def play_from_solver(s, display_problem = True):
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     if(display_problem):
         display.print_problem(rcs_list, s.problem, active=True)
-        display.print_all_possible_answers(full_cwa, s.problem.mode, "\nAll Possible Answers", permutation_order=True)
+        sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=True)
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
         full_cwa = s.full_cwa_from_game_state(current_gs)
@@ -39,8 +41,8 @@ def play_from_solver(s, display_problem = True):
         expected_total_queries = total_queries_made + expected_cost_tup[1]
         if(total_queries_made > 0):
             # only print this table after having made some queries, since already printed it at start.
-            display.print_all_possible_answers(
-                full_cwa, s.problem.mode, "\nRemaining Combos", permutation_order=True, active=PRINT_COMBOS, use_round_indent=True, verifier_to_sort_by=verifier_to_sort_by
+            sd.print_all_possible_answers(
+                full_cwa, "\nRemaining Combos", permutation_order=True, active=PRINT_COMBOS, use_round_indent=True, verifier_to_sort_by=verifier_to_sort_by
             )
         current_round_num += mcost_tup[0]
         total_queries_made += mcost_tup[1]
@@ -58,21 +60,25 @@ def play_from_solver(s, display_problem = True):
     full_cwa = s.full_cwa_from_game_state(current_gs)
     print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
     display.display_query_history(query_history, len(rcs_list))
-    display.print_all_possible_answers(full_cwa, s.problem.mode, "\nANSWER", permutation_order=True, verifier_to_sort_by=best_move_tup[1])
+    v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
+    sd.print_all_possible_answers(
+        full_cwa, "\nANSWER", permutation_order=True, verifier_to_sort_by=v_to_sort_by
+        )
 
 def display_solution_from_solver(s, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     """
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
+    sd = display.Solver_Displayer(s)
     if(display_problem):
         display.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     if(len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1):
-        display.print_all_possible_answers(full_cwa, s.problem.mode, "\nANSWER", permutation_order=True)
+        sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=True)
     else:
         if(display_problem):
-            display.print_all_possible_answers(full_cwa, s.problem.mode, "\nAll Possible Answers", permutation_order=True)
+            sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=True)
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
         # TODO: uncomment when done with adding the correct functions to display (see todo.txt optional)
         # display.print_multi_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
@@ -117,10 +123,11 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
 
 def make_solver(problem):
     s = solver.Solver(problem)
+    sd = display.Solver_Displayer(s)
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     display.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
-    display.print_all_possible_answers(full_cwa, s.problem.mode, "\nAll Possible Answers", permutation_order=True)
+    sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=True)
     print("\nSolving . . .")
     s.solve()
     print(f"Finished.")
@@ -207,7 +214,8 @@ def play(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 # options
-PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "Pickles_New"       # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go. # TODO uncomment after testing extensively
 # PRINT_COMBOS = False               # whether or not to print remaining combos after every query in play()
 PRINT_COMBOS = True                # whether or not to print remaining combos after every query in play()
 # SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
@@ -238,6 +246,10 @@ print(f"Using {platform.python_implementation()}.")
 # latest = f43
 # latest = f63
 latest = p1_n
+# latest = get("B63YRW4_N") # zero_query
+# latest = get("2_N")
+# display_problem_solution(latest)
+
 display_problem_solution(latest, no_pickles=True)
 play(latest, no_pickles=True)
 
