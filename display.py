@@ -137,6 +137,31 @@ def print_indented_table(table, indent_amount):
     for line in table_lines:
         print(f'{" " * indent_amount}{line}')
 
+def _apply_style_to_r_names(
+        r_names_list,
+        verifier_to_sort_by,
+        permutation_order,
+        rule_to_style_dict,
+        c,
+        p,
+        color_all=False
+    ):
+    """ Applies a style to each unique rule in r_names_list for print_all_possible_answers"""
+    if(color_all):
+        v_indexes_to_change = range(len(c))
+    elif(verifier_to_sort_by is not None):
+        v_indexes_to_change = [verifier_to_sort_by]
+    else:
+        return
+    for v_index in v_indexes_to_change:
+        r_names_indices_to_change = ([v_index * 2, v_index * 2 + 1] if(permutation_order) else [v_index])
+        rule_to_style = c[p[v_index]] if(permutation_order) else c[v_index]
+        base_style = rule_to_style_dict[rule_to_style.unique_id]
+        v_sort_by_style = f"{base_style}"
+        apply_style = v_sort_by_style if(v_index == verifier_to_sort_by) else base_style
+        for i in r_names_indices_to_change:
+            r_names_list[i] = f'[{apply_style}]{r_names_list[i]}[/{apply_style}]'
+
 def print_all_possible_answers(
         cwas,
         mode,
@@ -165,7 +190,7 @@ def print_all_possible_answers(
     final_answer = (len(set_possible_answers) == 1)
     rule_to_color_dict = _make_rule_to_color_dict(combos)
 
-    table = Table(title=title, show_header=True, header_style="bold magenta")
+    table = Table(title=title, show_header=True, header_style="magenta")
     # TODO: play around with the table: see what colors and styles are available. Make the rc index a different color from everything else; make each unique card_index list a different color; see how to add horizontal lines between table rows, etc.
     if(not final_answer):
         table.add_column("", justify="right") # answer index column
@@ -175,7 +200,8 @@ def print_all_possible_answers(
     for (v_index, r) in enumerate(combos[0]):
         if(permutation_order):
             table.add_column("RC")
-        table.add_column(f"{'Rule Card' if (n_mode and not permutation_order) else 'Verifier'} {letters[v_index]}")
+        rule_column_name = f"{'Rule Card' if (n_mode and not permutation_order) else 'Verifier'} {letters[v_index]}"
+        table.add_column(f"{rule_column_name:^{rules.max_rule_name_length}}")
     table.add_column("Rule Indexes")
     if(n_mode):
         table.add_column("Permutation")
@@ -193,14 +219,9 @@ def print_all_possible_answers(
 
         # Below block colors the rule assigned to the verifier to sort by. Consider making it its own function, called color_r_names_list(r_names_list, verifier_to_color, permutation_order, c, p). Also consider coloring all the rules all the time.
         # Note that if it's nightmare mode and permutation_order is off, instead of coloring the rule assigned to that verifier, this will just color the rule picked from the rule card of the same index, which is not directly related to which verifier you queried.
-        if(verifier_to_sort_by is not None):
-            r_names_indices_to_change = (
-                [verifier_to_sort_by * 2, verifier_to_sort_by * 2 + 1] if(permutation_order) else [verifier_to_sort_by]
-                )
-            rule_to_color = c[p[verifier_to_sort_by]] if(permutation_order) else c[verifier_to_sort_by]
-            color = rule_to_color_dict[rule_to_color.unique_id]
-            for i in r_names_indices_to_change:
-                r_names_list[i] = f'[{color}]{r_names_list[i]}[/{color}]'
+        _apply_style_to_r_names(
+            r_names_list, verifier_to_sort_by, permutation_order, rule_to_color_dict, c, p, color_all=True
+        )
 
         t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
             ((str(a),) if(new_ans) else ('',))  +\
