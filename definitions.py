@@ -55,7 +55,8 @@ Problem = namedtuple(
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
-console = Console() # See https://rich.readthedocs.io/en/latest/console.html
+console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
+# By default, Rich strips color escape codes if it detects that it is not printing directly to a terminal (for example, if it is printing to a file or if it's being piped into another program like less). With force_terminal, we can make it print color codes regardless of whether it is directly printing to a terminal.
 
 # rules_card_infos[i] is a dict for the ith verifier (which, in a non-nightmare game, corresponds to the ith rules card in rules_cards_list). That dict is:
 

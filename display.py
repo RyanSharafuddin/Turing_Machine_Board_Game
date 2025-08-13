@@ -1,4 +1,5 @@
 import string, math
+from itertools import zip_longest
 from collections import deque
 from PrettyPrint import PrettyPrintTree
 # import colorama
@@ -43,7 +44,7 @@ RULE_COLORS = [
     "#EE8727",
     "#AF4109",
     "#F2E32D",
-    "#FFFFFF",
+    "#BC0B6F",
     "#2BAE7B",
     "#01FF01",
     "#01796F",
@@ -104,6 +105,15 @@ def _make_rule_to_color_dict(combos):
                 color_index += 1
     if(color_index > len(RULE_COLORS)):
         print("WARN: Add more rule colors, or programmatically generate them")
+    return(d)
+
+def _make_list_objs_to_color_dict(list_objs):
+    color_index = 0
+    d = dict()
+    for obj in list_objs:
+        if(obj not in d):
+            d[obj] = RULE_COLORS[len(RULE_COLORS) - 1 - (color_index % len(RULE_COLORS))]
+            color_index += 1
     return(d)
 
 def _get_sort_key(n_mode, n_wo_p, verifier_to_sort_by=None):
@@ -191,12 +201,6 @@ def print_combo_with_answer(index, cwa, mode, use_round_indent=False, custom_ind
     (combo, permutation, answer) = [cwa[i] for i in (0, 1, -1)]
     permutation_string = f", permutation: {permutation}" if(mode == NIGHTMARE) else ''
     print(f'{indent}{index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
-def print_problem(rcs_list, problem, active=True):
-    modes = ["Standard", "Extreme", "Nightmare"]
-    if(active):
-        print(f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}")
-        for (i, rc) in enumerate(rcs_list):
-            print(f'{letters[i]}: {rules_list_to_names(rc)}')
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
     if(new_round):
         print(f"\nRound   : {current_round_num:>3}")
@@ -232,8 +236,24 @@ class Solver_Displayer:
     def __init__(self, solver):
         self.solver = solver
         self.rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
+        self.card_index_to_color_dict = _make_list_objs_to_color_dict([tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa])
         # note that the below is different from the max rule name length in the problem, b/c not all rules in the problem are actually possible.
-        self.max_possible_rule_length = max([max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa])
+        self.max_possible_rule_length = max([max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0)
+
+    def print_problem(self, rcs_list, problem, active=True):
+        modes = ["Standard", "Extreme", "Nightmare"]
+        if(active):
+            title = f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}"
+            table = Table(title=title, header_style="deep_sky_blue3", border_style="blue", title_style='')
+            table.add_column("Rule Index", justify="right")
+            for c_index in range(len(rcs_list)):
+                table.add_column(Text(f'Rule Card {letters[c_index]}', justify="center"), min_width=rules.max_rule_name_length)
+            zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
+            for (i, zipped_rules) in enumerate(zipped_rule_texts):
+                table.add_row(str(i), *zipped_rules)
+            console.print(table)
+            # for (i, rc) in enumerate(rcs_list):
+            #     print(f'{letters[i]}: {rules_list_to_names(rc)}')
 
     def print_all_possible_answers(
             self,
@@ -267,8 +287,7 @@ class Solver_Displayer:
         # rprint(rule_col_widths)
 
         rule_col_width = max(len("Verifier X"), self.max_possible_rule_length)
-        # TODO: play around with the table: see table styles and box styles.
-        table = Table(title=title, show_header=True, header_style="magenta")
+        table = Table(title=title, header_style="magenta")
         if(not final_answer):
             table.add_column("", justify="right") # answer index column
         table.add_column("Ans")
@@ -298,7 +317,7 @@ class Solver_Displayer:
             prev_a = a if(new_ans) else prev_a
             r_names_list = make_r_name_list(c, p, permutation_order)
             card_indexes_str = " ".join( [str(r.card_index).rjust(card_index_col_widths[col]) for (col, r) in enumerate(c)] )
-            # card_indexes_text = Text(text=card_indexes_str, style=get style from dict), then use that below
+            card_indexes_text = Text(text=card_indexes_str, style=self.card_index_to_color_dict[tuple([r.card_index for r in c])] if n_mode else '') # then use that below
 
             _apply_style_to_r_names(
                 r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=True, single_out_queried=not(n_wo_p)
@@ -307,7 +326,7 @@ class Solver_Displayer:
                 ((str(a),) if(new_ans) else ('',))  +\
                 ((str(c_index),) if(display_combo_number) else tuple()) +\
                 tuple(r_names_list) + \
-                (card_indexes_str,) + \
+                (card_indexes_text,) + \
                 ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
             table.add_row(*t_row_args)
         if(use_round_indent):

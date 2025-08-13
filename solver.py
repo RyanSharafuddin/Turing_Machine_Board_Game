@@ -305,10 +305,11 @@ def make_full_cwa(problem, rcs_list):
                 nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
         possible_combos_with_answers = nightmare_possible_combos_with_answers
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
-    if(not(possible_combos_with_answers)):
-        display.print_problem(rcs_list, problem)
-        print("User error: you have entered a problem which has no valid solutions. Check that you entered the problem in correctly and that you defined the rules correctly in rules.py. Exiting.")
-        exit()
+    # if(not(possible_combos_with_answers)):
+    #     # TODO: create some error message field in solver and display it when you make the solver in controller.py
+    #     # display.print_problem(rcs_list, problem)
+    #     print("User error: you have entered a problem which has no valid solutions. Check that you entered the problem in correctly and that you defined the rules correctly in rules.py. Exiting.")
+    #     exit()
     return(possible_combos_with_answers)
 
 class Solver:
@@ -319,13 +320,15 @@ class Solver:
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
         self.seconds_to_solve   = -1 # have not called solve() yet.
+        if(not(self.full_cwa)):
+            return
 
         # TODO delete the testing lines below
         global sd
         sd = display.Solver_Displayer(self)
 
         # TODO delete testing lines below
-        # display.print_problem(self.rcs_list, problem)
+        # sd.print_problem(self.rcs_list, problem)
         # sd.print_all_possible_answers(self.full_cwa, "\nAll Possible Answers", permutation_order=True, display_combo_number=True)
         # END delete testing lines
 
@@ -415,8 +418,3 @@ class Solver:
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
-
-def solve(problem):
-    s = Solver(problem)
-    s.solve()
-    return(s)

@@ -32,7 +32,7 @@ def play_from_solver(s, display_problem = True):
     total_queries_made = 0
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     if(display_problem):
-        display.print_problem(rcs_list, s.problem, active=True)
+        sd.print_problem(rcs_list, s.problem, active=True)
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=True)
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
@@ -72,7 +72,7 @@ def display_solution_from_solver(s, display_problem = True):
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     sd = display.Solver_Displayer(s)
     if(display_problem):
-        display.print_problem(s.rcs_list, s.problem, active=True)
+        sd.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     if(len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=True)
@@ -125,7 +125,10 @@ def make_solver(problem):
     s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
     rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
-    display.print_problem(s.rcs_list, s.problem, active=True)
+    sd.print_problem(s.rcs_list, s.problem, active=True)
+    if(not(s.full_cwa)):
+        print(f"Error! This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py. Exiting.")
+        exit()
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
     sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=True)
     print("\nSolving . . .")
@@ -145,8 +148,8 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     if(os.path.exists(f_name) and not force_overwrite):
         print(f"Asked to pickle {f_name}, but it already exists. Returning None.")
         return
-    f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     s = make_solver(problem)
+    f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     print(f"\nPickling {f_name} . . .")
     if(not(pickle_entire)):
         new_evaluations_cache = get_relevant_parts_cache(s.evaluations_cache, s.initial_game_state)
@@ -241,17 +244,20 @@ f5x = get("F5XTDF")  # Nice tree. May want to turn off combo printing. Kinda har
 f63 = get("F63EZQM") # Nice tree.      Full combos.
 f52 = get("F52LUJG") # Excellent tree. Full combos
 f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
+i = get("Invalid")
 
 print(f"Using {platform.python_implementation()}.")
 # latest = f43
+# latest = i
 # latest = f63
 latest = p1_n
 # latest = get("B63YRW4_N") # zero_query
 # latest = get("2_N")
+play(latest)
 # display_problem_solution(latest)
 
-display_problem_solution(latest, no_pickles=True)
-play(latest, no_pickles=True)
+# display_problem_solution(latest, no_pickles=True)
+# play(latest, no_pickles=True)
 
 # (s, _) = get_or_make_solver(latest, no_pickles=True)
 # sd = display.Solver_Displayer(s)

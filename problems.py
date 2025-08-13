@@ -10,6 +10,7 @@ STANDARD_PROB_TUPS = [
     ( "C5HCBJ",     [ 2, 15, 30, 31, 33]),
     ("B63YRW4", [ 2,  5,  9, 15, 18, 22]), # zero_query
     ("C630YVB", [ 9, 22, 24, 31, 37, 40]), # multiple combos -> same answer
+    ("Invalid", [ 1,  2,  3,  4,  5,  6])  # invalid problem for testing purposes
 ]
 
 # EXTREME
