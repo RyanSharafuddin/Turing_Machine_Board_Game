@@ -119,6 +119,9 @@ def _make_list_objs_to_color_dict(list_objs):
 def _get_sort_key(n_mode, n_wo_p, verifier_to_sort_by=None):
     if((verifier_to_sort_by is not None) and not(n_wo_p)):
         def sort_by_rule_assigned_to_verifier(cwa):
+            """
+            Sort by answer, then the unique_id of the rule assigned to the verifier_to_sort_by, then by the unique_ids of the combo, and then by the permutation, if there is one.
+            """
             (c, p, a) = (cwa[0], cwa[1], cwa[-1])
             p = range (len(c)) if(not(n_mode)) else p
             id_rule_assigned_to_verifier = c[p[verifier_to_sort_by]].unique_id
@@ -128,6 +131,9 @@ def _get_sort_key(n_mode, n_wo_p, verifier_to_sort_by=None):
             )
         return(sort_by_rule_assigned_to_verifier)
     def default_sort(cwa):
+        """
+        Sort by answer, then by the unique_ids of the combo, and then by the permutation, if there is one.
+        """
         (c, p, a) = (cwa[0], cwa[1], cwa[-1])
         return((a, tuple([r.unique_id for r in c])) + ((p,) if n_mode else tuple()))
     return(default_sort)
@@ -236,7 +242,10 @@ class Solver_Displayer:
     def __init__(self, solver):
         self.solver = solver
         self.rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
-        self.card_index_to_color_dict = _make_list_objs_to_color_dict([tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa])
+        self.card_index_to_color_dict = _make_list_objs_to_color_dict(
+            [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa]
+        )
+        self.n_mode = (self.solver.problem.mode == NIGHTMARE)
         # note that the below is different from the max rule name length in the problem, b/c not all rules in the problem are actually possible.
         self.max_possible_rule_length = max([max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0)
 
@@ -247,13 +256,32 @@ class Solver_Displayer:
             table = Table(title=title, header_style="deep_sky_blue3", border_style="blue", title_style='')
             table.add_column("Rule Index", justify="right")
             for c_index in range(len(rcs_list)):
-                table.add_column(Text(f'Rule Card {letters[c_index]}', justify="center"), min_width=rules.max_rule_name_length)
+                rc_text = f'Rule Card {letters[c_index]}'
+                min_width = max(rules.max_rule_name_length, len(rc_text))
+                table.add_column(Text(rc_text, justify="center"), min_width=min_width)
             zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
             for (i, zipped_rules) in enumerate(zipped_rule_texts):
                 table.add_row(str(i), *zipped_rules)
             console.print(table)
-            # for (i, rc) in enumerate(rcs_list):
-            #     print(f'{letters[i]}: {rules_list_to_names(rc)}')
+
+    def get_card_indexes_text(self, card_index_col_widths, c):
+        card_indexes_list = [r.card_index for r in c]
+        card_indexes_strings_list = [
+            str(ci).rjust(card_index_col_widths[col]) for (col, ci) in enumerate(card_indexes_list)
+        ]
+        card_indexes_text = Text()
+        for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
+            style=self.rule_to_color_dict[c[combo_index].unique_id]
+            card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
+        return(card_indexes_text)
+
+    def get_r_names_texts_list(self, c, p, permutation_order, verifier_to_sort_by, color_all=True):
+        n_wo_p = self.n_mode and not(permutation_order)
+        r_names_list = make_r_name_list(c, p, permutation_order)
+        _apply_style_to_r_names(
+            r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
+        )
+        return(r_names_list)
 
     def print_all_possible_answers(
             self,
@@ -281,13 +309,11 @@ class Solver_Displayer:
         (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
         set_possible_answers = set(answers)
         final_answer = (len(set_possible_answers) == 1)
-        # Printing multiple tables looks nicer when their column widths don't change and when all the rules columns are the same width. So don't use below commented-out code; use self.max_possible_rule_length instead.
-        # rule_col_widths = _get_col_widths([r_names_perm_order(c, p, permutation_order) for (c, p) in zip(combos, permutations)])
-        # rule_col_widths = list(map(lambda x: max(x, len("Verifier X")), rule_col_widths))
-        # rprint(rule_col_widths)
 
-        rule_col_width = max(len("Verifier X"), self.max_possible_rule_length)
-        table = Table(title=title, header_style="magenta")
+        table = Table(title=title, header_style="magenta", border_style="")
+        # TODO: consider making creating the columns and their titles its own function.
+        rule_col_title = f"{'Rule Card' if (n_wo_p) else 'Verifier'}"
+        rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
         if(not final_answer):
             table.add_column("", justify="right") # answer index column
         table.add_column("Ans")
@@ -296,36 +322,35 @@ class Solver_Displayer:
         for (v_index, r) in enumerate(combos[0]):
             if(permutation_order):
                 table.add_column("") # RC, but it took up unnecessary space
-            rule_column_name = f"{'Rule Card' if (n_wo_p) else 'Verifier'} {letters[v_index]}"
-            style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
-            col_text = Text(text=rule_column_name, style=style)
-            # below line is necessary so that all columns are the same length; otherwise some columns might be shorter, if they don't contain any long rule names.
-            col_text.align("center", rule_col_width)
-            table.add_column(col_text)
+            rule_column_name = f"{rule_col_title} {letters[v_index]}"
+            rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
+            col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
+            table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
         table.add_column("Rule Indexes")
         if(n_mode):
             table.add_column("Permutation")
 
+        # TODO: consider making the row arguments its own function.
+        sorted_cwas = sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by))
         a_index = 0
-        prev_a = -1
         card_index_col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
-        for (c_index, cwa) in enumerate(sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by)), start=1):
+        for (c_index, cwa) in enumerate(sorted_cwas, start=1): # note that c_index starts at 1
             (c, a) = (cwa[0], cwa[-1])
             p = cwa[1] if (n_mode) else None
-            new_ans = (a != prev_a)
+            new_ans = ((c_index == 1) or (a != sorted_cwas[c_index - 2][-1]))
             a_index += new_ans
-            prev_a = a if(new_ans) else prev_a
-            r_names_list = make_r_name_list(c, p, permutation_order)
-            card_indexes_str = " ".join( [str(r.card_index).rjust(card_index_col_widths[col]) for (col, r) in enumerate(c)] )
-            card_indexes_text = Text(text=card_indexes_str, style=self.card_index_to_color_dict[tuple([r.card_index for r in c])] if n_mode else '') # then use that below
+            # NOTE: Uncomment/recomment the below if block to enable/disable lines between new answers
+            # if(new_ans):
+                # table.add_section()
 
-            _apply_style_to_r_names(
-                r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=True, single_out_queried=not(n_wo_p)
+            card_indexes_text = self.get_card_indexes_text(card_index_col_widths, c)
+            r_names_texts_list = self.get_r_names_texts_list(
+                c, p, permutation_order, verifier_to_sort_by, color_all=True
             )
             t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
                 ((str(a),) if(new_ans) else ('',))  +\
                 ((str(c_index),) if(display_combo_number) else tuple()) +\
-                tuple(r_names_list) + \
+                tuple(r_names_texts_list) + \
                 (card_indexes_text,) + \
                 ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
             table.add_row(*t_row_args)
@@ -551,7 +576,6 @@ class Tree:
         self.solver = solver
         self.prob = prob
         self.cost_to_get_here = cost_to_get_here
-        # self.num_newlines = num_newlines
         self.depth = depth
 
         # TODO: fields to be added to be used for 'move' type trees:

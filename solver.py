@@ -305,11 +305,6 @@ def make_full_cwa(problem, rcs_list):
                 nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
         possible_combos_with_answers = nightmare_possible_combos_with_answers
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
-    # if(not(possible_combos_with_answers)):
-    #     # TODO: create some error message field in solver and display it when you make the solver in controller.py
-    #     # display.print_problem(rcs_list, problem)
-    #     print("User error: you have entered a problem which has no valid solutions. Check that you entered the problem in correctly and that you defined the rules correctly in rules.py. Exiting.")
-    #     exit()
     return(possible_combos_with_answers)
 
 class Solver:
