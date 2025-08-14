@@ -308,7 +308,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 
 }
 
-max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
+# max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
 # longest_rule_name = max([max([(len(r.__name__), r.__name__) for r in rc]) for rc in rcs_deck.values()])[1]
 # print(longest_rule_name, max_rule_name_length)
 # card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
@@ -321,7 +321,7 @@ def _func_to_Rule(func, card_index):
 
 for (rule_card_num, rule_card) in rcs_deck.items():
     rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
-    # now rcs_deck is a dict from rule_card_num to a list of Rules, where each rule consists of a name, reject_set, Python function, and index within its card
+    # now rcs_deck is a dict from rule_card_num to a list of Rules (see definitions.py)
 
 def rule_with_new_id(old_rule, new_id):
     return(Rule(old_rule.name, old_rule.reject_set, old_rule.func, old_rule.card_index, new_id))

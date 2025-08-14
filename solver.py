@@ -187,7 +187,7 @@ def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
         )
     return(fset_cwa_indexes_remaining)
 
-def make_rcs_list(problem):
+def make_rcs_list(problem) -> list[list[Rule]]:
     if((problem.mode == STANDARD) or (problem.mode == NIGHTMARE)):
         rcs_list = [rules.rcs_deck[num] for num in problem.rc_nums_list]
     if(problem.mode == EXTREME):

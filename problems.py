@@ -1,5 +1,4 @@
 from definitions import *
-from solver import STANDARD, EXTREME, NIGHTMARE
 
 # STANDARD
 STANDARD_PROB_TUPS = [

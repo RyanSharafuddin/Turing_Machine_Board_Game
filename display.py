@@ -5,18 +5,14 @@ from PrettyPrint import PrettyPrintTree
 # import colorama
 from rich.table import Table
 from rich.text import Text
+from rich import box
 from rich import print as rprint
-import rules, solver
+import solver
 from definitions import NIGHTMARE, console
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
 # NOTE: for some reason that probably has to do with VS Code color themes, the checks and Xs don't display how I want them to in the terminal when using the Radical theme, but they do display correctly when using the Terminal app, or with certain other VS Code themes.
-# RED = "\033[31m"            #   red text, default background
-X_SEQ = "\033[97;41m"       # white text,     red background
-CHECK_SEQ = "\033[97;42m"   # white text,   green background
-DEFAULT = "\033[0;0m"
-# DEFAULT = "\033[32;0m"
 ROUND_INDENT_AMOUNT = 14
 ROUND_INDENT = " " * ROUND_INDENT_AMOUNT
 letters = string.ascii_uppercase
@@ -66,21 +62,16 @@ RULE_COLORS = [
 def r_names_perm_order(rl, permutation, permutation_order):
     permutation = permutation if(permutation_order) else range(len(rl))
     return([rl[i].name for i in permutation])
-def rules_list_to_names_list(rl, pad=True, permutation=None):
+def rules_list_to_names_list(rl, permutation=None):
     """
     Input: rl: the rule list of an answer combination.
-    If a permutation is given, will list the rule names in permutation order w/"{name_of_rule_card}: " preceding it, otherwise, in standard order w/o name of rule card.
+    If a permutation is given, will list the rule names in permutation order w/ "{name_of_rule_card} " preceding it, otherwise, in standard order w/o name of rule card.
     """
-    pad_spaces = rules.max_rule_name_length if(pad) else 0
     if(permutation is not None):
-        pad_spaces += 3 if pad else 0
-        names = [f'{letters[r_index]} {rl[r_index].name}'.ljust(pad_spaces) for r_index in permutation]
+        names = [f'{letters[r_index]} {rl[r_index].name}' for r_index in permutation]
     else:
-        names = [f'{r.name:<{pad_spaces}}' for r in rl]
+        names = [f'{r.name}' for r in rl]
     return(names)
-def rules_list_to_names(rl, pad=True, permutation=None):
-    names = rules_list_to_names_list(rl, pad, permutation)
-    return(' '.join(names))
 def make_r_name_list(rules_list, permutation, permutation_order):
     """
     If permutation_order, will output a list like this:
@@ -90,7 +81,7 @@ def make_r_name_list(rules_list, permutation, permutation_order):
     if(not(permutation_order)):
         permutation = None
     r_name_list = []
-    for r_name in rules_list_to_names_list(rules_list, permutation=permutation, pad=False):
+    for r_name in rules_list_to_names_list(rules_list, permutation=permutation):
         if(permutation_order):
             r_name_list.append(r_name[0]) # append the name of the rule card to list.
         r_name_list.append(r_name[(2 if permutation_order else 0):])
@@ -190,23 +181,6 @@ def _apply_style_to_r_names(
         for i in r_names_indices_to_change:
             r_names_list[i] = Text(r_names_list[i], style=apply_style)
 
-def print_list_cwa(cwas, mode, message = "", use_round_indent=False, custom_indent=None, active=True):
-    if(not active):
-        return
-    indent = ROUND_INDENT if(use_round_indent) else ""
-    if(message[0] == '\n'):
-        indent = '\n' + indent
-        message = message[1:]
-    print(indent + message)
-    sort_key = (lambda t: (t[2], t[1], [r.card_index for r in t[0]])) if (mode == NIGHTMARE) else \
-        (lambda t: (t[-1], [r.card_index for r in t[0]]))
-    for (i, cwa) in enumerate(sorted(cwas, key=sort_key)):
-        print_combo_with_answer(i, cwa, mode, use_round_indent, custom_indent=custom_indent)
-def print_combo_with_answer(index, cwa, mode, use_round_indent=False, custom_indent=0):
-    indent = ROUND_INDENT if(use_round_indent) else (" " * custom_indent)
-    (combo, permutation, answer) = [cwa[i] for i in (0, 1, -1)]
-    permutation_string = f", permutation: {permutation}" if(mode == NIGHTMARE) else ''
-    print(f'{indent}{index + 1:>3}: {answer} {rules_list_to_names(combo)}, rules_card_indices: {[r.card_index for r in combo]}{permutation_string}')
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
     if(new_round):
         print(f"\nRound   : {current_round_num:>3}")
@@ -224,30 +198,61 @@ def conduct_query(query_tup, expected_winning_round, expected_total_queries):
         exit()
     result = (result_raw in ['T', 't'])
     return(result)
-def display_query_history(query_history, num_rcs):
-    separator = ""
+def display_query_history(query_history, num_rcs, use_table=True):
+    """
+    If use_table is True, will print query history as a table; otherwise will just use text with spacing.
+    """
+    result_table = Table(padding=0, header_style="b", show_lines=True, title_style="", title="Query History")
+    separator_string = ""
+    separator = Text(separator_string, style="")
+    result_displays = [
+        Text("X", style="b white on red"),   # False
+        Text("✓", style="b white on green"), # True
+        Text(' ', style="")           # not queried
+    ]
+    emoji_displays = [        # maybe use in future
+        Text("❌", style=""), # False
+        Text("✅", style=""), # True
+        Text('  ', style="")   # not queried
+    ]
     if(query_history):
-        print("\n" + (" " * 8) + separator.join(letters[:num_rcs]))
+        if(not use_table):
+            print("\n" + (" " * 8) + separator_string.join(letters[:num_rcs]))
+        result_table.add_column() # round num
+        result_table.add_column() # proposal
+        for i in range(num_rcs):
+            result_table.add_column(f"{letters[i]}")
         for (round_num, round_info) in enumerate(query_history, start=1):
+            proposal = round_info[0]
             verifier_info = [2 for i in range(num_rcs)]
             for (v, result) in round_info[1:]:
                 verifier_info[v] = result
-            print(f"{round_num}: {round_info[0]}: {separator.join([[f'{X_SEQ}X{DEFAULT}', f'{CHECK_SEQ}✓{DEFAULT}', ' '][result] for result in verifier_info])}")
-            print(DEFAULT, end="")
-
-
-# To be used for displaying things in debugging:
+            display_text = Text("")
+            for result in verifier_info:
+                display_text.append(result_displays[result])
+                display_text.append(separator)
+            row_args = [str(round_num), str(proposal)] + [result_displays[result] for result in verifier_info]
+            result_table.add_row(*row_args)
+            if(not use_table):
+                console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
+        if(use_table):
+            console.print("\n", result_table, end="")
 
 class Solver_Displayer:
-    def __init__(self, solver):
+    def __init__(self, solver: solver.Solver):
         self.solver = solver
         self.rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
         self.card_index_to_color_dict = _make_list_objs_to_color_dict(
             [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa]
         )
         self.n_mode = (self.solver.problem.mode == NIGHTMARE)
-        # note that the below is different from the max rule name length in the problem, b/c not all rules in the problem are actually possible.
-        self.max_possible_rule_length = max([max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0)
+        self.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in self.solver.rcs_list])
+        # note that max_possible_rule_length is different from max_rule_name_length,
+        # b/c not all rules in the problem are necessarily possible.
+        self.max_possible_rule_length = max(
+            [max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0
+        )
+
 
     def print_problem(self, rcs_list, problem, active=True):
         modes = ["Standard", "Extreme", "Nightmare"]
@@ -261,7 +266,7 @@ class Solver_Displayer:
             table.add_column("Rule Index", justify="right")
             for c_index in range(len(rcs_list)):
                 rc_text = f'Rule Card {letters[c_index]}'
-                min_width = max(rules.max_rule_name_length, len(rc_text))
+                min_width = max(self.max_rule_name_length, len(rc_text))
                 table.add_column(Text(rc_text, justify="center"), min_width=min_width)
             zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
             for (i, zipped_rules) in enumerate(zipped_rule_texts):
@@ -477,12 +482,12 @@ class Solver_Displayer:
             rcs_list_possible, title
         )
 
-    def print_useful_qs_dict_info(
-        self, useful_qs_dict, v_index, full_cwas, proposal_to_examine=None, see_all_combos=True
+    def print_useful_qs_dict_info_helper(
+        self, useful_qs_dict, full_cwas, v_index, proposal_to_examine=None, see_all_combos=True
     ):
         """
-        Displays all information in the useful_queries_dict about a specific verifier card.
-        Optionally, if proposal_to_examine is included, will only print information about that proposal. Otherwise, will print information about every useful proposal.
+        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
+        If proposal_to_examine is none, will print info about all useful proposals.
         Note: will need the full_cwas used to make this useful_queries_dict.
         """
         q_dict_this_card = dict()
@@ -525,6 +530,20 @@ class Solver_Displayer:
                     permutation_order=True,
                     verifier_to_sort_by=v_index,
                     custom_indent=custom_indent
+                )
+
+    def print_useful_qs_dict_info(
+        self, useful_qs_dict, full_cwas, verifier_index=None, proposal_to_examine=None, see_all_combos=True
+    ):
+        """
+        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
+        If either verifier_index or proposal_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if proposal_to_examine is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
+        Note: will need the full_cwas used to make this useful_queries_dict.
+        """
+        for possible_v_index in range(len(self.solver.rcs_list)):
+            if((verifier_index is None) or (possible_v_index == verifier_index)):
+                self.print_useful_qs_dict_info_helper(
+                    useful_qs_dict, full_cwas, possible_v_index, proposal_to_examine, see_all_combos
                 )
 
 def mov_to_str(move: tuple):

@@ -1,8 +1,9 @@
-import rules, display, solver
-from rich import print as rprint
-from problems import get_problem_by_id as get
-from definitions import *
 import pickle, os, sys, platform, gc
+from rich import print as rprint
+from rich.text import Text
+from definitions import *
+from problems import get_problem_by_id as get
+import display, solver
 
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -26,7 +27,6 @@ def play_from_solver(s, display_problem = True):
     (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
     current_gs = initial_game_state
     # NOTE: below line for display purposes only
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in rcs_list])
     full_cwa = s.full_cwa_from_game_state(current_gs)
     current_round_num = 0
     total_queries_made = 0
@@ -42,7 +42,7 @@ def play_from_solver(s, display_problem = True):
         if(total_queries_made > 0):
             # only print this table after having made some queries, since already printed it at start.
             sd.print_all_possible_answers(
-                full_cwa, "\nRemaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, use_round_indent=True, verifier_to_sort_by=verifier_to_sort_by
+                full_cwa, "Remaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, use_round_indent=True, verifier_to_sort_by=verifier_to_sort_by
             )
         current_round_num += mcost_tup[0]
         total_queries_made += mcost_tup[1]
@@ -58,18 +58,19 @@ def play_from_solver(s, display_problem = True):
         update_query_history(query_history, best_move_tup, mcost_tup[0], result)
     # Found an answer
     full_cwa = s.full_cwa_from_game_state(current_gs)
-    print(f"\nFinal Score: Rounds: {current_round_num}. Queries: {total_queries_made}.")
-    display.display_query_history(query_history, len(rcs_list))
     v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
     sd.print_all_possible_answers(
-        full_cwa, "\nANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
-        )
+        full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by, use_round_indent=True
+    )
+    display.display_query_history(query_history, len(rcs_list))
+    ans_num_style = "b cyan1"
+    rprint(f"Answer: [{ans_num_style}]{full_cwa[0][-1]}[/{ans_num_style}]")
+    print( f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}.")
 
 def display_solution_from_solver(s, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     """
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     sd = display.Solver_Displayer(s)
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
@@ -88,7 +89,6 @@ def unpickle_solver(identity):
     print(f"\nUnpickling {f_name}.")
     f = open(f_name, 'rb')
     s = pickle.load(f)
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     f.close()
     print("Done.")
     return(s)
@@ -124,7 +124,6 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
 def make_solver(problem):
     s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
-    rules.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in s.rcs_list])
     sd.print_problem(s.rcs_list, s.problem, active=True)
     if(not(s.full_cwa)):
         rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py.")
@@ -259,11 +258,11 @@ i = get("Invalid")   # Testing purposes only.
 print(f"Using {platform.python_implementation()}.")
 # latest = f43
 # latest = i
-latest = f63
+# latest = f63
 # latest = p1
 # latest = p1_n
 # latest = f5x
-# latest = c63
+latest = c63
 # latest = get("B63YRW4_N") # zero_query
 # latest = get("2_N")
 # play(latest)
@@ -276,14 +275,13 @@ s = get_or_make_solver(latest, no_pickles=True)[0]
 sd = display.Solver_Displayer(s)
 
 # TODO: delete this query_dict testing code
-for v_index in range(len(s.rcs_list)):
-    sd.print_useful_qs_dict_info(
-        s.qs_dict,
-        v_index,
-        s.full_cwa,
-        proposal_to_examine=None,
-        see_all_combos=True
-    )
+sd.print_useful_qs_dict_info(
+    s.qs_dict,
+    s.full_cwa,
+    verifier_index=None,          # set to None for all verifiers
+    proposal_to_examine=222,   # set to None for all proposals
+    see_all_combos=True
+)
 
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 
