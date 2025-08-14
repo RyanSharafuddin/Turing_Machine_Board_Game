@@ -6,7 +6,7 @@ from PrettyPrint import PrettyPrintTree
 from rich.table import Table
 from rich.text import Text
 from rich import print as rprint
-import rules
+import rules, solver
 from definitions import NIGHTMARE, console
 
 # escape sequence is \033[<text color>;<background color>m
@@ -36,7 +36,7 @@ RULE_COLORS = [
     "#B20FFD",
     "#1A9050",
     "#FD9E7b",
-    "#593328",
+    "#9C5642",
     "#521D7D",
     "#00FF7F",
     "#FF7780",
@@ -253,6 +253,10 @@ class Solver_Displayer:
         modes = ["Standard", "Extreme", "Nightmare"]
         if(active):
             title = f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}"
+            self.print_rcs_list(rcs_list, title)
+
+    def print_rcs_list(self, rcs_list, title, active=True):
+        if(active):
             table = Table(title=title, header_style="deep_sky_blue3", border_style="blue", title_style='')
             table.add_column("Rule Index", justify="right")
             for c_index in range(len(rcs_list)):
@@ -283,6 +287,26 @@ class Solver_Displayer:
         )
         return(r_names_list)
 
+    def make_answer_table_cols(self, table, p_order, final_answer, display_combo_number, verifier_to_sort_by):
+        n_wo_p = self.n_mode and not(p_order)
+        rule_col_title = f"{'Rule Card' if (n_wo_p) else 'Verifier'}"
+        rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
+        if(not final_answer):
+            table.add_column("", justify="right") # answer index column
+        table.add_column("Ans")                   # answer       column
+        if(display_combo_number):
+            table.add_column("", justify="right") # combo index column
+        for v_index in range(len(self.solver.rcs_list)):
+            if(p_order):
+                table.add_column("")              # RC          column (nightmare mode only)
+            rule_column_name = f"{rule_col_title} {letters[v_index]}"
+            rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
+            col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
+            table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
+        table.add_column("Rule Indexes")          # Rule Indexes column
+        if(self.n_mode):
+            table.add_column("Permutation")       # Permutation column (nightmare mode only)
+
     def print_all_possible_answers(
             self,
             cwas,
@@ -291,7 +315,8 @@ class Solver_Displayer:
             display_combo_number = True,
             active               = True,
             use_round_indent     = False,
-            verifier_to_sort_by  = None
+            verifier_to_sort_by  = None,
+            custom_indent        = 0
         ):
         """
         Pretty prints a table of all the combos_with_answers (cwas) given.
@@ -310,25 +335,12 @@ class Solver_Displayer:
         set_possible_answers = set(answers)
         final_answer = (len(set_possible_answers) == 1)
 
-        table = Table(title=title, header_style="magenta", border_style="")
-        # TODO: consider making creating the columns and their titles its own function.
-        rule_col_title = f"{'Rule Card' if (n_wo_p) else 'Verifier'}"
-        rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
-        if(not final_answer):
-            table.add_column("", justify="right") # answer index column
-        table.add_column("Ans")
-        if(display_combo_number):
-            table.add_column("", justify="right") # combo index column
-        for (v_index, r) in enumerate(combos[0]):
-            if(permutation_order):
-                table.add_column("") # RC, but it took up unnecessary space
-            rule_column_name = f"{rule_col_title} {letters[v_index]}"
-            rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
-            col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
-            table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
-        table.add_column("Rule Indexes")
-        if(n_mode):
-            table.add_column("Permutation")
+        table = Table(title=title, header_style="magenta", border_style="", title_style="")
+        self.make_answer_table_cols(
+            table, permutation_order, final_answer, display_combo_number, verifier_to_sort_by
+        )
+        # NOTE: Set LINES_BETWEEN_ANSWERS to True/False to enable/disable lines between new answers
+        LINES_BETWEEN_ANSWERS = False
 
         # TODO: consider making the row arguments its own function.
         sorted_cwas = sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by))
@@ -339,9 +351,8 @@ class Solver_Displayer:
             p = cwa[1] if (n_mode) else None
             new_ans = ((c_index == 1) or (a != sorted_cwas[c_index - 2][-1]))
             a_index += new_ans
-            # NOTE: Uncomment/recomment the below if block to enable/disable lines between new answers
-            # if(new_ans):
-                # table.add_section()
+            if(new_ans and LINES_BETWEEN_ANSWERS):
+                table.add_section()
 
             card_indexes_text = self.get_card_indexes_text(card_index_col_widths, c)
             r_names_texts_list = self.get_r_names_texts_list(
@@ -354,8 +365,9 @@ class Solver_Displayer:
                 (card_indexes_text,) + \
                 ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
             table.add_row(*t_row_args)
-        if(use_round_indent):
-            _print_indented_table(table, ROUND_INDENT_AMOUNT)
+        if(use_round_indent or (custom_indent != 0)):
+            indent_amount = ROUND_INDENT_AMOUNT if(use_round_indent) else custom_indent
+            _print_indented_table(table, indent_amount)
         else:
             console.print(table)
 
@@ -431,109 +443,89 @@ class Solver_Displayer:
             verifier_to_sort_by=verifier_to_sort_by
         )
 
-    @staticmethod
-    def get_rl_by_card_dict(rcs_list, rc_infos, v_index):
+    def print_possible_rules_by_verifier_from_cwas(self, full_cwas, v_index, title):
         """
-        In nightmare mode, given the rcs_list, the rc_infos (which can be obtained from the solver class static method) and a verifier index, returns a dictionary where the keys are the rc_indexes of rules cards this verifier could correspond to, and the values are lists of rules within this rules card that the verifier could be checking.
+        Given a list of full_cwas and a verifier index, prints a table of all rules that are possible for that verifier (derived from the cwas).
         """
-        corresponding_rc_info = rc_infos[v_index]
-        rules_list_by_corresponding_card_dict = dict()
-        for (rc_index, rule_index) in corresponding_rc_info.keys():
-            rule = rcs_list[rc_index][rule_index]
-            if(rc_index in rules_list_by_corresponding_card_dict):
-                rules_list_by_corresponding_card_dict[rc_index].append(rule)
-            else:
-                rules_list_by_corresponding_card_dict[rc_index] = [rule]
-        for rc_index in rules_list_by_corresponding_card_dict:
-            rules_list_by_corresponding_card_dict[rc_index].sort(key=lambda r: r.card_index)
-        return(rules_list_by_corresponding_card_dict)
+        rule_ids_by_verifier = solver.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
+        # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
+        possible_rules_this_verifier = [
+            self.solver.flat_rule_list[r_id] for r_id in sorted(rule_ids_by_verifier[v_index])
+        ]
+        rcs_list_possible = []
+        if(self.n_mode):
+            finish_possible_rules = False
+            possible_rules_this_v_pointer = 0
+            for rc in self.solver.rcs_list:
+                rc_in_rcs_list_possible = []
+                rcs_list_possible.append(rc_in_rcs_list_possible)
+                if(finish_possible_rules):
+                    continue
+                for r in rc:
+                    if(r.unique_id == possible_rules_this_verifier[possible_rules_this_v_pointer].unique_id):
+                        rc_in_rcs_list_possible.append(
+                            possible_rules_this_verifier[possible_rules_this_v_pointer]
+                        )
+                        possible_rules_this_v_pointer += 1
+                        if(possible_rules_this_v_pointer == len(possible_rules_this_verifier)):
+                            finish_possible_rules = True
+                            break
+        else:
+            for i in range(len(self.solver.rcs_list)):
+                rcs_list_possible.append(possible_rules_this_verifier if(i == v_index) else [])
+        self.print_rcs_list(
+            rcs_list_possible, title
+        )
 
-    @staticmethod
-    def print_rules_this_verifier(rl_by_card_dict, v_index, include_v_name=True):
+    def print_useful_qs_dict_info(
+        self, useful_qs_dict, v_index, full_cwas, proposal_to_examine=None, see_all_combos=True
+    ):
         """
-        Only used in nightmare mode. Given a dict from the get_rl_by_card_dict function and a verifier index, prints out a list of all the rules this verifier could correspond to. Mainly used in print_useful_qs_dict.
-        """
-        if(include_v_name):
-            print(f"\nFor Verifier {letters[v_index]}:")
-        for (rc_index, rule_list) in sorted(rl_by_card_dict.items()):
-            print(f"    Rule Card {letters[rc_index]}: {rules_list_to_names(rule_list)}")
-
-    def print_useful_qs_dict_info(self, useful_qs_dict, v_index, rc_infos, rcs_list, mode, see_all_combos=True):
-        """
-        Displays all information in the useful_queries_dict about a specific rules card. Note: will need the rc_infos used to make the useful_queries_dict, and the rc_list.
+        Displays all information in the useful_queries_dict about a specific verifier card.
+        Optionally, if proposal_to_examine is included, will only print information about that proposal. Otherwise, will print information about every useful proposal.
+        Note: will need the full_cwas used to make this useful_queries_dict.
         """
         q_dict_this_card = dict()
-        for (q, inner_dict) in sorted(useful_qs_dict.items()):
+        for (proposal, inner_dict) in sorted(useful_qs_dict.items()):
             if(v_index in inner_dict):
                 q_info = inner_dict[v_index]
-                q_dict_this_card[q] = q_info
-        corresponding_rc_info = rc_infos[v_index]
-        if(mode == NIGHTMARE):
-            rules_list_by_corresponding_card_dict = self.get_rl_by_card_dict(rcs_list, rc_infos, v_index)
-            self.print_rules_this_verifier(rules_list_by_corresponding_card_dict, v_index)
-        else:
-            possible_rules_this_verifier = \
-                [rcs_list[v_index][rule_index] for rule_index in corresponding_rc_info.keys()]
-            possible_rules_this_verifier.sort(key = lambda r: r.card_index)
-            print(f'\nFor Verifier {letters[v_index]}. Possible rules: {rules_list_to_names(possible_rules_this_verifier)}')
+                q_dict_this_card[proposal] = q_info
 
-        print(f"# useful queries this card: {len(q_dict_this_card)}")
-        for (q, q_info) in sorted(q_dict_this_card.items()):
-            print(f"\n{(' ' * 0)}{q} {letters[v_index]}") # print query
-
-            # print(f'{" " * 8} {"expected_a_info_gain":<25}: {q_info.expected_a_info_gain:.3f}')
-            # print(f'{" " * 8} {"p_true":<25}: {q_info.p_true:.3f}')
-            # print(f'{" " * 8} {"a_info_gain_true":<25}: {q_info.a_info_gain_true:0.3f}')
-
+        possible_rules_title = f"\nVerifier {letters[v_index]} Rules Possible When This Qs Dict Was Made"
+        self.print_possible_rules_by_verifier_from_cwas(full_cwas, v_index, title=possible_rules_title)
+        print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}")
+        for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
+            if not ((proposal_to_examine == proposal) or (proposal_to_examine is None)):
+                continue
             custom_indent = 4
-            message_indent = 4
             (full_cwa_false, full_cwa_true) = \
                 [[self.solver.rc_indexes_cwa_to_full_combos_dict[indexes] for indexes in q_info_set_indexes] for q_info_set_indexes in (q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true)]
 
-            if(mode == NIGHTMARE):
-                (rc_infos_false, rc_infos_true) = [self.solver.make_rc_infos(len(rcs_list), cwa, NIGHTMARE) for cwa in (full_cwa_false, full_cwa_true)]
-                (rlbccd_false, rlbccd_true) = [self.get_rl_by_card_dict(rcs_list, rc_info, v_index) for rc_info in (rc_infos_false, rc_infos_true)]
-                print(f"Possible rules if query returns True:")
-                self.print_rules_this_verifier(rlbccd_true, v_index, include_v_name=False)
+            possible_rules_true_title = f"\n{prop_index}: Verifier {letters[v_index]} Rules Possible if {proposal} True"
+            self.print_possible_rules_by_verifier_from_cwas(
+                full_cwa_true, v_index, title=possible_rules_true_title
+            )
 
-                print(f"\nPossible rules if query returns False:")
-                self.print_rules_this_verifier(rlbccd_false, v_index, include_v_name=False)
+            possible_rules_false_title = f"\n{prop_index}: Verifier {letters[v_index]} Rules Possible if {proposal} False"
+            self.print_possible_rules_by_verifier_from_cwas(
+                full_cwa_false, v_index, title=possible_rules_false_title
+            )
 
             if(see_all_combos):
-                print_list_cwa(full_cwa_true, mode, f'\n{" " * message_indent}Combos remaining if query returns True:', custom_indent=custom_indent)
-
-                # print()
-                # print(f'{" " * 8} {"p_false":<25}: {1 - q_info.p_true:0.3f}') 
-                # print(f'{" " * 8} {"a_info_gain_false":<25}: {q_info.a_info_gain_false:0.3f}')
-
-                print_list_cwa(full_cwa_false, mode, f'\n{" " * message_indent}Combos remaining if query returns False:', custom_indent=custom_indent)
-
-
-
-def rc_infos_inner_dict_to_string(inner_dict, mode):
-    s = '{ '
-    for (possibility, inner_list) in inner_dict.items():
-        if(mode == NIGHTMARE):
-            inner_list_to_print = [([r.card_index for r in combo], permutation) for (combo, permutation) in inner_list]
-        else:
-            inner_list_to_print = [[r.card_index for r in combo] for combo in inner_list]
-        inner_list_item_indent_str = "\n" + (' ' * 12)
-        inner_list_str = inner_list_item_indent_str.join([str(item) for item in inner_list_to_print])
-        s += f'\n        {possibility}:{inner_list_item_indent_str}{inner_list_str} '
-    s += '\n    }'
-    return(s)
-
-def print_rc_info(rc_infos, rc_index, mode):
-    rc_info = rc_infos[rc_index]
-    print(f'\nVerifier {letters[rc_index]}:' + ' {')
-    for (outer_dict_key, inner_dict) in rc_info.items():
-            if(mode == NIGHTMARE):
-                (rc_num, rule_index) = outer_dict_key
-                outer_key_str = f"\n    Rule Card {letters[rc_num]}, Rule Index {rule_index} :"
-            else:
-                outer_key_str = f"\n    Rule Index {outer_dict_key} :"
-            print(f'    {outer_key_str} {rc_infos_inner_dict_to_string(inner_dict, mode)}')
-    print('}')
+                self.print_all_possible_answers(
+                    cwas=full_cwa_true,
+                    title=f"\n{prop_index}: Combos Remaining If {proposal} {letters[v_index]} True",
+                    permutation_order=True,
+                    verifier_to_sort_by=v_index,
+                    custom_indent=custom_indent
+                )
+                self.print_all_possible_answers(
+                    cwas=full_cwa_false,
+                    title=f"\n{prop_index}: Combos Remaining If {proposal} {letters[v_index]} False",
+                    permutation_order=True,
+                    verifier_to_sort_by=v_index,
+                    custom_indent=custom_indent
+                )
 
 def mov_to_str(move: tuple):
     return(f"{move[0]} {letters[move[1]]}.")

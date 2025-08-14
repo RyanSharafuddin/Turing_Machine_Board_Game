@@ -2,7 +2,7 @@ import rules, display, solver
 from rich import print as rprint
 from problems import get_problem_by_id as get
 from definitions import *
-import pickle, os, sys, platform
+import pickle, os, sys, platform, gc
 
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -171,6 +171,9 @@ def get_or_make_solver(problem, pickle_entire=False, force_overwrite=True, no_pi
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
     print(f"\nReturning solver for problem: {problem.identity}.")
+    if(DISABLE_GC):
+        gc.disable()
+        gc.collect()
     if(no_pickles):
         print("No pickles. Making solver from scratch.")
         s = make_solver(problem)
@@ -190,6 +193,8 @@ def get_or_make_solver(problem, pickle_entire=False, force_overwrite=True, no_pi
             print(f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . .")
             s = pickle_solver(problem, pickle_entire=pickle_entire)
             made_from_scratch = True
+    if(DISABLE_GC):
+        gc.enable()
     return((s, made_from_scratch))
 
 def display_problem_solution(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
@@ -227,6 +232,8 @@ PRINT_COMBOS = True                # whether or not to print remaining combos af
 # SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
 SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
 P_ORDER = True                     # Whether to display tables in permutation order or not for nightmare mode
+DISABLE_GC = True                  # Whether to disable the garbage collector while solve()ing. Increases
+                                   # speed significantly, but may run out of memory faster.
 
 # Profiling/Interactive Debugging
 # s = get_or_make_solver(f5x, no_pickles=True)[0] # ~3 minutes.
@@ -252,18 +259,31 @@ i = get("Invalid")   # Testing purposes only.
 print(f"Using {platform.python_implementation()}.")
 # latest = f43
 # latest = i
-# latest = f63
-latest = p1_n
+latest = f63
+# latest = p1
+# latest = p1_n
+# latest = f5x
 # latest = c63
 # latest = get("B63YRW4_N") # zero_query
 # latest = get("2_N")
 # play(latest)
 # display_problem_solution(latest)
 
-display_problem_solution(latest, no_pickles=True)
+# display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
 
-# s = get_or_make_solver(latest, no_pickles=True)[0]
-# sd = display.Solver_Displayer(s)
+s = get_or_make_solver(latest, no_pickles=True)[0]
+sd = display.Solver_Displayer(s)
+
+# TODO: delete this query_dict testing code
+for v_index in range(len(s.rcs_list)):
+    sd.print_useful_qs_dict_info(
+        s.qs_dict,
+        v_index,
+        s.full_cwa,
+        proposal_to_examine=None,
+        see_all_combos=True
+    )
+
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 
