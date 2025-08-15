@@ -20,13 +20,6 @@ Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index', 'unique_i
 Query_Info = namedtuple(
     'Query_Info',
     [
-        # 'possible_combos_with_answers_remaining_if_true',  # unneeded
-        # 'possible_combos_with_answers_remaining_if_false', # unneeded
-        # 'p_true',                                          # unneeded
-        # 'a_info_gain_true',                                # unneeded
-        # 'a_info_gain_false',                               # unneeded
-        # 'expected_a_info_gain',                            # unneeded
-        # 'expected_c_info_gain',                            # unneeded
         'set_indexes_cwa_remaining_true', # corresponds to game state sets of indexes remaining
         'set_indexes_cwa_remaining_false' # corresponds to game state sets of indexes remaining
     ]

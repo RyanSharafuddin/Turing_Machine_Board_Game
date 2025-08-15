@@ -365,7 +365,7 @@ def make_rcs_list(problem: Problem) -> list[list[Rule]]:
     rcs_list_with_new_ids(rcs_list)
     return(rcs_list)
 
-def make_flat_rule_list(rcs_list):
+def make_flat_rule_list(rcs_list) -> list[Rule]:
     flat_rule_index = 0
     flat_rule_list = []
     for rc in rcs_list:
