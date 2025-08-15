@@ -183,20 +183,25 @@ def _apply_style_to_r_names(
 
 def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
     if(new_round):
-        print(f"\nRound   : {current_round_num:>3}")
-        print(f"Proposal: {proposal}")
+        # print(f"\nRound   : {current_round_num:>3}")
+        # print(f"Proposal: {proposal}")
+        title = Text(f"Round {current_round_num} Proposal {proposal}")
+        # console.print(title, justify="center")
+        console.rule(title=title)
     q_newline = "\n" #if(query_this_round == 1) else ""
     print(f"{q_newline}{ROUND_INDENT}Query: {query_this_round}. Total query: {total_query}.")
 def conduct_query(query_tup, expected_winning_round, expected_total_queries):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
-    print(f"{ROUND_INDENT}Query verifier: {letters[query_tup[1]]}. Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
-    print(f"{ROUND_INDENT}Result of query (T/F)\n{ROUND_INDENT}> ", end="")
-    result_raw = input()
+    (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
+    print(f"{ROUND_INDENT}Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
+    print(f"{ROUND_INDENT}Result of query (T/F)\n{ROUND_INDENT}", end="")
+    console.print(Text(str(proposal)), Text(str(verifier_to_query)), highlight=False, end="")
+    result_raw = input(': ')
     if(result_raw == 'q'):
         exit()
-    result = (result_raw in ['T', 't'])
+    result = (result_raw in ['T', 't', '1'])
     return(result)
 def display_query_history(query_history, num_rcs, use_table=True):
     """

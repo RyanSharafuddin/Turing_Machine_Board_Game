@@ -258,30 +258,31 @@ i = get("Invalid")   # Testing purposes only.
 print(f"Using {platform.python_implementation()}.")
 # latest = f43
 # latest = i
-# latest = f63
+latest = f63
 # latest = p1
 # latest = p1_n
 # latest = f5x
-latest = c63
+# latest = c63
 # latest = get("B63YRW4_N") # zero_query
+# latest = zero_query
 # latest = get("2_N")
 # play(latest)
 # display_problem_solution(latest)
 
 # display_problem_solution(latest, no_pickles=True)
-# play(latest, no_pickles=True)
-
-s = get_or_make_solver(latest, no_pickles=True)[0]
-sd = display.Solver_Displayer(s)
+play(latest, no_pickles=True)
 
 # TODO: delete this query_dict testing code
-sd.print_useful_qs_dict_info(
-    s.qs_dict,
-    s.full_cwa,
-    verifier_index=None,          # set to None for all verifiers
-    proposal_to_examine=222,   # set to None for all proposals
-    see_all_combos=True
-)
+# s = get_or_make_solver(latest, no_pickles=True)[0]
+# sd = display.Solver_Displayer(s)
+
+# sd.print_useful_qs_dict_info(
+#     s.qs_dict,
+#     s.full_cwa,
+#     verifier_index=None,          # set to None for all verifiers
+#     proposal_to_examine=222,   # set to None for all proposals
+#     see_all_combos=True
+# )
 
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 
