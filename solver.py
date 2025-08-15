@@ -1,4 +1,4 @@
-import math, string, itertools, time
+import math, itertools, time
 import rules
 from definitions import *
 # from rich import print as rprint
@@ -187,30 +187,6 @@ def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
         )
     return(fset_cwa_indexes_remaining)
 
-def make_rcs_list(problem) -> list[list[Rule]]:
-    if((problem.mode == STANDARD) or (problem.mode == NIGHTMARE)):
-        rcs_list = [rules.rcs_deck[num] for num in problem.rc_nums_list]
-    if(problem.mode == EXTREME):
-        rcs_list = [(rules.rcs_deck[problem.rc_nums_list[2 * n]] + rules.rcs_deck[problem.rc_nums_list[(2 * n) + 1]]) for n in range(len(problem.rc_nums_list) // 2)]
-        # deduplicate rules in each rules card, b/c some extreme problems, like F5XTDF, have duplicates
-        for rc_index in range(len(rcs_list)):
-            rc = rcs_list[rc_index]
-            new_rc = []
-            rc_reject_sets_dict = dict() # key: reject set. value: name of the rule with that reject set.
-            for rule in rc:
-                fs_reject_set = frozenset(rule.reject_set)
-                if(fs_reject_set in rc_reject_sets_dict):
-                    print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rule card {string.ascii_uppercase[rc_index]}.')
-                else:
-                    new_rc.append(rule)
-                    rc_reject_sets_dict[fs_reject_set] = rule.name
-            rcs_list[rc_index] = new_rc
-            # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
-            for (i, r) in enumerate(new_rc):
-                new_rc[i] = Rule(r.name, r.reject_set, r.func, i, r.unique_id)
-    rules.rcs_list_with_new_ids(rcs_list)
-    return(rcs_list)
-
 def make_full_cwa(problem, rcs_list):
     possible_combos_with_answers = get_possible_rules_combos_with_answers(rcs_list)
     if(problem.mode == NIGHTMARE):
@@ -224,22 +200,12 @@ def make_full_cwa(problem, rcs_list):
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
     return(possible_combos_with_answers)
 
-def make_flat_rule_list(rcs_list):
-    flat_rule_index = 0
-    flat_rule_list = []
-    for rc in rcs_list:
-        for r in rc:
-            assert(r.unique_id == flat_rule_index)
-            flat_rule_list.append(r)
-            flat_rule_index += 1
-    return(flat_rule_list)
-
 class Solver:
     def __init__(self, problem):
         self.problem            = problem
         self.evaluations_cache  = dict()
-        self.rcs_list           = make_rcs_list(problem)
-        self.flat_rule_list     = make_flat_rule_list(self.rcs_list)
+        self.rcs_list           = rules.make_rcs_list(problem)
+        self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
         self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
         self.seconds_to_solve   = -1 # have not called solve() yet.

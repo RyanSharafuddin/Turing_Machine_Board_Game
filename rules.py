@@ -1,4 +1,5 @@
-from definitions import Rule, all_125_possibilities_set, int_to_tri_sq_ci_tuple
+import string
+from definitions import Rule, all_125_possibilities_set, int_to_tri_sq_ci_tuple, Problem, STANDARD, NIGHTMARE, EXTREME
 
 # rule 1
 def triangle_eq_1(triangle, square, circle):
@@ -312,12 +313,12 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 # longest_rule_name = max([max([(len(r.__name__), r.__name__) for r in rc]) for rc in rcs_deck.values()])[1]
 # print(longest_rule_name, max_rule_name_length)
 # card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
-unique_id = -1
+_unique_id = -1
 def _func_to_Rule(func, card_index):
     reject_set = {p for p in all_125_possibilities_set if not(func(*(int_to_tri_sq_ci_tuple(p))))}
-    global unique_id
-    unique_id += 1
-    return(Rule(func.__name__, reject_set, func, card_index, unique_id))
+    global _unique_id
+    _unique_id += 1
+    return(Rule(func.__name__, reject_set, func, card_index, _unique_id))
 
 for (rule_card_num, rule_card) in rcs_deck.items():
     rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
@@ -337,3 +338,39 @@ def rcs_list_with_new_ids(rcs_list):
     for rc_index in range(len(rcs_list)):
         rc_with_new_ids(rcs_list[rc_index], curr_new_id)
         curr_new_id += len(rcs_list[rc_index])
+
+def make_rcs_list(problem: Problem) -> list[list[Rule]]:
+    if((problem.mode == STANDARD) or (problem.mode == NIGHTMARE)):
+        rcs_list = [rcs_deck[num] for num in problem.rc_nums_list]
+    if(problem.mode == EXTREME):
+        rcs_list = [
+            (rcs_deck[problem.rc_nums_list[2 * n]] + rcs_deck[problem.rc_nums_list[(2 * n) + 1]]) for n in range(len(problem.rc_nums_list) // 2)
+        ]
+        # deduplicate rules in each rules card, b/c some extreme problems, like F5XTDF, have duplicates
+        for rc_index in range(len(rcs_list)):
+            rc = rcs_list[rc_index]
+            new_rc = []
+            rc_reject_sets_dict = dict() # key: reject set. value: name of the rule with that reject set.
+            for rule in rc:
+                fs_reject_set = frozenset(rule.reject_set)
+                if(fs_reject_set in rc_reject_sets_dict):
+                    print(f'{rule.name} is the same as {rc_reject_sets_dict[fs_reject_set]} in rule card {string.ascii_uppercase[rc_index]}.')
+                else:
+                    new_rc.append(rule)
+                    rc_reject_sets_dict[fs_reject_set] = rule.name
+            rcs_list[rc_index] = new_rc
+            # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
+            for (i, r) in enumerate(new_rc):
+                new_rc[i] = Rule(r.name, r.reject_set, r.func, i, r.unique_id)
+    rcs_list_with_new_ids(rcs_list)
+    return(rcs_list)
+
+def make_flat_rule_list(rcs_list):
+    flat_rule_index = 0
+    flat_rule_list = []
+    for rc in rcs_list:
+        for r in rc:
+            assert(r.unique_id == flat_rule_index)
+            flat_rule_list.append(r)
+            flat_rule_index += 1
+    return(flat_rule_list)

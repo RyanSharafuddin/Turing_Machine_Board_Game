@@ -6,7 +6,6 @@ from PrettyPrint import PrettyPrintTree
 from rich.table import Table
 from rich.text import Text
 from rich import box
-from rich import print as rprint
 from rich.highlighter import ReprHighlighter
 import solver
 from definitions import NIGHTMARE, console

@@ -254,9 +254,10 @@ f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
 i = get("Invalid")   # Testing purposes only.
 
 print(f"Using {platform.python_implementation()}.")
-latest = f43
+# latest = f43
 # latest = i
 # latest = f63
+latest = f52
 # latest = p1
 # latest = p1_n
 # latest = f5x
@@ -265,9 +266,9 @@ latest = f43
 # latest = zero_query
 # latest = get("2_N")
 # play(latest)
-display_problem_solution(latest)
+# display_problem_solution(latest)
 
-# display_problem_solution(latest, no_pickles=True)
+display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
 
 
