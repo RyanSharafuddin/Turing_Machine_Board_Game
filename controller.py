@@ -1,6 +1,5 @@
 import pickle, os, sys, platform, gc
 from rich import print as rprint
-from rich.text import Text
 from definitions import *
 from problems import get_problem_by_id as get
 import display, solver
@@ -24,15 +23,13 @@ def play_from_solver(s, display_problem = True):
     If display_problem is off, will not display the problem
     """
     sd = display.Solver_Displayer(s)
-    (rcs_list, initial_game_state) = (s.rcs_list, s.initial_game_state)
-    current_gs = initial_game_state
-    # NOTE: below line for display purposes only
+    current_gs = s.initial_game_state
     full_cwa = s.full_cwa_from_game_state(current_gs)
     current_round_num = 0
     total_queries_made = 0
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     if(display_problem):
-        sd.print_problem(rcs_list, s.problem, active=True)
+        sd.print_problem(s.rcs_list, s.problem, active=True)
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
     while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
@@ -42,16 +39,18 @@ def play_from_solver(s, display_problem = True):
         if(total_queries_made > 0):
             # only print this table after having made some queries, since already printed it at start.
             sd.print_all_possible_answers(
-                full_cwa, "Remaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, use_round_indent=True, verifier_to_sort_by=verifier_to_sort_by
+                full_cwa, "Remaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, verifier_to_sort_by=verifier_to_sort_by
             )
         current_round_num += mcost_tup[0]
         total_queries_made += mcost_tup[1]
         query_this_round = 1 if (mcost_tup[0]) else current_gs.num_queries_this_round + 1
-        display.display_query_num_info(current_round_num, query_this_round, total_queries_made, mcost_tup[0], best_move_tup[0])
+        display.display_new_round(current_round_num, query_this_round, best_move_tup)
         result = display.conduct_query(
             best_move_tup,
             expected_winning_round,
             expected_total_queries,
+            query_this_round,
+            total_queries_made
         )
         verifier_to_sort_by = best_move_tup[1]
         current_gs = gs_tup[result]
@@ -59,13 +58,14 @@ def play_from_solver(s, display_problem = True):
     # Found an answer
     full_cwa = s.full_cwa_from_game_state(current_gs)
     v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
-    sd.print_all_possible_answers(
-        full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by, use_round_indent=True
+    answers_table = sd.get_all_possible_answers_table(
+        full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
     )
-    display.display_query_history(query_history, len(rcs_list))
+    query_history_table = display.get_query_history_table(query_history, len(s.rcs_list))
     ans_num_style = "b cyan1"
-    rprint(f"Answer: [{ans_num_style}]{full_cwa[0][-1]}[/{ans_num_style}]")
-    print( f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}.")
+    ans_line = f"Answer: [{ans_num_style}]{full_cwa[0][-1]}[/{ans_num_style}]"
+    score_line = f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}."
+    display.end_play_display(answers_table, query_history_table, ans_line, score_line)
 
 def display_solution_from_solver(s, display_problem = True):
     """
@@ -81,8 +81,6 @@ def display_solution_from_solver(s, display_problem = True):
         if(display_problem):
             sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
-        # TODO: uncomment when done with adding the correct functions to display (see todo.txt optional)
-        # display.print_multi_move_tree(initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 def unpickle_solver(identity):
     f_name = f_name_from_id(identity)
@@ -256,9 +254,9 @@ f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
 i = get("Invalid")   # Testing purposes only.
 
 print(f"Using {platform.python_implementation()}.")
-# latest = f43
+latest = f43
 # latest = i
-latest = f63
+# latest = f63
 # latest = p1
 # latest = p1_n
 # latest = f5x
@@ -267,12 +265,13 @@ latest = f63
 # latest = zero_query
 # latest = get("2_N")
 # play(latest)
-# display_problem_solution(latest)
+display_problem_solution(latest)
 
 # display_problem_solution(latest, no_pickles=True)
-play(latest, no_pickles=True)
+# play(latest, no_pickles=True)
 
-# TODO: delete this query_dict testing code
+
+# Use the below in REPL for testing/debugging purposes
 # s = get_or_make_solver(latest, no_pickles=True)[0]
 # sd = display.Solver_Displayer(s)
 
@@ -280,9 +279,9 @@ play(latest, no_pickles=True)
 #     s.qs_dict,
 #     s.full_cwa,
 #     verifier_index=None,          # set to None for all verifiers
-#     proposal_to_examine=222,   # set to None for all proposals
+#     proposal_to_examine=None,   # set to None for all proposals
 #     see_all_combos=True
 # )
-
+# console.rule()
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 

@@ -1,4 +1,4 @@
-import string, math
+import string, math, os
 from itertools import zip_longest
 from collections import deque
 from PrettyPrint import PrettyPrintTree
@@ -7,6 +7,7 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 from rich import print as rprint
+from rich.highlighter import ReprHighlighter
 import solver
 from definitions import NIGHTMARE, console
 
@@ -62,7 +63,7 @@ RULE_COLORS = [
 def r_names_perm_order(rl, permutation, permutation_order):
     permutation = permutation if(permutation_order) else range(len(rl))
     return([rl[i].name for i in permutation])
-def rules_list_to_names_list(rl, permutation=None):
+def _rules_list_to_names_list(rl, permutation=None):
     """
     Input: rl: the rule list of an answer combination.
     If a permutation is given, will list the rule names in permutation order w/ "{name_of_rule_card} " preceding it, otherwise, in standard order w/o name of rule card.
@@ -72,7 +73,7 @@ def rules_list_to_names_list(rl, permutation=None):
     else:
         names = [f'{r.name}' for r in rl]
     return(names)
-def make_r_name_list(rules_list, permutation, permutation_order):
+def _make_r_name_list(rules_list, permutation, permutation_order):
     """
     If permutation_order, will output a list like this:
         ['C', 'square_lt_3', 'A', 'triangle_gt_square' . . .]
@@ -81,7 +82,7 @@ def make_r_name_list(rules_list, permutation, permutation_order):
     if(not(permutation_order)):
         permutation = None
     r_name_list = []
-    for r_name in rules_list_to_names_list(rules_list, permutation=permutation):
+    for r_name in _rules_list_to_names_list(rules_list, permutation=permutation):
         if(permutation_order):
             r_name_list.append(r_name[0]) # append the name of the rule card to list.
         r_name_list.append(r_name[(2 if permutation_order else 0):])
@@ -141,7 +142,7 @@ def _get_col_widths(table):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
 
-def _print_indented_table(table, indent_amount):
+def print_indented_table(table, indent_amount):
     """
     table is the Rich python object.
     """
@@ -181,33 +182,48 @@ def _apply_style_to_r_names(
         for i in r_names_indices_to_change:
             r_names_list[i] = Text(r_names_list[i], style=apply_style)
 
-def display_query_num_info(current_round_num, query_this_round, total_query, new_round: bool, proposal):
-    if(new_round):
-        # print(f"\nRound   : {current_round_num:>3}")
-        # print(f"Proposal: {proposal}")
+def display_new_round(current_round_num, query_this_round, query_tup):
+    """ This function checks if it is a new round, and displays it """
+    proposal = query_tup[0]
+    if(query_this_round == 1):
         title = Text(f"Round {current_round_num} Proposal {proposal}")
-        # console.print(title, justify="center")
         console.rule(title=title)
-    q_newline = "\n" #if(query_this_round == 1) else ""
-    print(f"{q_newline}{ROUND_INDENT}Query: {query_this_round}. Total query: {total_query}.")
-def conduct_query(query_tup, expected_winning_round, expected_total_queries):
+def conduct_query(query_tup, expected_winning_round, expected_total_queries, query_this_round, total_query):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
+    # can include the q_round_this_line in the grid, if you want to align it with the other things.
+    # currently fine as is.
+    q_this_round_line = f"\nQuery: {query_this_round}. Total Query: {total_query}."
+    console.print(q_this_round_line, justify="center", highlight=False)
     (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
-    print(f"{ROUND_INDENT}Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}.")
-    print(f"{ROUND_INDENT}Result of query (T/F)\n{ROUND_INDENT}", end="")
-    console.print(Text(str(proposal)), Text(str(verifier_to_query)), highlight=False, end="")
+    longest_line = f"Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}."
+
+    g = Table.grid()
+    # g.add_row(q_this_round_line)
+    g.add_row(longest_line)
+    g.add_row(f"Result of query (T/F)")
+    console.print(g, justify="center")
+
+    # below several lines is a hack to get input() where I want it
+    proposal_text = Text(f'{proposal} ', style='u')         # add styles if desired
+    verifier_text = Text(f'{verifier_to_query}') # add styles here
+    term_width = os.get_terminal_size()[0]
+    start_index = (term_width // 2) - (len(longest_line)//2)
+    full_query_text = Text(" " * start_index).append(proposal_text.append(verifier_text))
+    console.print(full_query_text, end="")
+
     result_raw = input(': ')
     if(result_raw == 'q'):
         exit()
     result = (result_raw in ['T', 't', '1'])
     return(result)
-def display_query_history(query_history, num_rcs, use_table=True):
+def get_query_history_table(query_history, num_rcs, use_table=True):
     """
+    WARN: will be None if there is no query history.
     If use_table is True, will print query history as a table; otherwise will just use text with spacing.
     """
-    result_table = Table(padding=0, header_style="b", show_lines=True, title_style="", title="Query History")
+    result_table = Table(padding=0, header_style="b", show_lines=True, title_style="", title="\nQuery History", caption_style='')
     separator_string = ""
     separator = Text(separator_string, style="")
     result_displays = [
@@ -239,9 +255,42 @@ def display_query_history(query_history, num_rcs, use_table=True):
             row_args = [str(round_num), str(proposal)] + [result_displays[result] for result in verifier_info]
             result_table.add_row(*row_args)
             if(not use_table):
+                raise Exception("Ah wait, you should use_table")
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
-            console.print("\n", result_table, end="")
+            return(result_table)
+
+def end_play_display(answers_table, q_history_table, ans_line, score_line):
+    """ comment or uncomment to choose behavior of end_play_display """
+    # line below left aligns everything and then prints that unit in the center
+    console.print(combine(answers_table, q_history_table, ans_line, score_line), justify="center")
+    # line below centers everything
+    # console.print(
+    #     answers_table,
+    #     q_history_table,
+    #     ans_line,
+    #     score_line,
+    #     sep="\n",
+    #     justify="center"
+    # )
+
+def combine(*items):
+    """ Takes a variable number of renderables and combines them into a single left-aligned grid. """
+    grid = Table.grid()
+    for i in items:
+        grid.add_row(i)
+    return(grid)
+
+def highlight(*items):
+    h = ReprHighlighter()
+    l = [h(item) for item in items]
+    return(l if(len(l) > 1) else l[0])
+
+def no_hi_then_hi(s1, s2):
+    return(Text(s1) + highlight(s2))
+
+def center_print(*args, **kwargs):
+    console.print(*args, **kwargs, justify="center", highlight=True)
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -258,27 +307,39 @@ class Solver_Displayer:
             [max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0
         )
 
-
-    def print_problem(self, rcs_list, problem, active=True):
+    def print_problem(self, rcs_list, problem, justify="center", active=True):
         modes = ["Standard", "Extreme", "Nightmare"]
         if(active):
             title = f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}"
-            self.print_rcs_list(rcs_list, title)
+            self.print_rcs_list(rcs_list, title, justify=justify)
 
-    def print_rcs_list(self, rcs_list, title, active=True):
-        if(active):
-            table = Table(title=title, header_style="deep_sky_blue3", border_style="blue", title_style='')
-            table.add_column("Rule Index", justify="right")
-            for c_index in range(len(rcs_list)):
-                rc_text = f'Rule Card {letters[c_index]}'
-                min_width = max(self.max_rule_name_length, len(rc_text))
-                table.add_column(Text(rc_text, justify="center"), min_width=min_width)
-            zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
-            for (i, zipped_rules) in enumerate(zipped_rule_texts):
-                table.add_row(str(i), *zipped_rules)
-            console.print(table)
+    def print_rcs_list(
+        self,
+        rcs_list,
+        title,
+        border_style="blue",
+        justify="center",
+        indent=0,
+        active=True,
+        **kwargs
+    ):
+        if not(active):
+            return
+        table = Table(title=title, header_style="deep_sky_blue3", border_style=border_style, title_style='', **kwargs)
+        table.add_column("Rule Index", justify="right")
+        for c_index in range(len(rcs_list)):
+            rc_text = f'Rule Card {letters[c_index]}'
+            min_width = max(self.max_rule_name_length, len(rc_text))
+            table.add_column(Text(rc_text, justify="center"), min_width=min_width)
+        zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
+        for (i, zipped_rules) in enumerate(zipped_rule_texts):
+            table.add_row(str(i), *zipped_rules)
+        if(indent != 0):
+            print_indented_table(table, indent)
+        else:
+            console.print(table, justify=justify)
 
-    def get_card_indexes_text(self, card_index_col_widths, c):
+    def _get_card_indexes_text(self, card_index_col_widths, c):
         card_indexes_list = [r.card_index for r in c]
         card_indexes_strings_list = [
             str(ci).rjust(card_index_col_widths[col]) for (col, ci) in enumerate(card_indexes_list)
@@ -289,15 +350,15 @@ class Solver_Displayer:
             card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
         return(card_indexes_text)
 
-    def get_r_names_texts_list(self, c, p, permutation_order, verifier_to_sort_by, color_all=True):
+    def _get_r_names_texts_list(self, c, p, permutation_order, verifier_to_sort_by, color_all=True):
         n_wo_p = self.n_mode and not(permutation_order)
-        r_names_list = make_r_name_list(c, p, permutation_order)
+        r_names_list = _make_r_name_list(c, p, permutation_order)
         _apply_style_to_r_names(
             r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
         )
         return(r_names_list)
 
-    def make_answer_table_cols(self, table, p_order, final_answer, display_combo_number, verifier_to_sort_by):
+    def _make_answer_table_cols(self, table, p_order, final_answer, display_combo_number, verifier_to_sort_by):
         n_wo_p = self.n_mode and not(p_order)
         rule_col_title = f"{'Rule Card' if (n_wo_p) else 'Verifier'}"
         rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
@@ -317,26 +378,22 @@ class Solver_Displayer:
         if(self.n_mode):
             table.add_column("Permutation")       # Permutation column (nightmare mode only)
 
-    def print_all_possible_answers(
+    def get_all_possible_answers_table(
             self,
             cwas,
             title                = "",
             permutation_order    = False,
             display_combo_number = True,
-            active               = True,
-            use_round_indent     = False,
             verifier_to_sort_by  = None,
-            custom_indent        = 0
+            **kwargs
         ):
         """
-        Pretty prints a table of all the combos_with_answers (cwas) given.
-        title is the title of the table. Blank by default.
-        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order.
-        active: if False, this function does nothing
-        use_round_indent: whether to indent the tables
+        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
+
+        verifier_to_sort_by: optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
+
+        All **kwargs passed to Table.
         """
-        if(not active):
-            return
         n_mode = (self.solver.problem.mode == NIGHTMARE)
         permutation_order = permutation_order and n_mode
         n_wo_p = n_mode and not(permutation_order)
@@ -345,8 +402,12 @@ class Solver_Displayer:
         set_possible_answers = set(answers)
         final_answer = (len(set_possible_answers) == 1)
 
-        table = Table(title=title, header_style="magenta", border_style="", title_style="")
-        self.make_answer_table_cols(
+        if not("header_style" in kwargs):
+            kwargs["header_style"] = "magenta"
+        if not("title_style" in kwargs):
+            kwargs["title_style"] = ""
+        table = Table(title=title, **kwargs)
+        self._make_answer_table_cols(
             table, permutation_order, final_answer, display_combo_number, verifier_to_sort_by
         )
         # NOTE: Set LINES_BETWEEN_ANSWERS to True/False to enable/disable lines between new answers
@@ -364,8 +425,8 @@ class Solver_Displayer:
             if(new_ans and LINES_BETWEEN_ANSWERS):
                 table.add_section()
 
-            card_indexes_text = self.get_card_indexes_text(card_index_col_widths, c)
-            r_names_texts_list = self.get_r_names_texts_list(
+            card_indexes_text = self._get_card_indexes_text(card_index_col_widths, c)
+            r_names_texts_list = self._get_r_names_texts_list(
                 c, p, permutation_order, verifier_to_sort_by, color_all=True
             )
             t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
@@ -375,11 +436,44 @@ class Solver_Displayer:
                 (card_indexes_text,) + \
                 ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
             table.add_row(*t_row_args)
-        if(use_round_indent or (custom_indent != 0)):
-            indent_amount = ROUND_INDENT_AMOUNT if(use_round_indent) else custom_indent
-            _print_indented_table(table, indent_amount)
+        return(table)
+
+    def print_all_possible_answers(
+            self,
+            cwas,
+            title                = "",
+            permutation_order    = False,
+            display_combo_number = True,
+            verifier_to_sort_by  = None,
+            active               = True,
+            justify              = "center",
+            custom_indent        = 0,
+            **kwargs
+    ):
+        """
+        Pretty prints a table of all the combos_with_answers (cwas) given.
+        title is the title of the table. Blank by default.
+        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
+
+        verifier_to_sort_by: optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
+
+        active: if False, this function does nothing
+        custom_indent: indent the table by this amount when printing.
+        """
+        if(not active):
+            return
+        table = self.get_all_possible_answers_table(
+            cwas,
+            title                = title,
+            permutation_order    = permutation_order,
+            display_combo_number = display_combo_number,
+            verifier_to_sort_by  = verifier_to_sort_by,
+            **kwargs
+        )
+        if(custom_indent == 0):
+            console.print(table, justify=justify)
         else:
-            console.print(table)
+            print_indented_table(table, custom_indent)
 
     def print_evaluations_cache_info(self, gs, name="game state", permutation_order=True):
         """
@@ -405,21 +499,28 @@ class Solver_Displayer:
         expected_cost_true = evaluations_cache.get(gs_true, (None, None, None, (0,0)))[3]
 
         (ec_rounds, ec_queries) = best_expected_cost_tup
-        self.print_game_state(gs, name=name, permutation_order=permutation_order)
-        print(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
-        print(f"Best move: {mov_to_str(best_mov)}")
+        self.print_game_state(gs, name=name, permutation_order=permutation_order, verifier_to_sort_by=best_mov[1])
         (r_cost, q_cost) = best_mov_cost_tup
-        print(f"Cost of best move: {r_cost} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
-        print(f"Probability query returns False: {p_false:0.3f}")
-        print(f"Probability query returns True : { p_true:0.3f}")
-
-        print(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds. {expected_cost_false[1]:0.3f} queries.")
-        print(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds. {expected_cost_true[1]:0.3f} queries.")
+        a = Text(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
+        b = Text(f"Best move: {mov_to_str(best_mov)}")
+        b.stylize('b cyan', 12)
+        c = Text(f"Cost of best move: {r_cost} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
+        d = Text(f"Probability query returns False: {p_false:0.3f}")
+        e = Text(f"Probability query returns True : { p_true:0.3f}")
+        f = Text(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds." +
+             f" {expected_cost_false[1]:0.3f} queries.")
+        g = Text(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds." +
+             f" {expected_cost_true[1]:0.3f} queries.")
+        l = highlight(a,b,c,d,e,f,g)
+        grid = combine(*l)
+        center_print(grid)
+        title_false = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ❌")
+        title_true = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ✅")
         self.print_game_state(
-            gs_false, "Game State if query returns false:", verifier_to_sort_by=best_mov[1], permutation_order=permutation_order
+            gs_false, title_false, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="indian_red1"
         )
         self.print_game_state(
-            gs_true, "Game State if query returns true:", verifier_to_sort_by=best_mov[1], permutation_order=permutation_order
+            gs_true, title_true, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="chartreuse1"
         )
         ec_rounds_calculated = r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0]
         ec_queries_calculated = q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1]
@@ -439,24 +540,39 @@ class Solver_Displayer:
             name="game_state",
             verifier_to_sort_by=None,
             permutation_order=True,
-            active=True
+            active=True,
+            **kwargs
         ):
         if(not active):
             return
-        print(f'\n{name}')
-        print(f'num_queries_this_round  : {gs.num_queries_this_round}.')
-        print(f'proposal_used_this_round: {gs.proposal_used_this_round}')
+        # print(f'\n{name}')
+        q_str = f'queries_this_round: {gs.num_queries_this_round} '
+        prop_str = f'proposal_this_round: {gs.proposal_used_this_round}'
+        center_print("\n" + q_str + prop_str)
         self.print_all_possible_answers(
             cwas=self.solver.full_cwa_from_game_state(gs),
-            title="Combos With Answers Remaining",
+            title=Text("CWA ").append(name),
             permutation_order=permutation_order,
-            verifier_to_sort_by=verifier_to_sort_by
+            verifier_to_sort_by=verifier_to_sort_by,
+            **kwargs
         )
 
-    def print_possible_rules_by_verifier_from_cwas(self, full_cwas, v_index, title):
+    def print_possible_rules_by_verifier_from_cwas(
+        self,
+        full_cwas,
+        v_index,
+        title,
+        justify="center",
+        indent=0,
+        active=True,
+        border_style="blue",
+        **kwargs
+    ):
         """
         Given a list of full_cwas and a verifier index, prints a table of all rules that are possible for that verifier (derived from the cwas).
         """
+        if not(active):
+            return
         rule_ids_by_verifier = solver.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
         # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
         possible_rules_this_verifier = [
@@ -484,11 +600,16 @@ class Solver_Displayer:
             for i in range(len(self.solver.rcs_list)):
                 rcs_list_possible.append(possible_rules_this_verifier if(i == v_index) else [])
         self.print_rcs_list(
-            rcs_list_possible, title
+            rcs_list_possible, title, justify=justify, indent=indent, border_style=border_style, **kwargs
         )
 
     def print_useful_qs_dict_info_helper(
-        self, useful_qs_dict, full_cwas, v_index, proposal_to_examine=None, see_all_combos=True
+        self,
+        useful_qs_dict,
+        full_cwas,
+        v_index,
+        proposal_to_examine=None,
+        see_all_combos=True
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/proposal.
@@ -501,40 +622,83 @@ class Solver_Displayer:
                 q_info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
 
-        possible_rules_title = f"\nVerifier {letters[v_index]} Rules Possible When This Qs Dict Was Made"
-        self.print_possible_rules_by_verifier_from_cwas(full_cwas, v_index, title=possible_rules_title)
-        print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}")
+        possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
+        # TODO: order the tables correctly and set indents and justifies how you want it.
+        # NOTE print table
+        self.print_possible_rules_by_verifier_from_cwas(
+            full_cwas,
+            v_index,
+            title=possible_rules_title,
+            caption=f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}",
+            caption_style=""
+        )
+        # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
         for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
             if not ((proposal_to_examine == proposal) or (proposal_to_examine is None)):
                 continue
-            custom_indent = 4
             (full_cwa_false, full_cwa_true) = \
                 [[self.solver.rc_indexes_cwa_to_full_combos_dict[indexes] for indexes in q_info_set_indexes] for q_info_set_indexes in (q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true)]
 
-            possible_rules_true_title = f"\n{prop_index}: Verifier {letters[v_index]} Rules Possible if {proposal} True"
-            self.print_possible_rules_by_verifier_from_cwas(
-                full_cwa_true, v_index, title=possible_rules_true_title
+            possible_rules_false_title = Text.assemble(
+                f"\n{prop_index}",
+                f": Verifier ",
+                (f"{letters[v_index]}", "b cyan"),
+                highlight(f" Rules if {proposal} False")
             )
 
-            possible_rules_false_title = f"\n{prop_index}: Verifier {letters[v_index]} Rules Possible if {proposal} False"
-            self.print_possible_rules_by_verifier_from_cwas(
-                full_cwa_false, v_index, title=possible_rules_false_title
+            possible_rules_true_title = Text.assemble(
+                f"\n{prop_index}",
+                f": Verifier ",
+                (f"{letters[v_index]}", "b cyan"),
+                highlight(f" Rules if {proposal} True")
             )
+
+            possible_rules_false_title
+            # NOTE table possible verifier rules for ❌ result
+            self.print_possible_rules_by_verifier_from_cwas(
+                full_cwa_false,
+                v_index,
+                title=possible_rules_false_title,
+                border_style="indian_red1"
+            )
+
+            # NOTE table possible verifier rules for ✅ result
+            self.print_possible_rules_by_verifier_from_cwas(
+                full_cwa_true,
+                v_index,
+                title=possible_rules_true_title,
+                border_style="chartreuse1"
+            )
+
 
             if(see_all_combos):
-                self.print_all_possible_answers(
-                    cwas=full_cwa_true,
-                    title=f"\n{prop_index}: Combos Remaining If {proposal} {letters[v_index]} True",
-                    permutation_order=True,
-                    verifier_to_sort_by=v_index,
-                    custom_indent=custom_indent
-                )
+
+                # NOTE table CWAs for ❌ result
                 self.print_all_possible_answers(
                     cwas=full_cwa_false,
-                    title=f"\n{prop_index}: Combos Remaining If {proposal} {letters[v_index]} False",
+                    title=Text.assemble(
+                        f"\n{prop_index}: ",
+                        f"CWAs if ",
+                        (f"{proposal} {letters[v_index]}", "b cyan"),
+                        highlight(f" False")
+                    ),
                     permutation_order=True,
                     verifier_to_sort_by=v_index,
-                    custom_indent=custom_indent
+                    border_style="#A64949"
+                )
+
+                # NOTE table CWAs for ✅ result
+                self.print_all_possible_answers(
+                    cwas=full_cwa_true,
+                    title=Text.assemble(
+                        f"\n{prop_index}: ",
+                        f"CWAs if ",
+                        (f"{proposal} {letters[v_index]}", "b cyan"),
+                        highlight(f" True")
+                    ),
+                    permutation_order=True,
+                    verifier_to_sort_by=v_index,
+                    border_style="#58A500"
                 )
 
     def print_useful_qs_dict_info(
@@ -552,7 +716,7 @@ class Solver_Displayer:
                 )
 
 def mov_to_str(move: tuple):
-    return(f"{move[0]} {letters[move[1]]}.")
+    return(f"{move[0]} {letters[move[1]]}")
 
 def get_max_string_height_by_depth(tree):
     """
