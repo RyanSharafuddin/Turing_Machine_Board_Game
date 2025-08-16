@@ -119,10 +119,11 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
             stack.append(curr_gs_true_result)
     return(new_evaluations_cache)
 
-def make_solver(problem):
+def make_solver(problem: Problem):
     s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
-    sd.print_problem(s.rcs_list, s.problem, active=True)
+    if(DISPLAY):
+        sd.print_problem(s.rcs_list, s.problem, active=True)
     if(not(s.full_cwa)):
         rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py.")
         console.print("Reminder that any rule combination must obey two rules:\n  1. There is exactly one proposal that satisfies them all.\n  2. Each rule eliminates at least one possibility that is not eliminated by any other rule.", highlight=False)
@@ -130,11 +131,12 @@ def make_solver(problem):
         print("Exiting.")
         exit()
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
-    sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
+    if(DISPLAY):
+        sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
     print("\nSolving . . .")
     s.solve()
     print(f"Finished.")
-    print(f"It took {s.seconds_to_solve:,} seconds.")
+    console.print(f"It took {s.seconds_to_solve:,} seconds.")
     sys.stdout.flush()
     return(s)
 
@@ -159,53 +161,60 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     print("Done")
     return(s)
 
-def get_or_make_solver(problem, pickle_entire=False, force_overwrite=True, no_pickles=False):
+def get_or_make_solver(
+        problem_id: str,
+        pickle_entire=False,
+        force_overwrite=True,
+        no_pickles=False
+    ):
     """
-    Given a Problem named tuple, if the solver is in file, gets it. If it isn't in file, makes it, pickles it.
+    Given a problem id (see problems.py), if the solver is in file, gets it. If it isn't in file, makes it, pickles it.
     If pickle_entire is True, pickles the entire solver; otherwise, only pickles the parts of the evaluations cache needed to play the game perfectly.
     If force_overwrite is true, makes solver and writes it to file regardless of whether or not it existed before.
-    If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles.
+    If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles. Precludes force_overwrite and pickle_entire.
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
-    print(f"\nReturning solver for problem: {problem.identity}.")
+    problem = get(problem_id)
+    f = out if (DISPLAY) else null
+    print(f"\nReturning solver for problem: {problem.identity}.", file=f)
     if(DISABLE_GC):
         gc.disable()
         gc.collect()
     if(no_pickles):
-        print("No pickles. Making solver from scratch.")
+        print("No pickles. Making solver from scratch.", file=f)
         s = make_solver(problem)
         made_from_scratch = True
     else:
         f_name = f_name_from_id(problem.identity)
         if(os.path.exists(f_name)):
             if(not force_overwrite):
-                print(f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . .")
+                print(f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . .", file=f)
                 s = unpickle_solver(problem.identity)
                 made_from_scratch = False
             else:
-                print("This problem has been solved, but will overwrite the solver file.")
+                print("This problem has been solved, but will overwrite the solver file.", file=f)
                 s = pickle_solver(problem, pickle_entire=pickle_entire, force_overwrite=force_overwrite)
                 made_from_scratch = True
         else:
-            print(f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . .")
+            print(f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . .", file=f)
             s = pickle_solver(problem, pickle_entire=pickle_entire)
             made_from_scratch = True
     if(DISABLE_GC):
         gc.enable()
     return((s, made_from_scratch))
 
-def display_problem_solution(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
+def display_problem_solution(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles=False):
     """
-    Given a Problem named tuple, gets or makes a solver for it (see get_or_make_solver), then prints the best move tree with the options that are currently set (SHOW_COMBOS_IN_TREE).
+    Given a problem id (see problems.py), gets or makes a solver for it (see get_or_make_solver), then prints the best move tree with the options that are currently set (SHOW_COMBOS_IN_TREE).
     """
-    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    (s, made_from_scatch) = get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles)
     display_solution_from_solver(s, display_problem=not(made_from_scatch))
 
-def play(problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
+def play(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles=False):
     """
-    Given a Problem named tuple, gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
+    Given a problem id (see problems.py), gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
     """
-    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    (s, made_from_scatch) = get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles)
     play_from_solver(s, display_problem=not(made_from_scatch))
 
 
@@ -242,37 +251,36 @@ DISABLE_GC = True                  # Whether to disable the garbage collector wh
 
 
 # Good problems for demonstration purposes:
-zero_query = get("B63YRW4")
-p1 = get("1")
-p1_n = get("1_N")
-p2 = get("2")        # which is actually harder than any of the "hard" standard modes I've come across
-c63 = get("C630YVB") # multiple combos, same answer
-f5x = get("F5XTDF")  # Nice tree. May want to turn off combo printing. Kinda hard: 168 seconds.
-f63 = get("F63EZQM") # Nice tree.      Full combos.
-f52 = get("F52LUJG") # Excellent tree. Full combos
-f43 = get("F435FE")  # Large tree. Hardest problem yet, at nearly an hour.
-i = get("Invalid")   # Testing purposes only.
+zero_query = "B63YRW4"
+p1 = "1"
+p1_n = "1_N"
+p2 = "2"        # which is actually harder than any of the "hard" standard modes I've come across
+c63 = "C630YVB" # multiple combos, same answer
+f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 168 seconds.
+f63 = "F63EZQM" # Nice tree.      Full combos.
+f52 = "F52LUJG" # Excellent tree. Full combos
+f43 = "F435FE"  # Large tree. Hardest problem yet, at nearly an hour.
+i = "Invalid"   # Testing purposes only.
 
 print(f"Using {platform.python_implementation()}.")
+p2_n = "2_N"
 # latest = f43
 # latest = i
 # latest = f63
 # latest = f52
-latest = p1
+# latest = p1
 # latest = p1_n
 # latest = f5x # 151 seconds after disabling garbage collection
 # latest = c63
-# latest = get("B63YRW4_N") # zero_query
+# latest = "B63YRW4_N" # zero_query
 # latest = zero_query
-# latest = get("2_N")
+# latest = "2_N"
 # play(latest)
 # display_problem_solution(latest)
 
 # display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
 
-
-s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True)
 # Use the below in REPL for testing/debugging purposes
 # s = get_or_make_solver(latest, no_pickles=False, force_overwrite=False)[0]
 # sd = display.Solver_Displayer(s)
@@ -287,3 +295,9 @@ s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True)
 # console.rule()
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 
+null = open('/dev/null', 'w')
+out = sys.stdout
+DISPLAY = False # WARN line 300 to be clobbered by auto_run_profile
+latest = f5x # WARN ditto line 301
+s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
+null.close()
