@@ -1,3 +1,4 @@
+from line_profiler import profile
 import math, itertools, time
 import rules
 from definitions import *
@@ -44,6 +45,26 @@ def is_combo_possible(combo):
 def get_possible_rules_combos_with_answers(rules_cards_list):
     all_rules_combos = get_all_rules_combinations(rules_cards_list)
     return([(c, a) for (c,a) in [(c, is_combo_possible(c)) for c in all_rules_combos] if(a is not None)])
+
+
+def one_answer_left(game_state_cwa_set):
+    """
+    Given a set of CWA as stored in the game state object, returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
+    NOTE: if you change the game_state cwa sets to be implemented using a set of integers, or a list of booleans, or numpy bit pack, or a single long integer, or something else, will need to change the parameters: will need to add full_cwa as a parameter of this function.
+    """
+    seen_answer_set = set()
+    # See comments in definitions.Game_State for the format game_state_cwa_set is in.
+    # May not be a literal Python set object.
+    iterator = iter(game_state_cwa_set)
+    zeroth_cwa_representation = next(iterator)
+    seen_answer_set.add(zeroth_cwa_representation[-1])
+    current_cwa_representation = next(iterator, None)
+
+    while(current_cwa_representation is not None):
+        if(current_cwa_representation[-1] not in seen_answer_set):
+            return(False)
+        current_cwa_representation = next(iterator, None)
+    return(True)
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """
@@ -224,7 +245,8 @@ class Solver:
 
     # see get_moves docstring for definitions of move and cost.
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
-    def calculate_best_move(self, qs_dict, game_state):
+    @profile
+    def calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
@@ -232,6 +254,7 @@ class Solver:
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
         # TODO: consider replacing with a function (outside the class) called one_answer_left(cwa_indexes_remaining) that merely returns a boolean for whether there's exactly one answer left. May save time over making an entire set, b/c can stop once encounter the first repeat. Can use line profiler to see if this change saves you time. Maybe use numpy arrays and see if that provides any speedup? i.e. each cwa_indexes remaining is just a numpy array of booleans of length (len(full_cwa)), and the boolean at index i is true if the ith cwa is still there, and false otherwise, and can then use np.and to intersect sets and np.count (or something) to see if there's one left? Profile and see if this saves time.
+        # if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
         if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
             # don't bother filling up the cache with already-won states.
             return( (None, None, None, (0,0)) )

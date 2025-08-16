@@ -32,7 +32,12 @@ Game_State = namedtuple(
         'proposal_used_this_round',
         'fset_cwa_indexes_remaining', # {((2, 3, 4, 7), 121), ...}
         # In nightmare mode, each item in fset_cwa_indexes_remaining is:
-        # ((card_indices of rules in combo), (verifier permutation tuple), answer int)
+        # (
+        #     (card_indices of rules for each rule card (not verifier) in combo),
+        #     (verifier permutation tuple),
+        #     answer int
+        # )
+        # in standard or extreme, each item is ((card_indexes_tuple), answer_int)
     ]
 )
 

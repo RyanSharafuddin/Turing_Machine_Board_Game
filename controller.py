@@ -257,10 +257,10 @@ print(f"Using {platform.python_implementation()}.")
 # latest = f43
 # latest = i
 # latest = f63
-latest = f52
-# latest = p1
+# latest = f52
+latest = p1
 # latest = p1_n
-# latest = f5x
+# latest = f5x # 151 seconds after disabling garbage collection
 # latest = c63
 # latest = get("B63YRW4_N") # zero_query
 # latest = zero_query
@@ -268,12 +268,13 @@ latest = f52
 # play(latest)
 # display_problem_solution(latest)
 
-display_problem_solution(latest, no_pickles=True)
+# display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
 
 
+s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True)
 # Use the below in REPL for testing/debugging purposes
-# s = get_or_make_solver(latest, no_pickles=True)[0]
+# s = get_or_make_solver(latest, no_pickles=False, force_overwrite=False)[0]
 # sd = display.Solver_Displayer(s)
 
 # sd.print_useful_qs_dict_info(
