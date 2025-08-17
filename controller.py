@@ -108,10 +108,11 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
     if(evaluations_cache is None):
         return(None)
     new_evaluations_cache = dict()
-    stack = [initial_game_state]
+    stack : list[Game_State] = [initial_game_state]
     while(stack):
         curr_gs = stack.pop()
-        if((curr_gs in evaluations_cache) and not (curr_gs in new_evaluations_cache)):
+        if((curr_gs in evaluations_cache) and (curr_gs not in new_evaluations_cache) and
+            (not solver.one_answer_left(curr_gs.fset_cwa_indexes_remaining))):
             curr_gs_answer = evaluations_cache[curr_gs]
             (curr_gs_false_result, curr_gs_true_result) = curr_gs_answer[2]
             new_evaluations_cache[curr_gs] = curr_gs_answer
@@ -156,7 +157,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     if(not(pickle_entire)):
         new_evaluations_cache = get_relevant_parts_cache(s.evaluations_cache, s.initial_game_state)
         s.evaluations_cache = new_evaluations_cache
-    pickle.dump(s, f)
+    pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     print("Done")
     return(s)
@@ -299,6 +300,6 @@ null = open('/dev/null', 'w')
 out = sys.stdout
 DISPLAY = True # WARN line 300 to be clobbered by auto_run_profile
 latest = p2 # WARN ditto line 301
-display_problem_solution(p2, no_pickles=True)
+play(p2)
 # s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
 null.close()

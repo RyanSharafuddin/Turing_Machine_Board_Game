@@ -205,7 +205,8 @@ def conduct_query(query_tup, expected_winning_round, expected_total_queries, que
     console.print(g, justify="center")
 
     # below several lines is a hack to get input() where I want it
-    proposal_text = Text(f'{proposal} ', style='u')         # add styles if desired
+    color = "#00B7EB"
+    proposal_text = Text(f'{proposal} ', style=f'u b {color}')         # add styles if desired
     verifier_text = Text(f'{verifier_to_query}') # add styles here
     term_width = os.get_terminal_size()[0]
     start_index = (term_width // 2) - (len(longest_line)//2)
@@ -222,10 +223,17 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
     WARN: will be None if there is no query history.
     If use_table is True, will print query history as a table; otherwise will just use text with spacing.
     """
-    result_table = Table(padding=0, header_style="b", show_lines=True, title_style="", title="\nQuery History", caption_style='')
+    result_table = Table(
+        padding=0,
+        header_style="b",
+        show_lines=True,
+        title_style="",
+        title="\nQuery History",
+        caption_style=''
+    )
     separator_string = ""
     separator = Text(separator_string, style="")
-    result_displays = [
+    width_one_chars = [
         Text("X", style="b white on red"),   # False
         Text("✓", style="b white on green"), # True
         Text(' ', style="")           # not queried
@@ -235,13 +243,14 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
         Text("✅", style=""), # True
         Text('  ', style="")   # not queried
     ]
+    table_to_use = emoji_displays
     if(query_history):
         if(not use_table):
             print("\n" + (" " * 8) + separator_string.join(letters[:num_rcs]))
         result_table.add_column() # round num
         result_table.add_column() # proposal
         for i in range(num_rcs):
-            result_table.add_column(f"{letters[i]}")
+            result_table.add_column(f"{'' if (table_to_use == width_one_chars) else ' '}{letters[i]}")
         for (round_num, round_info) in enumerate(query_history, start=1):
             proposal = round_info[0]
             verifier_info = [2 for i in range(num_rcs)]
@@ -249,9 +258,9 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
                 verifier_info[v] = result
             display_text = Text("")
             for result in verifier_info:
-                display_text.append(result_displays[result])
+                display_text.append(table_to_use[result])
                 display_text.append(separator)
-            row_args = [str(round_num), str(proposal)] + [result_displays[result] for result in verifier_info]
+            row_args = [str(round_num), str(proposal)] + [table_to_use[result] for result in verifier_info]
             result_table.add_row(*row_args)
             if(not use_table):
                 raise Exception("Ah wait, you should use_table")
