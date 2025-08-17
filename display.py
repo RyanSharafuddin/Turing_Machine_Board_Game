@@ -9,56 +9,9 @@ from rich import box
 from rich.highlighter import ReprHighlighter
 import solver
 from definitions import NIGHTMARE, console, Game_State
+from config import *
 
-# escape sequence is \033[<text color>;<background color>m
-# see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
-# NOTE: for some reason that probably has to do with VS Code color themes, the checks and Xs don't display how I want them to in the terminal when using the Radical theme, but they do display correctly when using the Terminal app, or with certain other VS Code themes.
-ROUND_INDENT_AMOUNT = 14
-ROUND_INDENT = " " * ROUND_INDENT_AMOUNT
 letters = string.ascii_uppercase
-# see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
-# also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
-RULE_COLORS = [
-    "#79FB00",
-    "#FF9D00",
-    "#0800FF",
-    "#F1ADF5",
-    "#DF228B",
-    "#EBCB57",
-    "#8245BD",
-    "#FF69B4",
-    "#A71D44",
-    "#6FC4EE",
-    "#B20FFD",
-    "#1A9050",
-    "#FD9E7b",
-    "#9C5642",
-    "#521D7D",
-    "#00FF7F",
-    "#FF7780",
-    "#F22410",
-    "#EE8727",
-    "#AF4109",
-    "#F2E32D",
-    "#BC0B6F",
-    "#2BAE7B",
-    "#01FF01",
-    "#01796F",
-    "#CE5908",
-    "#A94064",
-    "#FF007F",
-    "#FF77FF",
-    "#FF66CC",
-    "#EDC9AF",
-    "#F0DC82",
-    "#0095FD",
-    "#40E0D0"
-    "#BE7437",
-    "#9BB09E",
-    "#FFBF00",
-    "#00FFFF",
-    "#D7AF00"
-]
 def r_names_perm_order(rl, permutation, permutation_order):
     permutation = permutation if(permutation_order) else range(len(rl))
     return([rl[i].name for i in permutation])
@@ -92,9 +45,9 @@ def _make_rule_to_color_dict(combos):
     for c in combos:
         for r in c:
             if(r.unique_id not in d):
-                d[r.unique_id] = RULE_COLORS[color_index % len(RULE_COLORS)]
+                d[r.unique_id] = COLORS[color_index % len(COLORS)]
                 color_index += 1
-    if(color_index > len(RULE_COLORS)):
+    if(color_index > len(COLORS)):
         print("WARN: Add more rule colors, or programmatically generate them")
     return(d)
 
@@ -103,7 +56,7 @@ def _make_list_objs_to_color_dict(list_objs):
     d = dict()
     for obj in list_objs:
         if(obj not in d):
-            d[obj] = RULE_COLORS[len(RULE_COLORS) - 1 - (color_index % len(RULE_COLORS))]
+            d[obj] = COLORS[len(COLORS) - 1 - (color_index % len(COLORS))]
             color_index += 1
     return(d)
 
@@ -114,7 +67,7 @@ def _get_sort_key(n_mode, n_wo_p, verifier_to_sort_by=None):
             Sort by answer, then the unique_id of the rule assigned to the verifier_to_sort_by, then by the unique_ids of the combo, and then by the permutation, if there is one.
             """
             (c, p, a) = (cwa[0], cwa[1], cwa[-1])
-            p = range (len(c)) if(not(n_mode)) else p
+            p = (list(range(len(c)))) if(not(n_mode)) else p
             id_rule_assigned_to_verifier = c[p[verifier_to_sort_by]].unique_id
             return(
                 (a, id_rule_assigned_to_verifier, tuple([r.unique_id for r in c])) +\
@@ -141,14 +94,18 @@ def _get_col_widths(table):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
 
+def rich_obj_to_list_lines(rich_obj) -> list[str]:
+    with console.capture() as capture:
+        console.print(rich_obj)
+    lines = capture.get().split("\n")
+    return lines
+
 def print_indented_table(table, indent_amount):
     """
     table is the Rich python object.
     """
     # for some reason, returning the table as a string with indents inserted and printing that doesn't seem to work.
-    with console.capture() as capture:
-        console.print(table)
-    table_lines = capture.get().split("\n")
+    table_lines = rich_obj_to_list_lines(table)
     for line in table_lines:
         print(f'{" " * indent_amount}{line}')
 
@@ -307,6 +264,7 @@ class Solver_Displayer:
         self.card_index_to_color_dict = _make_list_objs_to_color_dict(
             [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa]
         )
+        self.answer_to_color_dict = _make_list_objs_to_color_dict([cwa[-1] for cwa in solver.full_cwa])
         self.n_mode = (self.solver.problem.mode == NIGHTMARE)
         self.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in self.solver.rcs_list])
         # note that max_possible_rule_length is different from max_rule_name_length,
@@ -366,9 +324,17 @@ class Solver_Displayer:
         )
         return(r_names_list)
 
-    def _make_answer_table_cols(self, table, p_order, final_answer, display_combo_number, verifier_to_sort_by):
+    def _make_answer_table_cols(
+        self,
+        table,
+        p_order,
+        final_answer,
+        display_combo_number,
+        verifier_to_sort_by,
+        tree_version
+    ):
         n_wo_p = self.n_mode and not(p_order)
-        rule_col_title = f"{'Rule Card' if (n_wo_p) else 'Verifier'}"
+        rule_col_title = '' if tree_version else f"{'Rule Card ' if (n_wo_p) else 'Verifier '}"
         rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
         if(not final_answer):
             table.add_column("", justify="right") # answer index column
@@ -378,13 +344,14 @@ class Solver_Displayer:
         for v_index in range(len(self.solver.rcs_list)):
             if(p_order):
                 table.add_column("")              # RC          column (nightmare mode only)
-            rule_column_name = f"{rule_col_title} {letters[v_index]}"
+            rule_column_name = f"{rule_col_title}{letters[v_index]}"
             rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
             col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
             table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
-        table.add_column("Rule Indexes")          # Rule Indexes column
-        if(self.n_mode):
-            table.add_column("Permutation")       # Permutation column (nightmare mode only)
+        if not tree_version:
+            table.add_column("Rule Indexes")          # Rule Indexes column
+            if(self.n_mode):
+                table.add_column("Permutation")       # Permutation column (nightmare mode only)
 
     def get_all_possible_answers_table(
             self,
@@ -393,6 +360,8 @@ class Solver_Displayer:
             permutation_order    = False,
             display_combo_number = True,
             verifier_to_sort_by  = None,
+            tree_version         = False,
+            num_empty_rows       = 0,     # used for tree tables
             **kwargs
         ):
         """
@@ -416,15 +385,50 @@ class Solver_Displayer:
             kwargs["title_style"] = ""
         table = Table(title=title, **kwargs)
         self._make_answer_table_cols(
-            table, permutation_order, final_answer, display_combo_number, verifier_to_sort_by
+            table,
+            permutation_order,
+            final_answer,
+            display_combo_number,
+            verifier_to_sort_by,
+            tree_version
         )
         # NOTE: Set LINES_BETWEEN_ANSWERS to True/False to enable/disable lines between new answers
-        LINES_BETWEEN_ANSWERS = False
+
 
         # TODO: consider making the row arguments its own function.
         sorted_cwas = sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by))
         a_index = 0
-        card_index_col_widths = _get_col_widths([[r.card_index for r in c] for c in combos])
+        card_index_col_widths = _get_col_widths(
+            [
+                ([c[p_num].card_index for p_num in p] if (permutation_order) else [r.card_index for r in c])
+                for (c, p) in zip(combos, permutations)
+            ]
+        )
+
+        if(tree_version):
+            if(permutation_order):
+                card_index_col_widths = [num + 1 for num in card_index_col_widths]
+            header_style=f"b bright_white on {TREE_BACKGROUND_COLOR}"
+            default_tree_style = f"b bright_white on {TREE_BACKGROUND_COLOR}"
+            table = Table(
+                box=None,
+                padding=(0, 1),
+                collapse_padding=True,
+                # style=default_tree_style,
+                header_style=header_style,
+                title_style=header_style
+            )
+            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}", justify="right") # combo index column
+            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}") # Answer column
+            for v_index in range(len(combos[0])):
+                table.add_column(
+                    # if column has even width, put the verifier name on right side of center.
+                    (' ' if (card_index_col_widths[v_index] % 2 == 0) else '') + letters[v_index],
+                    style=f"on {TREE_BACKGROUND_COLOR}",
+                    justify="center",
+                )
+            table.caption_style=header_style
+
         for (c_index, cwa) in enumerate(sorted_cwas, start=1): # note that c_index starts at 1
             (c, a) = (cwa[0], cwa[-1])
             p = cwa[1] if (n_mode) else None
@@ -437,13 +441,55 @@ class Solver_Displayer:
             r_names_texts_list = self._get_r_names_texts_list(
                 c, p, permutation_order, verifier_to_sort_by, color_all=True
             )
-            t_row_args = (tuple() if (final_answer) else ((str(a_index),) if(new_ans) else ('',))) +\
-                ((str(a),) if(new_ans) else ('',))  +\
-                ((str(c_index),) if(display_combo_number) else tuple()) +\
-                tuple(r_names_texts_list) + \
-                (card_indexes_text,) + \
-                ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
+            if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR):
+                answer_color = self.answer_to_color_dict[a]
+                answer_write = Text(str(a), style=f'b {answer_color}')
+                non_final_answer_index = Text(str(c_index), style='white')
+            else:
+                answer_write = Text(str(a) if(new_ans) else '', "b bright_white")
+                non_final_answer_index = Text(str(a_index) if(new_ans) else '', style="white")
+            if not(tree_version):
+                t_row_args = (
+                    (tuple() if (final_answer) else (non_final_answer_index,)) +
+                    (answer_write,) +
+                    ((str(c_index),) if(display_combo_number) else tuple()) +
+                    tuple(r_names_texts_list) +
+                    (card_indexes_text,) + 
+                    ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
+                )
+            else:
+                p = p if(permutation_order) else range(len(c))
+                table_unique_id_list = [c[p_num].unique_id for p_num in p]
+                table_color_list = [self.rule_to_color_dict[t_uid] for t_uid in table_unique_id_list]
+                table_chars_list = [
+                    f'{letters[rc_index] if(permutation_order) else ""}' +
+                    f'{self.solver.flat_rule_list[t_uid].card_index}'
+                    for (rc_index, t_uid) in zip(p, table_unique_id_list)
+                ]
+                # table_text_list = [Text("", f'on {tree_background_color}')] +\
+                table_text_list = [
+                    non_final_answer_index.append("."),
+                    answer_write,
+                ] +\
+                [
+                    Text(
+                        text=f"{chars}",
+                        style=f'b {"r " if ((col == verifier_to_sort_by) and not(n_wo_p)) else""}{color}',
+                        justify="right"
+                    )
+                    for (col, (chars, color)) in
+                    enumerate(zip(table_chars_list, table_color_list))
+                ]
+
+                # for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
+                t_row_args = table_text_list
+                # style=self.rule_to_color_dict[c[combo_index].unique_id]
+                # card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
+                # t_row_args = (card_indexes_text,)
+            num_row_args = len(t_row_args)
             table.add_row(*t_row_args)
+        for v_index in range(num_empty_rows):
+            table.add_row(*['' * num_row_args])
         return(table)
 
     def print_all_possible_answers(
@@ -752,9 +798,10 @@ class Tree:
     def __init__(
             self,
             gs                        : Game_State,
-            solver,
+            solver                    : solver.Solver,
             prob=1.0,
             cost_to_get_here=(0, 0),
+            move_made_to_get_here=None,
             depth=0,
             tree_type='gs',
             move=None,                  # NOTE: not currently used. Intended to be used for 'move' type trees, which show multiple move options other than best move, if that gets implemented.
@@ -764,6 +811,7 @@ class Tree:
         self.solver = solver
         self.prob = prob
         self.cost_to_get_here = cost_to_get_here
+        self.move_made_to_get_here = move_made_to_get_here
         self.depth = depth
 
         # TODO: fields to be added to be used for 'move' type trees:
@@ -827,6 +875,7 @@ def get_children(tree: Tree):
                     solver=tree.solver,
                     prob=prob_tup[i],
                     cost_to_get_here=add_tups(tree.cost_to_get_here, best_move_cost),
+                    move_made_to_get_here = best_move,
                     depth=tree.depth+1
                 ) for i in range(2)
             ]
@@ -836,6 +885,7 @@ def node_to_str(tree: Tree):
     nl = '\n'
     rcs_lengths = [len(rc) for rc in tree.solver.rcs_list]
     chars_to_print = [2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to print.
+
     if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
         result = tree.solver.evaluations_cache.get(tree.gs)
         combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
@@ -876,13 +926,86 @@ def node_to_str(tree: Tree):
         answer = l[0][-1]
         return(answer)
 
+def node_to_str_table(tree: Tree):
+    sd = Solver_Displayer(tree.solver)
+    nl = '\n'
+    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
+        result = tree.solver.evaluations_cache.get(tree.gs)
+        (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+        verifier_to_sort_by = (
+            None if (tree.move_made_to_get_here is None) else tree.move_made_to_get_here[1]
+        )
+        prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
+        prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
+        cost_of_node_str = ' '.join(
+            [f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)]
+        )
+        move_str = f"{best_move[0]} {letters[best_move[1]]}"
+        # NOTE: comment out below if block to not mark new rounds in the best move tree
+        if(best_move_cost[0] == 1): # if the best move costs a round
+            move_str += ' (R)'
+        if(not tree.show_combos_in_tree):
+            tree_lines = (
+                ((prob_str,) if (tree.prob != 1) else tuple()) +
+                (cost_of_node_str, move_str)
+            )
+            max_line_length = max([len(l) for l in tree_lines])
+            lines = [f"{l:^{max_line_length}}" for l in tree_lines] # the ^ centers the lines
+            node_str = f"{nl.join(lines)}"
+            rich_obj_to_print = Text(node_str, style=f"white on {TREE_BACKGROUND_COLOR}")
+        else:
+            num_combos = len(tree.solver.full_cwa_from_game_state(tree.gs))
+            num_empty_rows = Tree.max_combos_by_depth[tree.depth] - num_combos
+            node_table = sd.get_all_possible_answers_table(
+                cwas=tree.solver.full_cwa_from_game_state(tree.gs),
+                permutation_order=P_ORDER,
+                display_combo_number=True,
+                verifier_to_sort_by=verifier_to_sort_by,
+                tree_version=True,
+                num_empty_rows=num_empty_rows
+            )
+
+            title = ""
+            if(tree.prob != 1): # don't show probability for root node
+                title = f"{prob_str}\n"
+            node_table.title = f'{title}{cost_of_node_str}'
+            node_table.caption = move_str
+            rich_obj_to_print = node_table
+        node_list_lines = rich_obj_to_list_lines(rich_obj_to_print)
+        node_str = '\n'.join(node_list_lines).strip()
+        return(node_str)
+    else: # leaf node
+        l = list(tree.gs.fset_cwa_indexes_remaining)
+        answer = l[0][-1]
+        t = Table.grid()
+        leaf_foreground_color = (
+            f"b {sd.answer_to_color_dict[answer]}" if WRITE_ANSWERS_MULTIPLE_TIMES_COLOR 
+            else "b bright_white"
+            )
+        leaf_style = f"{leaf_foreground_color} on {TREE_BACKGROUND_COLOR}"
+        answer_text = Text(f" {str(answer)} ", style=leaf_style)
+        t.add_row(answer_text)
+        t_str = ''.join(rich_obj_to_list_lines(answer_text))
+        return(t_str)
+
+
 def print_best_move_tree(gs, show_combos, solver):
+    # TODO: finish testing the trees, then use only the table_tree, w/correct show_combos, instead of all 4
     print()
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs=gs, solver=solver)
     Tree.max_combos_by_depth = get_max_string_height_by_depth(tree)
-    pt = PrettyPrintTree(get_children, node_to_str)
-    pt(tree)
+    regular_tree = PrettyPrintTree(get_children, node_to_str)
+    table_tree = PrettyPrintTree(get_children, node_to_str_table, color='')
+    regular_tree(tree)
+    print()
+    table_tree(tree)
+    # TODO: delete below block
+    print("\nOpposite show combos\n")
+    Tree.show_combos_in_tree = not(show_combos)
+    regular_tree(tree)
+    print()
+    table_tree(tree)
 
 def print_multi_move_tree(gs, show_combos, solver):
     raise Exception("Unimplemented")

@@ -1,6 +1,7 @@
 import pickle, os, sys, platform, gc
 from rich import print as rprint
 from definitions import *
+from config import *
 from problems import get_problem_by_id as get
 import display, solver
 
@@ -232,14 +233,7 @@ def play(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 # options
-PICKLE_DIRECTORY = "Pickles_New"       # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "Pickles"       # Directory where all pickled solvers go. # TODO uncomment after testing extensively
-# PRINT_COMBOS = False               # whether or not to print remaining combos after every query in play()
-PRINT_COMBOS = True                # whether or not to print remaining combos after every query in play()
-# SHOW_COMBOS_IN_TREE = False        # Print combos in trees in display_problem_solution()
-SHOW_COMBOS_IN_TREE = True         # Print combos in trees in display_problem_solution()
-P_ORDER = True                     # Whether to display tables in permutation order or not for nightmare mode
-DISABLE_GC = True                  # Whether to disable the garbage collector while solve()ing. Increases
+
                                    # speed significantly, but may run out of memory faster.
 
 # Profiling/Interactive Debugging
@@ -298,8 +292,10 @@ p2_n = "2_N"
 
 null = open('/dev/null', 'w')
 out = sys.stdout
-DISPLAY = True # WARN line 300 to be clobbered by auto_run_profile
-latest = p2 # WARN ditto line 301
-play(p2)
+latest = p1_n # WARN ditto line 301
+# latest = f63 # WARN ditto line 301
+# latest = f5x # WARN ditto line 301
+# play(latest, no_pickles=True)
+display_problem_solution(latest, force_overwrite=True)
 # s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
 null.close()

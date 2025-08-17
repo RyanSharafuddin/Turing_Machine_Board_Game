@@ -222,7 +222,7 @@ def make_full_cwa(problem, rcs_list):
     return(possible_combos_with_answers)
 
 class Solver:
-    def __init__(self, problem):
+    def __init__(self, problem: Problem):
         self.problem            = problem
         self.evaluations_cache  = dict()
         self.rcs_list           = rules.make_rcs_list(problem)
