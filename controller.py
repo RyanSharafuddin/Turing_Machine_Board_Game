@@ -251,10 +251,10 @@ p1 = "1"
 p1_n = "1_N"
 p2 = "2"        # which is actually harder than any of the "hard" standard modes I've come across
 c63 = "C630YVB" # multiple combos, same answer
-f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 168 seconds.
+f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 140 seconds currently
 f63 = "F63EZQM" # Nice tree.      Full combos.
 f52 = "F52LUJG" # Excellent tree. Full combos
-f43 = "F435FE"  # Large tree. Hardest problem yet, at nearly an hour.
+f43 = "F435FE"  # Large tree. Hardest problem yet, at 2,904 seconds.
 i = "Invalid"   # Testing purposes only.
 
 null = open('/dev/null', 'w')
@@ -262,11 +262,11 @@ out = sys.stdout
 
 print(f"Using {platform.python_implementation()}.")
 p2_n = "2_N"
-latest = c63
+latest = f63
 # play(latest)
-display_problem_solution(latest)
+# display_problem_solution(latest)
 
-# display_problem_solution(latest, no_pickles=True)
+display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
 
 # Use the below in REPL for testing/debugging purposes
