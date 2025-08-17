@@ -434,6 +434,7 @@ class Solver_Displayer:
             p = cwa[1] if (n_mode) else None
             new_ans = ((c_index == 1) or (a != sorted_cwas[c_index - 2][-1]))
             a_index += new_ans
+            only_unique_answer_index = Text(str(a_index) if(new_ans) else '', style="white")
             if(new_ans and LINES_BETWEEN_ANSWERS):
                 table.add_section()
 
@@ -444,13 +445,15 @@ class Solver_Displayer:
             if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR):
                 answer_color = self.answer_to_color_dict[a]
                 answer_write = Text(str(a), style=f'b {answer_color}')
-                non_final_answer_index = Text(str(c_index), style='white')
             else:
                 answer_write = Text(str(a) if(new_ans) else '', "b bright_white")
-                non_final_answer_index = Text(str(a_index) if(new_ans) else '', style="white")
+            tree_index_num = (
+                Text(str(c_index)) if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR) else
+                only_unique_answer_index
+            )
             if not(tree_version):
                 t_row_args = (
-                    (tuple() if (final_answer) else (non_final_answer_index,)) +
+                    (tuple() if (final_answer) else (only_unique_answer_index,)) +
                     (answer_write,) +
                     ((str(c_index),) if(display_combo_number) else tuple()) +
                     tuple(r_names_texts_list) +
@@ -468,7 +471,7 @@ class Solver_Displayer:
                 ]
                 # table_text_list = [Text("", f'on {tree_background_color}')] +\
                 table_text_list = [
-                    non_final_answer_index.append("."),
+                    tree_index_num.append("." if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR or new_ans) else ''),
                     answer_write,
                 ] +\
                 [
@@ -997,15 +1000,15 @@ def print_best_move_tree(gs, show_combos, solver):
     Tree.max_combos_by_depth = get_max_string_height_by_depth(tree)
     regular_tree = PrettyPrintTree(get_children, node_to_str)
     table_tree = PrettyPrintTree(get_children, node_to_str_table, color='')
-    regular_tree(tree)
-    print()
+    # regular_tree(tree)
+    # print()
     table_tree(tree)
     # TODO: delete below block
-    print("\nOpposite show combos\n")
-    Tree.show_combos_in_tree = not(show_combos)
-    regular_tree(tree)
-    print()
-    table_tree(tree)
+    # print("\nOpposite show combos\n")
+    # Tree.show_combos_in_tree = not(show_combos)
+    # regular_tree(tree)
+    # print()
+    # table_tree(tree)
 
 def print_multi_move_tree(gs, show_combos, solver):
     raise Exception("Unimplemented")

@@ -257,21 +257,14 @@ f52 = "F52LUJG" # Excellent tree. Full combos
 f43 = "F435FE"  # Large tree. Hardest problem yet, at nearly an hour.
 i = "Invalid"   # Testing purposes only.
 
+null = open('/dev/null', 'w')
+out = sys.stdout
+
 print(f"Using {platform.python_implementation()}.")
 p2_n = "2_N"
-# latest = f43
-# latest = i
-# latest = f63
-# latest = f52
-# latest = p1
-# latest = p1_n
-# latest = f5x # 151 seconds after disabling garbage collection
-# latest = c63
-# latest = "B63YRW4_N" # zero_query
-# latest = zero_query
-# latest = "2_N"
+latest = c63
 # play(latest)
-# display_problem_solution(latest)
+display_problem_solution(latest)
 
 # display_problem_solution(latest, no_pickles=True)
 # play(latest, no_pickles=True)
@@ -290,12 +283,4 @@ p2_n = "2_N"
 # console.rule()
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
 
-null = open('/dev/null', 'w')
-out = sys.stdout
-latest = p1_n # WARN ditto line 301
-# latest = f63 # WARN ditto line 301
-# latest = f5x # WARN ditto line 301
-# play(latest, no_pickles=True)
-display_problem_solution(latest, force_overwrite=True)
-# s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
 null.close()
