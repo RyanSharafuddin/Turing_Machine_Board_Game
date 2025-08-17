@@ -1,5 +1,6 @@
 import os
 from rich.console import Console
+# NOTE: Next time you want to automatically profile 2 options without doing something like setting a flag in the code, instead of using this file to write changes to the lines, just make 2 git commits that contain the code exactly as you want to use it when profiling (including all the problems you want to use it on), and use os.system("gco relevant_commit"), then overwrite controller with latest = problem variable, and run it.
 
 console = Console()
 

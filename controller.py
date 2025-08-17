@@ -17,7 +17,7 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
         print(f"Move: {move}")
         exit()
 
-def play_from_solver(s, display_problem = True):
+def play_from_solver(s: solver.Solver, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     If display_problem is off, will not display the problem
@@ -31,7 +31,7 @@ def play_from_solver(s, display_problem = True):
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
-    while(len(solver.fset_answers_from_cwa_iterable(current_gs.fset_cwa_indexes_remaining)) > 1):
+    while not(solver.one_answer_left(current_gs.fset_cwa_indexes_remaining)):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
         full_cwa = s.full_cwa_from_game_state(current_gs)
         expected_winning_round = current_round_num + expected_cost_tup[0]
@@ -297,7 +297,8 @@ p2_n = "2_N"
 
 null = open('/dev/null', 'w')
 out = sys.stdout
-DISPLAY = False # WARN line 300 to be clobbered by auto_run_profile
-latest = f5x # WARN ditto line 301
-s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
+DISPLAY = True # WARN line 300 to be clobbered by auto_run_profile
+latest = p2 # WARN ditto line 301
+display_problem_solution(p2, no_pickles=True)
+# s = get_or_make_solver(latest, force_overwrite=False, no_pickles=True) # WARN: ditto line 302
 null.close()

@@ -8,7 +8,7 @@ from rich.text import Text
 from rich import box
 from rich.highlighter import ReprHighlighter
 import solver
-from definitions import NIGHTMARE, console
+from definitions import NIGHTMARE, console, Game_State
 
 # escape sequence is \033[<text color>;<background color>m
 # see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -742,7 +742,7 @@ class Tree:
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.
     def __init__(
             self,
-            gs,
+            gs                        : Game_State,
             solver,
             prob=1.0,
             cost_to_get_here=(0, 0),
@@ -802,8 +802,8 @@ def node_to_str_multi_move(tree):
         pass
     raise Exception("Unimplemented")
 
-def get_children(tree):
-    if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
+def get_children(tree: Tree):
+    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
         result = tree.solver.evaluations_cache.get(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
@@ -823,46 +823,45 @@ def get_children(tree):
             ]
             return(children)
     return([])
-def node_to_str(tree):
+def node_to_str(tree: Tree):
     nl = '\n'
     rcs_lengths = [len(rc) for rc in tree.solver.rcs_list]
     chars_to_print = [2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to print.
-    if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
+    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
         result = tree.solver.evaluations_cache.get(tree.gs)
-        if(result is not None): # internal node
-            combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
-            (best_move, best_move_cost, gs_tup, total_expected_cost) = result
-            combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
-            prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
-            prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
-            move_str = f"{best_move[0]} {letters[best_move[1]]}"
-            # NOTE: comment out below if block to not mark new rounds in the best move tree
-            if(best_move_cost[0] == 1): # if the best move costs a round
-                move_str += ' (R)'
-            cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
-            verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
-                [f'{letters[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
-            )
-            if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
-                combos_lines = [verifier_names_str] + combos_strs + ['' for i in range(Tree.max_combos_by_depth[tree.depth] - len(combos_strs))]
-            else:
-                combos_lines = []
+        combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
+        (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+        combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
+        prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
+        prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
+        move_str = f"{best_move[0]} {letters[best_move[1]]}"
+        # NOTE: comment out below if block to not mark new rounds in the best move tree
+        if(best_move_cost[0] == 1): # if the best move costs a round
+            move_str += ' (R)'
+        cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
+        verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
+            [f'{letters[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
+        )
+        if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
+            combos_lines = [verifier_names_str] + combos_strs + ['' for i in range(Tree.max_combos_by_depth[tree.depth] - len(combos_strs))]
+        else:
+            combos_lines = []
 
-            if(tree.prob == 1):
-                prob_line = [] # don't show probability for initial game state where probability is 1
-            else:
-                prob_line = [prob_str]
+        if(tree.prob == 1):
+            prob_line = [] # don't show probability for initial game state where probability is 1
+        else:
+            prob_line = [prob_str]
 
-            lines = (
-                prob_line +
-                [cost_of_node_str] +
-                combos_lines +
-                [move_str]
-            )
-            max_line_length = max([len(l) for l in lines])
-            lines = [f"{l:^{max_line_length}}" for l in lines] # the ^ centers the lines
-            node_str = f"{nl.join(lines)}"
-            return(node_str)
+        lines = (
+            prob_line +
+            [cost_of_node_str] +
+            combos_lines +
+            [move_str]
+        )
+        max_line_length = max([len(l) for l in lines])
+        lines = [f"{l:^{max_line_length}}" for l in lines] # the ^ centers the lines
+        node_str = f"{nl.join(lines)}"
+        return(node_str)
     else: # leaf node
         l = list(tree.gs.fset_cwa_indexes_remaining)
         answer = l[0][-1]

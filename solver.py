@@ -254,10 +254,13 @@ class Solver:
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
         # TODO: consider replacing with a function (outside the class) called one_answer_left(cwa_indexes_remaining) that merely returns a boolean for whether there's exactly one answer left. May save time over making an entire set, b/c can stop once encounter the first repeat. Can use line profiler to see if this change saves you time. Maybe use numpy arrays and see if that provides any speedup? i.e. each cwa_indexes remaining is just a numpy array of booleans of length (len(full_cwa)), and the boolean at index i is true if the ith cwa is still there, and false otherwise, and can then use np.and to intersect sets and np.count (or something) to see if there's one left? Profile and see if this saves time.
-        # if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
-        if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
+        if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
+        # if(len(fset_answers_from_cwa_iterable(game_state.fset_cwa_indexes_remaining)) == 1):
             # don't bother filling up the cache with already-won states.
-            return( (None, None, None, (0,0)) )
+            # actually, try caching it and see if it improves performance by saving you from having to run one_answer_left the next time you encounter it.
+            null_answer = (None, None, None, (0,0))
+            self.evaluations_cache[game_state] = null_answer
+            return(null_answer)
         best_expected_cost = (float('inf'), float('inf'))
         found_zero_more_round_sol = False
         exist_moves_that_dont_cost_a_round = False
