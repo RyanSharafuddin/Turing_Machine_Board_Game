@@ -58,6 +58,6 @@ PRINT_COMBOS        = True       # whether or not to print remaining combos afte
 
 
 # Solver workings
-PICKLE_DIRECTORY = "Pickles_New" # "Pickles"       # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "Pickles_Nightmare" # "Pickles"       # Directory where all pickled solvers go.
 DISABLE_GC = True                # Whether to disable the garbage collector while solve()ing. Increases speed
                                  # significantly but may run out of memory faster.

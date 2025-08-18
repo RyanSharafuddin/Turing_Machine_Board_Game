@@ -149,6 +149,8 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     If force_overwrite is true, then it remakes the solver regardless of whether the corresponding file exists, and overwrites the file if it does exist.
     """
     f_name = f_name_from_id(problem.identity)
+    if(not os.path.exists(PICKLE_DIRECTORY)):
+        os.makedirs(PICKLE_DIRECTORY)
     if(os.path.exists(f_name) and not force_overwrite):
         print(f"Asked to pickle {f_name}, but it already exists. Returning None.")
         return
@@ -262,11 +264,11 @@ out = sys.stdout
 
 print(f"Using {platform.python_implementation()}.")
 p2_n = "2_N"
-latest = f63
 # play(latest)
 # display_problem_solution(latest)
 
-display_problem_solution(latest, no_pickles=True)
+latest = p2_n
+display_problem_solution(latest, force_overwrite=True)
 # play(latest, no_pickles=True)
 
 # Use the below in REPL for testing/debugging purposes
