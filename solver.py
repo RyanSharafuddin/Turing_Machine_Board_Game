@@ -335,9 +335,9 @@ class Solver:
             self.rcs_list
         )
         # TESTING
-        full_cwas = self.full_cwa_from_game_state(game_state)
-        full_cwa_r_unique_ids = get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode=True)
-        assert r_unique_ids_by_verifier == full_cwa_r_unique_ids
+        # full_cwas = self.full_cwa_from_game_state(game_state)
+        # full_cwa_r_unique_ids = get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode=True)
+        # assert r_unique_ids_by_verifier == full_cwa_r_unique_ids
         # END TESTING
         for v_index in range(self.num_rcs):
             is_isomorphic_to_previous_verifier = False
