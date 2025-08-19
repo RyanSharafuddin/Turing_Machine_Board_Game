@@ -201,12 +201,11 @@ def get_isomorphic_lists_list(base_qs_dict: dict, full_cwas, flat_rule_list, num
             isomorphic_lists_list.append([proposal])
             representative_info_list.append(inner_dict)
 
-    # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query
+    # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query (i.e. print everything to be sure it works)
 
-    console.print(isomorphic_lists_list)
-    console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
+    # console.print(isomorphic_lists_list)
+    # console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
     return(isomorphic_lists_list)
-
 
 def filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol):
     return_dict = dict()
@@ -400,6 +399,12 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
     return((expected_r_cost, expected_q_cost))
 
+def calculate_worst_case_cost(mcost, probs, gss_costs):
+    (mcost_rounds, mcost_queries) = mcost
+    bigger_cost_tup = max(gss_costs)
+    return((bigger_cost_tup[0] + mcost_rounds, bigger_cost_tup[1] + mcost_queries))
+
+
 def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
     fset_cwa_indexes_remaining = frozenset(
             [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
@@ -421,10 +426,31 @@ def make_full_cwa(problem, rcs_list):
     possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
+def choose_best_move_depth_one(moves_list):
+    best_expected_result = (float('inf'), float('inf')) # number of answers left, number of combos left.
+    for(move, mcost, gs_tuple, p_tuple) in moves_list:
+        (p_false, p_true) = p_tuple
+        (gs_false_answers_left, gs_true_answers_left) = [
+            len(fset_answers_from_cwa_iterable(gs.fset_cwa_indexes_remaining)) for gs in gs_tuple
+        ]
+        (gs_false_combos_left, gs_true_combos_left) = [
+            len(gs.fset_cwa_indexes_remaining) for gs in gs_tuple
+        ]
+        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
+        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
+        expected_result = (expected_answers_left, expected_combos_left)
+        if(expected_result < best_expected_result):
+            best_expected_result = expected_result
+            best_move = move
+            best_mcost = mcost
+            best_gs_tup = gs_tuple
+    answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
+    return(answer)
+
 class Solver:
     null_answer = (None, None, None, (0,0))
     initial_best_cost = (float('inf'), float('inf'))
-    def __init__(self, problem: Problem):
+    def __init__(self, problem: Problem, capitulate: bool):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
         self.evaluations_cache  = dict()
@@ -439,9 +465,15 @@ class Solver:
                                     fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
                                 )
         self.calculator         = (
-                                    self.nightmare_calculate_best_move if(self.n_mode)
-                                    else self.calculate_best_move
+                                   (
+                                       self.calculate_some_moves if capitulate else (
+                                       self.nightmare_calculate_best_move if(self.n_mode)
+                                       else self.calculate_best_move
+                                       )
+                                    )
                                 )
+        # self.cost_calulator     = calculate_worst_case_cost
+        self.cost_calulator     = calculate_expected_cost
         self.seconds_to_solve   = -1 # have not called solve() yet.
         if(not(self.full_cwa)):
             return
@@ -457,13 +489,49 @@ class Solver:
         )
 
     def testing_stuff(self):
-        if(not config.USE_NIGHTMARE_CALCULATE):
-            self.calculator = self.calculate_best_move
+        # if(not config.USE_NIGHTMARE_CALCULATE):
+        #     self.calculator = self.calculate_best_move
         import display
         global sd
         sd = display.Solver_Displayer(self)
         # sd.print_problem(self.rcs_list, self.problem)
         # exit()
+
+    def calculate_some_moves(self, qs_dict, game_state):
+        """ A capitulation """
+        stack = [self.initial_game_state]
+        while(stack):
+            current_gs = stack.pop()
+            if not(one_answer_left(current_gs.fset_cwa_indexes_remaining)):
+                moves_list = list(get_and_apply_moves(current_gs, self.qs_dict))
+                if not(moves_list):
+                    new_game_state = Game_State(
+                        proposal_used_this_round=None,
+                        num_queries_this_round=0,
+                        fset_cwa_indexes_remaining=current_gs.fset_cwa_indexes_remaining
+                    )
+                    moves_list = list(get_and_apply_moves(new_game_state, self.qs_dict))
+                answer = choose_best_move_depth_one(moves_list)
+                self.evaluations_cache[current_gs] = answer
+                (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
+                stack.append(best_gs_tup[0])
+                stack.append(best_gs_tup[1])
+        # TODO: calculate actual expected rounds and queries to end if you use this.
+        Solver.calculate_actual_expected_for_capitulation(self.evaluations_cache, self.initial_game_state)
+
+    @staticmethod
+    def calculate_actual_expected_for_capitulation(evaluations_cache, game_state: Game_State):
+        if(not game_state in evaluations_cache):
+            return((0, 0))
+        (best_move, best_mcost, best_gs_tup, answer_combo_cost) = evaluations_cache[game_state]
+        (gs_false, gs_true) = best_gs_tup
+        p_false = len(gs_false.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
+        p_true = len(gs_true.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
+        cost_false = Solver.calculate_actual_expected_for_capitulation(evaluations_cache, gs_false)
+        cost_true = Solver.calculate_actual_expected_for_capitulation(evaluations_cache, gs_true)
+        actual_expected_cost = calculate_expected_cost(best_mcost, (p_false, p_true), (cost_false, cost_true))
+        evaluations_cache[game_state] = (best_move, best_mcost, best_gs_tup, actual_expected_cost)
+        return(actual_expected_cost)
 
     def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
         """ WARN: only use in nightmare mode. """
@@ -472,7 +540,8 @@ class Solver:
             game_state.fset_cwa_indexes_remaining,
             self.rcs_list
         )
-        # TESTING # TODO
+        # TODO: print out and follow on a debugging nightmare game @ least through end of round 1 to be sure this is working
+        # TESTING
         # full_cwas = self.full_cwa_from_game_state(game_state)
         # full_cwa_r_unique_ids = get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode=True)
         # assert r_unique_ids_by_verifier == full_cwa_r_unique_ids

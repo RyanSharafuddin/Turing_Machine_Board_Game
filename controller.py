@@ -117,7 +117,7 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
     return(new_evaluations_cache)
 
 def make_solver(problem: Problem):
-    s = solver.Solver(problem)
+    s = solver.Solver(problem, capitulate=args.capitulate)
     sd = display.Solver_Displayer(s)
     if(DISPLAY):
         sd.print_problem(s.rcs_list, s.problem, active=True)
@@ -322,8 +322,14 @@ if(__name__ == "__main__"):
     parser.add_argument("--no_pickles", "-np", action="store_true", help="No pickles.")
     parser.add_argument("--force_overwrite", "-fo", action="store_true", help="Force overwrite pickles.")
     parser.add_argument("--from_file", action="store_true", help="Only display from file, using filename.")
+    parser.add_argument(
+        "--capitulate","-c", action="store_true",
+        help="Give up on being perfect. Choosing this turns on --no_pickles."
+    )
 
     args = parser.parse_args()
+    if(args.capitulate):
+        args.no_pickles = True
     if(args.from_file):
         if(args.play):
             play_from_file(args.prob_id)
