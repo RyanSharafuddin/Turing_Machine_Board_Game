@@ -260,7 +260,7 @@ def center_print(*args, **kwargs):
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
         self.solver = solver
-        self.rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
+        self._rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
         self.card_index_to_color_dict = _make_list_objs_to_color_dict(
             [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa]
         )
@@ -297,7 +297,7 @@ class Solver_Displayer:
             rc_text = f'Rule Card {letters[c_index]}'
             min_width = max(self.max_rule_name_length, len(rc_text))
             table.add_column(Text(rc_text, justify="center"), min_width=min_width)
-        zipped_rule_texts = zip_longest(*[[Text(r.name, style=self.rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
+        zipped_rule_texts = zip_longest(*[[Text(r.name, style=self._rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
         for (i, zipped_rules) in enumerate(zipped_rule_texts):
             table.add_row(str(i), *zipped_rules)
         if(indent != 0):
@@ -312,7 +312,7 @@ class Solver_Displayer:
         ]
         card_indexes_text = Text()
         for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
-            style=self.rule_to_color_dict[c[combo_index].unique_id]
+            style=self._rule_to_color_dict[c[combo_index].unique_id]
             card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
         return(card_indexes_text)
 
@@ -320,7 +320,7 @@ class Solver_Displayer:
         n_wo_p = self.n_mode and not(permutation_order)
         r_names_list = _make_r_name_list(c, p, permutation_order)
         _apply_style_to_r_names(
-            r_names_list, verifier_to_sort_by, permutation_order, self.rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
+            r_names_list, verifier_to_sort_by, permutation_order, self._rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
         )
         return(r_names_list)
 
@@ -463,7 +463,7 @@ class Solver_Displayer:
             else:
                 p = p if(permutation_order) else range(len(c))
                 table_unique_id_list = [c[p_num].unique_id for p_num in p]
-                table_color_list = [self.rule_to_color_dict[t_uid] for t_uid in table_unique_id_list]
+                table_color_list = [self._rule_to_color_dict[t_uid] for t_uid in table_unique_id_list]
                 table_chars_list = [
                     f'{letters[rc_index] if(permutation_order) else ""}' +
                     f'{self.solver.flat_rule_list[t_uid].card_index}'

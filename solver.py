@@ -1,6 +1,6 @@
 from line_profiler import profile
 import math, itertools, time
-import rules
+import rules, config
 from definitions import *
 # from rich import print as rprint
 
@@ -185,12 +185,42 @@ def nightmare_get_and_apply_moves(
         cost = (1, 1)
         next_num_queries = 1
         for (proposal, inner_dict) in qs_dict.items():
-            list_hit_v_sets = [False] * len(minimal_vs_list)
-            hit_all_v_sets = False
-            for (v_index, q_info) in inner_dict.items():
-                move = (proposal, v_index)
+            num_v_sets_left_to_hit = len(minimal_vs_list)
+            list_hit_v_sets = [False] * num_v_sets_left_to_hit
+            for (verifier_to_query, q_info) in inner_dict.items():
+                move = (proposal, verifier_to_query)
                 for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                    if((v_index in v_set) and not(list_hit_v_sets[v_set_index])):
+                    if(verifier_to_query in v_set):
+                        if(not(list_hit_v_sets[v_set_index])):
+                            # try it out
+                            move_info = create_move_info(
+                                num_combos_currently,
+                                game_state,
+                                next_num_queries,
+                                q_info,
+                                move,
+                                cost
+                            )
+                            if(move_info is not None):
+                                list_hit_v_sets[v_set_index] = True
+                                num_v_sets_left_to_hit -= 1
+                                yield(move_info)
+                        break
+                if(not num_v_sets_left_to_hit):
+                    break
+    else:
+        cost = (0, 1)
+        next_num_queries = (game_state.num_queries_this_round + 1) % 3
+        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
+        if(inner_dict_this_proposal is None):
+            return
+        num_v_sets_left_to_hit = len(minimal_vs_list)
+        list_hit_v_sets = [False] * num_v_sets_left_to_hit
+        for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
+            move = (game_state.proposal_used_this_round, verifier_to_query)
+            for (v_set_index, v_set) in enumerate(minimal_vs_list):
+                if(verifier_to_query in v_set):
+                    if(not(list_hit_v_sets[v_set_index])):
                         # try it out
                         move_info = create_move_info(
                             num_combos_currently,
@@ -202,38 +232,12 @@ def nightmare_get_and_apply_moves(
                         )
                         if(move_info is not None):
                             list_hit_v_sets[v_set_index] = True
+                            num_v_sets_left_to_hit -= 1
                             yield(move_info)
-                            if(all(list_hit_v_sets)):
-                                hit_all_v_sets = True # shouldn't return here; should try all other proposals.
-                            break
-                if(hit_all_v_sets):
+                            if(not num_v_sets_left_to_hit):
+                                return
                     break
-        # go through every possible move that hits all the minimal vs lists once.
-    else:
-        cost = (0, 1)
-        next_num_queries = (game_state.num_queries_this_round + 1) % 3
-        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
-        if(inner_dict_this_proposal is None):
-            return
-        list_hit_v_sets = [False] * len(minimal_vs_list)
-        for (v_index, q_info) in inner_dict_this_proposal.items():
-            move = (game_state.proposal_used_this_round, v_index)
-            for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                if((v_index in v_set) and not(list_hit_v_sets[v_set_index])):
-                    # try it out
-                    move_info = create_move_info(
-                        num_combos_currently,
-                        game_state,
-                        next_num_queries,
-                        q_info,
-                        move,
-                        cost
-                    )
-                    if(move_info is not None):
-                        list_hit_v_sets[v_set_index] = True
-                        yield(move_info)
-                        if(all(list_hit_v_sets)):
-                            return
+
 
 def get_and_apply_moves(game_state, qs_dict):
     """
@@ -300,6 +304,8 @@ def make_full_cwa(problem, rcs_list):
     return(possible_combos_with_answers)
 
 class Solver:
+    null_answer = (None, None, None, (0,0))
+    initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
@@ -308,11 +314,15 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
-        self.initial_game_state = Game_State(0, None, fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa))
+        self.initial_game_state = Game_State(
+                                    0,
+                                    None,
+                                    fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
+                                )
         self.calculator         = (
                                     self.nightmare_calculate_best_move if(self.n_mode)
                                     else self.calculate_best_move
-                                  )
+                                )
         self.seconds_to_solve   = -1 # have not called solve() yet.
         if(not(self.full_cwa)):
             return
@@ -326,6 +336,16 @@ class Solver:
         self.qs_dict        = make_useful_qs_dict(
             all_125_possibilities_set, self.full_cwa, self.flat_rule_list, (problem.mode == NIGHTMARE)
         )
+        self.testing_stuff() # WARN TODO: delete
+
+    def testing_stuff(self):
+        if(config.PICKLE_DIRECTORY == "Pickles/DreamCatcher"):
+            self.calculator = self.nightmare_calculate_best_move
+        else:
+            self.calculator = self.calculate_best_move
+        import display
+        global sd
+        sd = display.Solver_Displayer(self)
 
     def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
         """ WARN: only use in nightmare mode. """
@@ -334,7 +354,7 @@ class Solver:
             game_state.fset_cwa_indexes_remaining,
             self.rcs_list
         )
-        # TESTING
+        # TESTING # TODO
         # full_cwas = self.full_cwa_from_game_state(game_state)
         # full_cwa_r_unique_ids = get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode=True)
         # assert r_unique_ids_by_verifier == full_cwa_r_unique_ids
@@ -364,10 +384,10 @@ class Solver:
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
         if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
-            null_answer = (None, None, None, (0,0))
-            self.evaluations_cache[game_state] = null_answer
-            return(null_answer)
-        best_expected_cost = (float('inf'), float('inf'))
+            if(config.CACHE_END_STATES):
+                self.evaluations_cache[game_state] = Solver.null_answer
+            return(Solver.null_answer)
+        best_node_cost = Solver.initial_best_cost
         found_zero_more_round_sol = False
         exist_moves_that_dont_cost_a_round = False
 
@@ -381,60 +401,74 @@ class Solver:
                 # NOTE: although exist_moves_that_dont_cost_a_round significantly prunes the tree, I'm not convinced this will necessarily find a best move.
                 break
 
-            gs_false_expected_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
-            gs_true_expected_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
-            gss_costs = (gs_false_expected_cost, gs_true_expected_cost)
-            expected_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
-            if(expected_cost_tup < best_expected_cost):
-                if(expected_cost_tup[0] == 0):
+            gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
+            gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
+            gss_costs = (gs_false_node_cost, gs_true_node_cost)
+            node_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
+            if(node_cost_tup < best_node_cost):
+                if(node_cost_tup[0] == 0):
                     found_zero_more_round_sol = True
-                best_expected_cost = expected_cost_tup
+                best_node_cost = node_cost_tup
                 best_move = move
                 best_mov_cost = mcost
                 best_gs_tup = gs_tup
-                if((expected_cost_tup == (0, 1)) or ((expected_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)): # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                if(
+                    (node_cost_tup == (0, 1)) or
+                    ((node_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)
+                ):
+                    # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break
-        answer = (best_move, best_mov_cost, best_gs_tup, best_expected_cost)
+        answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
         self.evaluations_cache[game_state] = answer
         return(answer)
 
     def nightmare_calculate_best_move(
-            self,
-            qs_dict,
-            game_state: Game_State,
-            minimal_vs_list: list[set[int]] = None,
+        self,
+        qs_dict,
+        game_state: Game_State,
+        minimal_vs_list: list[set[int]] = None,
 
     ):
         if(game_state in self.evaluations_cache):
             return(self.evaluations_cache[game_state])
         if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
-            null_answer = (None, None, None, (0,0))
-            self.evaluations_cache[game_state] = null_answer
-            return(null_answer)
-        best_expected_cost = (float('inf'), float('inf'))
+            if(config.CACHE_END_STATES):
+                self.evaluations_cache[game_state] = Solver.null_answer
+            return(Solver.null_answer)
+        best_node_cost = Solver.initial_best_cost
         if(game_state.proposal_used_this_round is None):
             minimal_vs_list = self.calculate_minimal_vs_list(game_state)
 
         found_moves = False
-        # generator = nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
+        # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
+        # For testing purposes, make the entire moves_list before examining any moves.
         for move_info in nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
             (move, mcost, gs_tup, p_tup) = move_info
-            gs_false_expected_cost = self.nightmare_calculate_best_move(qs_dict, gs_tup[0], minimal_vs_list)[3]
-            gs_true_expected_cost = self.nightmare_calculate_best_move(qs_dict, gs_tup[1], minimal_vs_list)[3]
-            gss_costs = (gs_false_expected_cost, gs_true_expected_cost)
-            expected_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
-            if(expected_cost_tup < best_expected_cost):
+            gs_false_node_cost = self.nightmare_calculate_best_move(
+                qs_dict, gs_tup[0],
+                minimal_vs_list
+            )[3]
+            gs_true_node_cost = self.nightmare_calculate_best_move(
+                qs_dict,
+                gs_tup[1],
+                minimal_vs_list
+            )[3]
+            gss_costs = (gs_false_node_cost, gs_true_node_cost)
+            node_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
+            if(node_cost_tup < best_node_cost):
                 found_moves = True
-                best_expected_cost = expected_cost_tup
+                best_node_cost = node_cost_tup
                 best_move = move
                 best_mov_cost = mcost
                 best_gs_tup = gs_tup
-                if((expected_cost_tup == (0, 1)) or ((expected_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)): # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                if(
+                    (node_cost_tup == (0, 1)) or
+                    ((node_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)
+                ):
+                    # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break
         if(found_moves):
-            answer = (best_move, best_mov_cost, best_gs_tup, best_expected_cost)
-            self.evaluations_cache[game_state] = answer
-            return(answer)
+            answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
         else:
             # recalculate minimal_vs_list and try again
             recalculated_minimal_vs_list = self.calculate_minimal_vs_list(game_state)
@@ -443,11 +477,14 @@ class Solver:
                 proposal_used_this_round=None,
                 fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
             )
-            return(self.nightmare_calculate_best_move(
+            answer = self.nightmare_calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
                 minimal_vs_list=recalculated_minimal_vs_list
-            ))
+            )
+        self.evaluations_cache[game_state] = answer
+        return(answer)
+
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.

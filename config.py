@@ -58,6 +58,9 @@ PRINT_COMBOS        = True       # whether or not to print remaining combos afte
 
 
 # Solver workings
-PICKLE_DIRECTORY = "Pickles_Nightmare" # "Pickles"       # Directory where all pickled solvers go.
-DISABLE_GC = True                # Whether to disable the garbage collector while solve()ing. Increases speed
-                                 # significantly but may run out of memory faster.
+PICKLE_DIRECTORY = "Pickles/New" # "Pickles"       # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
+DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
+                                 # Increases speed on many problems, but on other problems, such as I4BYJK (nightmare), causes the process to be terminated with a Killed: 9. signal. because it used too much memory.
+CACHE_END_STATES = True          # whether to cache the end states into the evaluations_cache

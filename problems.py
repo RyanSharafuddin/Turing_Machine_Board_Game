@@ -24,8 +24,12 @@ EXTREME_PROB_TUPS = [
 NIGHTMARE_PROB_TUPS = [
     ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
 ]
-NIGHTMARE_PROB_TUPS += [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in STANDARD_PROB_TUPS]
+derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in STANDARD_PROB_TUPS]
+derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in NIGHTMARE_PROB_TUPS]
+NIGHTMARE_PROB_TUPS += derived_nightmare_prob_tups
+STANDARD_PROB_TUPS += derived_standard_prob_tups
 # NOTE: Any standard mode problem is now also a nightmare mode problem if just add "_N" to its problem id.
+#       Also, any nightmare mode problem is a standard mode problem by adding "_S".
 
 
 standard_problems = [Problem(*(problem_tup + (STANDARD,))) for problem_tup in STANDARD_PROB_TUPS]
@@ -39,10 +43,34 @@ for p in all_problems:
         exit()
     problem_identities.add(p.identity)
 id_to_problem_dict = {problem.identity: problem for problem in all_problems}
+prefix_id_to_problem_list_dict = dict()
+for (identity, problem) in id_to_problem_dict.items():
+    for i in range(len(identity)):
+        prefix: str = identity[:i+1]
+        if not(identity.endswith('_N') or identity.endswith('_S')):
+            pref_add = prefix
+        elif(len(prefix) + 2 <= len(identity)):
+            pref_add = f'{prefix}_{identity[-1]}'
+        else:
+            break
+        if(pref_add in prefix_id_to_problem_list_dict):
+            prefix_id_to_problem_list_dict[pref_add].append(problem)
+        else:
+            prefix_id_to_problem_list_dict[pref_add] = [problem]
+
+
+# console.print(prefix_id_to_problem_list_dict)
 def get_problem_by_id(problem_id: str):
-    """ All problems should be defined in problems.py. See this file for how it all works."""
-    problem = id_to_problem_dict.get(problem_id)
-    if(problem is None):
-        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py. Exiting")
+    problem_id = problem_id.upper()
+    """ All problems should be defined in problems.py. See this file for how it all works. """
+    problem_list = prefix_id_to_problem_list_dict.get(problem_id, [])
+    if(not problem_list):
+        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py. Exiting.")
         exit()
-    return(id_to_problem_dict[problem_id])
+    if(len(problem_list) > 1):
+        print(f"There are multiple problems f{problem_id} could refer to. Here they are:\n")
+        for(index, problem) in enumerate(problem_list, start=1):
+            console.print(index, ": ", problem, sep="", end="")
+        a = int(input("\nWhich one would you like?\n> "))
+        return(problem_list[a - 1])
+    return(problem_list[0])

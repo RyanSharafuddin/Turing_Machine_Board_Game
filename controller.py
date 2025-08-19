@@ -1,4 +1,4 @@
-import pickle, os, sys, platform, gc
+import pickle, os, sys, platform, gc, argparse
 from rich import print as rprint
 from definitions import *
 from config import *
@@ -85,12 +85,7 @@ def display_solution_from_solver(s, display_problem = True):
 
 def unpickle_solver(identity):
     f_name = f_name_from_id(identity)
-    print(f"\nUnpickling {f_name}.")
-    f = open(f_name, 'rb')
-    s = pickle.load(f)
-    f.close()
-    print("Done.")
-    return(s)
+    return(unpickle_solver_from_f_name(f_name))
 
 def f_name_from_id(identity):
     """
@@ -207,20 +202,38 @@ def get_or_make_solver(
         gc.enable()
     return((s, made_from_scratch))
 
-def display_problem_solution(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles=False):
+def display_problem_solution(
+    problem_id: str,
+    pickle_entire=False,
+    force_overwrite=False,
+    no_pickles=False
+):
     """
     Given a problem id (see problems.py), gets or makes a solver for it (see get_or_make_solver), then prints the best move tree with the options that are currently set (SHOW_COMBOS_IN_TREE).
     """
     (s, made_from_scatch) = get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles)
     display_solution_from_solver(s, display_problem=not(made_from_scatch))
-
 def play(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles=False):
     """
     Given a problem id (see problems.py), gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
     """
     (s, made_from_scatch) = get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles)
     play_from_solver(s, display_problem=not(made_from_scatch))
-
+# For Testing purposes
+def unpickle_solver_from_f_name(f_name):
+    print(f"\nUnpickling {f_name}.")
+    f = open(f_name, 'rb')
+    s: solver.Solver = pickle.load(f)
+    f.close()
+    print("Done.")
+    print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
+    return(s)
+def display_problem_solution_from_file(f_name):
+    s = unpickle_solver_from_f_name(f_name)
+    display_solution_from_solver(s)
+def play_from_file(f_name):
+    s = unpickle_solver_from_f_name(f_name)
+    play_from_solver(s)
 
 # NOTE: How to use:
 # Make problems (see above. Get from www.turingmachine.info)
@@ -264,11 +277,16 @@ out = sys.stdout
 
 print(f"Using {platform.python_implementation()}.")
 p2_n = "2_N"
+first_nightmare = "I4BYJK"
 # play(latest)
 # display_problem_solution(latest)
 
-latest = p2_n
-display_problem_solution(latest, force_overwrite=True)
+# latest = p1_n
+# display_problem_solution(latest, no_pickles=True)
+
+# display_problem_solution_from_file("Pickles/DreamCatcher/2_N.bin")
+
+# display_problem_solution(latest, no_pickles=False)
 # play(latest, no_pickles=True)
 
 # Use the below in REPL for testing/debugging purposes
@@ -284,5 +302,33 @@ display_problem_solution(latest, force_overwrite=True)
 # )
 # console.rule()
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
+if(__name__ == "__main__"):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("prob_id", type=str, help="Specify the problem id. Prefixes are fine.")
+    parser.add_argument("--display", "-d", action="store_true", help="Display the tree.")
+    parser.add_argument("--play", "-p", action="store_true", help="Play the problem.")
+    parser.add_argument("--no_pickles", "-np", action="store_true", help="No pickles.")
+    parser.add_argument("--force_overwrite", "-fo", action="store_true", help="Force overwrite pickles.")
+    parser.add_argument("--from_file", action="store_true", help="Only display from file, using filename.")
 
-null.close()
+    args = parser.parse_args()
+    if(args.from_file):
+        if(args.play):
+            play_from_file(args.prob_id)
+        if(args.display):
+            display_problem_solution_from_file(args.prob_id)
+    else:
+        if(args.display):
+            display_problem_solution(
+                args.prob_id,
+                no_pickles=args.no_pickles,
+                force_overwrite=args.force_overwrite
+            )
+        if(args.play):
+            play(
+                args.prob_id,
+                no_pickles=args.no_pickles,
+                force_overwrite=args.force_overwrite
+            )
+
+    null.close()
