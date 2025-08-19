@@ -239,7 +239,7 @@ def nightmare_get_and_apply_moves(
                     break
 
 
-def get_and_apply_moves(game_state, qs_dict):
+def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
     """
     yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
     move is a tuple (proposal tuple, rc_index of verifier to query).
@@ -247,34 +247,53 @@ def get_and_apply_moves(game_state, qs_dict):
     """
     # calling len() to figure out num_combos_currently here so don't have to do it repeatedly inside loop
     num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
-    if (game_state.proposal_used_this_round is not None):
+    if(game_state.proposal_used_this_round is None):
+        # Yield all proposals b/c it's a new round.
+        cost = (1, 1)
+        next_num_queries = 1
+        for (proposal, inner_dict) in qs_dict.items():
+            # 2 possibilites:
+                # 1 whenever start a new round early, give this function a proposal_already_explored parameter, so it doesn't explore that proposal again.
+                # 2 make a new qs_dict every round, so you won't waste time on useless proposals at all. Try 2 first, and only do 1 if 2 does not save you time.
+            # if(proposal == game_state.proposal_used_this_round):
+                # continue # no sense starting a new round when you could have remained on same round.
+            for (verifier_to_query, q_info) in inner_dict.items():
+                move = (proposal, verifier_to_query)
+                move_info = create_move_info(
+                    num_combos_currently,
+                    game_state,
+                    next_num_queries,
+                    q_info,
+                    move,
+                    cost
+                )
+                if(move_info is not None):
+                    yield(move_info)
+                else:
+                    pass # not a useful query
+
+    else:
         # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
         inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
         if(not(inner_dict_this_proposal is None)): # If this proposal still has potentially useful queries
             cost = (0, 1) # considering all queries that don't incur a round cost
             next_num_queries = (game_state.num_queries_this_round + 1) % 3
-            for (v_index, q_info) in inner_dict_this_proposal.items():
-                move = (game_state.proposal_used_this_round, v_index)
-                move_info = create_move_info(num_combos_currently, game_state, next_num_queries, q_info, move, cost)
+            for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
+                move = (game_state.proposal_used_this_round, verifier_to_query)
+                move_info = create_move_info(
+                    num_combos_currently,
+                    game_state,
+                    next_num_queries,
+                    q_info,
+                    move,
+                    cost
+                )
                 if(move_info is not None):
                     yield(move_info)
                 else:
                     # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
                     pass # not a useful query. See other comments.
 
-    # Have finished yielding all moves that don't incur a round cost (if there were any). Now consider all moves which do incur a round cost.
-    cost = (1, 1)
-    next_num_queries = 1
-    for (proposal, inner_dict) in qs_dict.items():
-        if(proposal == game_state.proposal_used_this_round):
-            continue # no sense starting a new round when you could have remained on same round.
-        for (v_index, q_info) in inner_dict.items():
-            move = (proposal, v_index)
-            move_info = create_move_info(num_combos_currently, game_state, next_num_queries, q_info, move, cost)
-            if(move_info is not None):
-                yield(move_info)
-            else:
-                pass # not a useful query
 
 def calculate_expected_cost(mcost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = mcost
@@ -386,37 +405,34 @@ class Solver:
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
         best_node_cost = Solver.initial_best_cost
-        found_zero_more_round_sol = False
-        exist_moves_that_dont_cost_a_round = False
-
+        found_moves = False
         for move_info in get_and_apply_moves(game_state, qs_dict):
             (move, mcost, gs_tup, p_tup) = move_info
-            if(mcost[0] == 0):
-                exist_moves_that_dont_cost_a_round = True
-            if((mcost[0] == 1) and (exist_moves_that_dont_cost_a_round or found_zero_more_round_sol)):
-                # there are moves that don't cost a new round, so don't consider any moves that cost a round.
-                # or have found a 0 round soln, so don't consider any moves that do cost a round.
-                # NOTE: although exist_moves_that_dont_cost_a_round significantly prunes the tree, I'm not convinced this will necessarily find a best move.
-                break
-
             gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
             gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
-                if(node_cost_tup[0] == 0):
-                    found_zero_more_round_sol = True
+                found_moves = True
                 best_node_cost = node_cost_tup
                 best_move = move
                 best_mov_cost = mcost
                 best_gs_tup = gs_tup
                 if(
                     (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)
+                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break
-        answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
+        if(found_moves):
+            answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
+        else:
+            new_gs = Game_State(
+                num_queries_this_round=0,
+                proposal_used_this_round=None,
+                fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
+            )
+            answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
         self.evaluations_cache[game_state] = answer
         return(answer)
 
@@ -461,7 +477,7 @@ class Solver:
                 best_gs_tup = gs_tup
                 if(
                     (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and game_state.proposal_used_this_round is None)
+                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break

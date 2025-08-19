@@ -3,7 +3,7 @@ from definitions import *
 # STANDARD
 STANDARD_PROB_TUPS = [
     (      "1",         [ 4,  9, 11, 14]),
-    (      "2",         [ 3,  7, 10, 14]), # Nightmare version: 2,081 seconds.
+    (      "2",         [ 3,  7, 10, 14]), # Nightmare version: 2,081 seconds. Now 307 seconds.
     ( "C4643N",         [19, 22, 36, 41]),
     ("A52F7E1",     [ 7,  8, 12, 14, 17]),
     ( "C5HCBJ",     [ 2, 15, 30, 31, 33]),
@@ -15,7 +15,7 @@ STANDARD_PROB_TUPS = [
 # EXTREME
 EXTREME_PROB_TUPS = [
     ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 seconds.
-    ( "F5XTDF",          [28, 14, 19,  6, 27, 16,  9, 47, 20, 21]), #   140 seconds.
+    ( "F5XTDF",          [28, 14, 19,  6, 27, 16,  9, 47, 20, 21]), #    86 seconds.
     ("F52LUJG",          [15, 16, 23,  8, 46, 13, 34, 17,  9, 37]),
     ("E63YF4H",  [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9]),
     ("F63EZQM",  [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3]),

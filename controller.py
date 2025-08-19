@@ -156,7 +156,9 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
         new_evaluations_cache = get_relevant_parts_cache(s.evaluations_cache, s.initial_game_state)
         s.evaluations_cache = new_evaluations_cache
     git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
+    git_message = git.Repo(search_parent_directories=True).head.object.message
     s.git_hash = git_hash
+    s.git_message = git_message
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     print("Done")
@@ -228,11 +230,15 @@ def unpickle_solver_from_f_name(f_name):
     s: solver.Solver = pickle.load(f)
     f.close()
     print("Done.")
-    print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
+    console.print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
     if(hasattr(s, "git_hash")):
-        console.print(f"This solver was created in git commit 0x{s.git_hash}")
+        console.print(f"This solver was created in git commit {s.git_hash}.")
+        if(hasattr(s, "git_message")):
+            console.print(f"Commit message: {s.git_message}")
+        else:
+            print("Commit message was not recorded.")
     else:
-        print("This solver did not record the git commit it was created in")
+        print("This solver did not record the git commit it was created in.")
     return(s)
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
