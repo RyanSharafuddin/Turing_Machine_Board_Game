@@ -14,7 +14,7 @@ STANDARD_PROB_TUPS = [
 
 # EXTREME
 EXTREME_PROB_TUPS = [
-    ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 seconds.
+    ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 seconds. -> 1,195 seconds.
     ( "F5XTDF",          [28, 14, 19,  6, 27, 16,  9, 47, 20, 21]), #    86 seconds.
     ("F52LUJG",          [15, 16, 23,  8, 46, 13, 34, 17,  9, 37]),
     ("E63YF4H",  [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9]),
@@ -61,8 +61,8 @@ for (identity, problem) in id_to_problem_dict.items():
 
 # console.print(prefix_id_to_problem_list_dict)
 def get_problem_by_id(problem_id: str):
-    problem_id = problem_id.upper()
     """ All problems should be defined in problems.py. See this file for how it all works. """
+    problem_id = problem_id.upper()
     problem_list = prefix_id_to_problem_list_dict.get(problem_id, [])
     if(not problem_list):
         print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py. Exiting.")

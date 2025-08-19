@@ -58,7 +58,7 @@ PRINT_COMBOS        = True       # whether or not to print remaining combos afte
 
 
 # Solver workings
-PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "Pickles/IsomorphicQueryFilter" # "Pickles"       # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
 DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.

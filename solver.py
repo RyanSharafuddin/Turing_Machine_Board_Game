@@ -99,7 +99,15 @@ def get_set_r_unique_ids_vs_from_cwas_set_representation(
             corresponding_set.add(unique_id)
     return(possible_rule_ids_by_verifier)
 
-def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
+def get_list_all_possible_unique_ids(full_cwas):
+    seen_unique_ids = set()
+    for cwa in full_cwas:
+        rules = cwa[0]
+        for rule in rules:
+            seen_unique_ids.add(rule.unique_id)
+    return(sorted(seen_unique_ids))
+
+def init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
     useful_queries_dict = dict()
     rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(possible_combos_with_answers, n_mode)
     for (unsolved_verifier_index, possible_rule_ids_this_verifier) in enumerate(rules_by_verifier):
@@ -138,6 +146,95 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
                         unsolved_verifier_index: query_info
                     }
     return(useful_queries_dict)
+
+def compare_two_qs_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
+    """ Returns true if they are the same or mirrored for all verifiers in them """
+    for v_index in range(num_verifiers):
+        q_info1 = inner_dict_1.get(v_index, (None, None))
+        q_info2 = inner_dict_2.get(v_index, (None, None))
+        if not (
+            # WARN TODO: think carefully about this. What if, for 1 verifier, they're isomorphic, and the other, they're mirrored? I think it still works, but consider it carefully. Print everything out.
+            ((q_info1[0] == q_info2[0]) and (q_info1[1] == q_info2[1])) or
+            ((q_info1[0] == q_info2[1]) and (q_info1[1] == q_info2[0]))
+        ):
+            return (False)
+    return(True)
+
+def get_isomorphic_lists_list(base_qs_dict: dict, full_cwas, flat_rule_list, num_verifiers):
+    isomorphic_lists_list = []
+
+    # list_possible_unique_ids = get_list_all_possible_unique_ids(full_cwas)
+    # rule_list = [flat_rule_list[unique_id] for unique_id in list_possible_unique_ids]
+    # representative_comparison_lists_tuple_list = []
+    # proposal_lists_dict = dict() # TODO delete
+    # # console.print([rule.name for rule in rule_list])
+    # for proposal in base_qs_dict:
+    #     # TODO: consider using numpy for making these lists and inverting/comparing them, especially if this will be performed during calculate best move
+    #     proposal_compared_to_rules = [(proposal not in rule.reject_set) for rule in rule_list]
+    #     proposal_lists_dict[proposal] = proposal_compared_to_rules # TODO: delete
+    #     for (isomorphic_list, representative_comparison_list_tuple) in zip(
+    #         isomorphic_lists_list,
+    #         representative_comparison_lists_tuple_list
+    #     ):
+    #         (comparison_list, mirrored_comparison_list) = representative_comparison_list_tuple
+    #         if(
+    #             (proposal_compared_to_rules == comparison_list) or
+    #             (proposal_compared_to_rules == mirrored_comparison_list)
+    #         ):
+    #             isomorphic_list.append(proposal)
+    #             break
+    #     else:
+    #         isomorphic_lists_list.append([proposal])
+    #         proposal_mirror_list = [not item for item in proposal_compared_to_rules]
+    #         representative_comparison_lists_tuple_list.append(
+    #             (proposal_compared_to_rules, proposal_mirror_list)
+    #         )
+    # console.print(sorted([item for item in proposal_lists_dict.items()]))
+
+    representative_info_list = []
+    for (proposal, inner_dict) in base_qs_dict.items():
+        for (isomorphic_list, representative_info) in zip(isomorphic_lists_list, representative_info_list):
+            if(compare_two_qs_inner_dicts(inner_dict, representative_info, num_verifiers)):
+                isomorphic_list.append(proposal)
+                break
+        else:
+            isomorphic_lists_list.append([proposal])
+            representative_info_list.append(inner_dict)
+
+    # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query
+
+    console.print(isomorphic_lists_list)
+    console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
+    return(isomorphic_lists_list)
+
+
+def filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol):
+    return_dict = dict()
+    for isomorphic_list in isomorphic_lol:
+        # proposal = isomorphic_list[0]
+        # return_dict[proposal] = base_qs_dict[proposal]
+
+        return_dict = base_qs_dict
+        for proposal in isomorphic_list[1:]:
+            del(base_qs_dict[proposal])
+
+    return(return_dict)
+
+def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
+    base_qs_dict = init_base_qs_dict(
+        all_125_possibilities_set,
+        possible_combos_with_answers,
+        flat_rule_list,
+        n_mode
+    )
+    isomorphic_lol = get_isomorphic_lists_list(
+        base_qs_dict,
+        possible_combos_with_answers,
+        flat_rule_list,
+        len(possible_combos_with_answers[0][0])
+    )
+    useful_qs_dict = filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol)
+    return(useful_qs_dict)
 
 def fset_answers_from_cwa_iterable(cwa_iterable):
     return(frozenset([cwa[-1] for cwa in cwa_iterable]))
@@ -320,6 +417,8 @@ def make_full_cwa(problem, rcs_list):
                 nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
         possible_combos_with_answers = nightmare_possible_combos_with_answers
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
+    # sort the possible cwas by answer. Will be helpful in calculating one_answer_left when switch to bitsets.
+    possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
 class Solver:
@@ -333,6 +432,7 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
+        self.testing_stuff() # WARN TODO: delete
         self.initial_game_state = Game_State(
                                     0,
                                     None,
@@ -355,7 +455,6 @@ class Solver:
         self.qs_dict        = make_useful_qs_dict(
             all_125_possibilities_set, self.full_cwa, self.flat_rule_list, (problem.mode == NIGHTMARE)
         )
-        self.testing_stuff() # WARN TODO: delete
 
     def testing_stuff(self):
         if(not config.USE_NIGHTMARE_CALCULATE):
@@ -363,6 +462,8 @@ class Solver:
         import display
         global sd
         sd = display.Solver_Displayer(self)
+        # sd.print_problem(self.rcs_list, self.problem)
+        # exit()
 
     def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
         """ WARN: only use in nightmare mode. """
@@ -406,8 +507,11 @@ class Solver:
             return(Solver.null_answer)
         best_node_cost = Solver.initial_best_cost
         found_moves = False
+        # console.print("Calculating best move on gs:")
+        # sd.print_game_state(game_state)
         for move_info in get_and_apply_moves(game_state, qs_dict):
             (move, mcost, gs_tup, p_tup) = move_info
+            # console.print(f"Consider move {move}")
             gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
             gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)

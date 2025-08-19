@@ -342,5 +342,7 @@ if(__name__ == "__main__"):
                 no_pickles=args.no_pickles,
                 force_overwrite=args.force_overwrite
             )
+        if(not(args.play or args.display)):
+            get_or_make_solver(args.prob_id, no_pickles=True)
 
     null.close()
