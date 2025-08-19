@@ -1,10 +1,10 @@
-import pickle, os, sys, platform, gc, argparse
+import pickle, os, sys, platform, gc, argparse, git
 from rich import print as rprint
 from definitions import *
 from config import *
 from problems import get_problem_by_id as get
 import display, solver
-
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
     if(new_round):
@@ -155,6 +155,8 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     if(not(pickle_entire)):
         new_evaluations_cache = get_relevant_parts_cache(s.evaluations_cache, s.initial_game_state)
         s.evaluations_cache = new_evaluations_cache
+    git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
+    s.git_hash = git_hash
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     print("Done")
@@ -227,6 +229,10 @@ def unpickle_solver_from_f_name(f_name):
     f.close()
     print("Done.")
     print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
+    if(hasattr(s, "git_hash")):
+        console.print(f"This solver was created in git commit 0x{s.git_hash}")
+    else:
+        print("This solver did not record the git commit it was created in")
     return(s)
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)

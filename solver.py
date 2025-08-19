@@ -339,9 +339,7 @@ class Solver:
         self.testing_stuff() # WARN TODO: delete
 
     def testing_stuff(self):
-        if(config.PICKLE_DIRECTORY == "Pickles/DreamCatcher"):
-            self.calculator = self.nightmare_calculate_best_move
-        else:
+        if(not config.USE_NIGHTMARE_CALCULATE):
             self.calculator = self.calculate_best_move
         import display
         global sd
