@@ -9,6 +9,10 @@ def get_digit(n, index, base=10):
     n = n // (base ** index)
     return (n % base)
 
+def add_tups(*tups):
+    result = tuple([sum([t[i] for t in tups]) for i in range(len(tups[0]))])
+    return(result)
+
 possibilities = [sum([(get_digit(n, d, 5) + 1) * (10 ** d) for d in range(2, -1, -1)]) for n in range(125)]
 all_125_possibilities_set = set(possibilities)
 

@@ -202,12 +202,13 @@ def get_isomorphic_lists_list(base_qs_dict: dict, full_cwas, flat_rule_list, num
             representative_info_list.append(inner_dict)
 
     # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query (i.e. print everything to be sure it works)
-
-    # console.print(isomorphic_lists_list)
-    # console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
+    print("Isomorphic lol printed from solver.get_isomorphic_lists_list")
+    console.print(isomorphic_lists_list)
+    console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
     return(isomorphic_lists_list)
 
 def filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol):
+    """ WARN: pay attention to whether this mutates the dict or returns a new one. Currently mutates. """
     return_dict = dict()
     for isomorphic_list in isomorphic_lol:
         # proposal = isomorphic_list[0]
@@ -272,10 +273,10 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
     return(move_info)
 
 def nightmare_get_and_apply_moves(
-        game_state: Game_State,
-        qs_dict: dict[int:dict[int:Query_Info]],
-        minimal_vs_list: list[set[int]]
-    ):
+    game_state: Game_State,
+    qs_dict: dict[int:dict[int:Query_Info]],
+    minimal_vs_list: list[set[int]]
+):
     num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
     if(game_state.proposal_used_this_round is None):
         cost = (1, 1)
@@ -334,7 +335,6 @@ def nightmare_get_and_apply_moves(
                                 return
                     break
 
-
 def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
     """
     yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
@@ -390,7 +390,6 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
                     pass # not a useful query. See other comments.
 
-
 def calculate_expected_cost(mcost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = mcost
     (p_false, p_true) = probs
@@ -400,10 +399,8 @@ def calculate_expected_cost(mcost, probs, gss_costs):
     return((expected_r_cost, expected_q_cost))
 
 def calculate_worst_case_cost(mcost, probs, gss_costs):
-    (mcost_rounds, mcost_queries) = mcost
     bigger_cost_tup = max(gss_costs)
-    return((bigger_cost_tup[0] + mcost_rounds, bigger_cost_tup[1] + mcost_queries))
-
+    return(add_tups(bigger_cost_tup, mcost))
 
 def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
     fset_cwa_indexes_remaining = frozenset(
@@ -427,7 +424,7 @@ def make_full_cwa(problem, rcs_list):
     return(possible_combos_with_answers)
 
 def choose_best_move_depth_one(moves_list):
-    best_expected_result = (float('inf'), float('inf')) # number of answers left, number of combos left.
+    best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
     for(move, mcost, gs_tuple, p_tuple) in moves_list:
         (p_false, p_true) = p_tuple
         (gs_false_answers_left, gs_true_answers_left) = [
@@ -460,20 +457,16 @@ class Solver:
         self.full_cwa           = make_full_cwa(problem, self.rcs_list)
         self.testing_stuff() # WARN TODO: delete
         self.initial_game_state = Game_State(
-                                    0,
-                                    None,
-                                    fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
-                                )
+            0,
+            None,
+            fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
+        )
         self.calculator         = (
-                                   (
-                                       self.calculate_some_moves if capitulate else (
-                                       self.nightmare_calculate_best_move if(self.n_mode)
-                                       else self.calculate_best_move
-                                       )
-                                    )
-                                )
-        # self.cost_calulator     = calculate_worst_case_cost
-        self.cost_calulator     = calculate_expected_cost
+            self.calculate_some_moves if capitulate else (
+                self.nightmare_calculate_best_move if(self.n_mode) else self.calculate_best_move
+            )
+        )
+        self.cost_calulator     = calculate_expected_cost # can also be calculate_worst_case_cost
         self.seconds_to_solve   = -1 # have not called solve() yet.
         if(not(self.full_cwa)):
             return
@@ -482,7 +475,6 @@ class Solver:
         self.rc_indexes_cwa_to_full_combos_dict = {
             (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
         }
-
 
         self.qs_dict        = make_useful_qs_dict(
             all_125_possibilities_set, self.full_cwa, self.flat_rule_list, (problem.mode == NIGHTMARE)
@@ -533,7 +525,7 @@ class Solver:
         evaluations_cache[game_state] = (best_move, best_mcost, best_gs_tup, actual_expected_cost)
         return(actual_expected_cost)
 
-    def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
+    def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]: 
         """ WARN: only use in nightmare mode. """
         minimal_vs_list: list[set[int]] = []
         r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(

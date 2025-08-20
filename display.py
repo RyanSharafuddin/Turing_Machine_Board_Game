@@ -8,7 +8,7 @@ from rich.text import Text
 from rich import box
 from rich.highlighter import ReprHighlighter
 import solver
-from definitions import NIGHTMARE, console, Game_State
+from definitions import *
 from config import *
 
 letters = string.ascii_uppercase
@@ -823,10 +823,6 @@ class Tree:
         # prob_tup # probabilities of the move being (false, true)
         # gs_tup   # resulting game states from the move being false, true
         # m_cost   # the cost the move in self.move
-
-def add_tups(*tups):
-    result = tuple([sum([t[i] for t in tups]) for i in range(len(tups))])
-    return(result)
 
 def get_children_multi_move(tree):
     if(tree.type == 'move'):
