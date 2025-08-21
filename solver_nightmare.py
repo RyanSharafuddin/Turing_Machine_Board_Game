@@ -1,6 +1,5 @@
 from solver import *
 
-
 def get_set_r_unique_ids_vs_from_cwas_set_representation(
         cwas_set_representation,
         rcs_list: list[list[Rule]]
@@ -21,7 +20,7 @@ def get_set_r_unique_ids_vs_from_cwas_set_representation(
     return(possible_rule_ids_by_verifier)
 
 def calculate_minimal_vs_list(rcs_list, num_rcs, game_state: Game_State) -> list[set[int]]: 
-    """ WARN: only use in nightmare mode. """
+    # TODO: print this out to make sure it works
     minimal_vs_list: list[set[int]] = []
     r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
         game_state.fset_cwa_indexes_remaining,
@@ -46,6 +45,7 @@ def nightmare_get_and_apply_moves(
         qs_dict: dict[int:dict[int:Query_Info]],
         minimal_vs_list: list[set[int]]
     ):
+    # TODO: step through with a debugger to understand how the minimal vs_list is working.
     num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
     if(game_state.proposal_used_this_round is None):
         cost = (1, 1)
@@ -104,8 +104,6 @@ def nightmare_get_and_apply_moves(
                                 return
                     break
 
-
-
 class Solver_Nightmare(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
@@ -117,7 +115,9 @@ class Solver_Nightmare(Solver):
         minimal_vs_list: list[set[int]] = None,
 
     ):
+        # self.called_calculate += 1
         if(game_state in self.evaluations_cache):
+            # self.cache_hits += 1
             return(self.evaluations_cache[game_state])
         if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
             if(config.CACHE_END_STATES):
@@ -158,8 +158,7 @@ class Solver_Nightmare(Solver):
         if(found_moves):
             answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
         else:
-            # recalculate minimal_vs_list and try again
-            recalculated_minimal_vs_list = calculate_minimal_vs_list(self.rcs_list, self.num_rcs, game_state)
+            # don't have to recalculate minimal_vs_list here; the next invocation will do that.
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
@@ -168,7 +167,6 @@ class Solver_Nightmare(Solver):
             answer = self.calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
-                minimal_vs_list=recalculated_minimal_vs_list
             )
         self.evaluations_cache[game_state] = answer
         return(answer)

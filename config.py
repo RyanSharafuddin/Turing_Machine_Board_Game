@@ -47,7 +47,7 @@ TREE_BACKGROUND_COLOR = "#690969"
 TREE_BACKGROUND_COLOR = "#420342" # Both seem reasonable
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
-SHOW_COMBOS_IN_TREE = False       # Print combos in trees in display_problem_solution()
+SHOW_COMBOS_IN_TREE = True       # Print combos in trees in display_problem_solution()
 P_ORDER =             True       # Whether to display tables in permutation order for nightmare mode
                                  # (no effect in other modes)
 # whether to print a line b/t every unique answer in the tables
@@ -63,5 +63,5 @@ PICKLE_DIRECTORY = "Pickles/IsomorphicQueryFilter" # "Pickles"       # Directory
 # PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
 DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
                                  # Increases speed on many problems, but on other problems, such as I4BYJK (nightmare), causes the process to be terminated with a Killed: 9. signal. because it used too much memory.
-CACHE_END_STATES = True          # whether to cache the end states into the evaluations_cache
+CACHE_END_STATES = False          # whether to cache the end states into the evaluations_cache
 # USE_NIGHTMARE_CALCULATE = True

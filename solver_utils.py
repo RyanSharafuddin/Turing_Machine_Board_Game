@@ -56,14 +56,6 @@ def _compare_two_qs_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_veri
             return (False)
     return(True)
 
-def _get_list_all_possible_unique_ids(full_cwas):
-    seen_unique_ids = set()
-    for cwa in full_cwas:
-        rules = cwa[0]
-        for rule in rules:
-            seen_unique_ids.add(rule.unique_id)
-    return(sorted(seen_unique_ids))
-
 def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
     useful_queries_dict = dict()
     rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(possible_combos_with_answers, n_mode)
@@ -103,37 +95,6 @@ def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, 
                         unsolved_verifier_index: query_info
                     }
     return(useful_queries_dict)
-
-def _get_isomorphic_queries_by_rules_only(base_qs_dict, full_cwas, flat_rule_list):
-    isomorphic_lists_list = []
-    list_possible_unique_ids = _get_list_all_possible_unique_ids(full_cwas)
-    rule_list = [flat_rule_list[unique_id] for unique_id in list_possible_unique_ids]
-    representative_comparison_lists_tuple_list = []
-    proposal_lists_dict = dict() # TODO delete
-    # console.print([rule.name for rule in rule_list])
-    for proposal in base_qs_dict:
-        # TODO: consider using numpy for making these lists and inverting/comparing them, especially if this will be performed during calculate best move
-        proposal_compared_to_rules = [(proposal not in rule.reject_set) for rule in rule_list]
-        proposal_lists_dict[proposal] = proposal_compared_to_rules # TODO: delete
-        for (isomorphic_list, representative_comparison_list_tuple) in zip(
-            isomorphic_lists_list,
-            representative_comparison_lists_tuple_list
-        ):
-            (comparison_list, mirrored_comparison_list) = representative_comparison_list_tuple
-            if(
-                (proposal_compared_to_rules == comparison_list) or
-                (proposal_compared_to_rules == mirrored_comparison_list)
-            ):
-                isomorphic_list.append(proposal)
-                break
-        else:
-            isomorphic_lists_list.append([proposal])
-            proposal_mirror_list = [not item for item in proposal_compared_to_rules]
-            representative_comparison_lists_tuple_list.append(
-                (proposal_compared_to_rules, proposal_mirror_list)
-            )
-    # console.print(sorted([item for item in proposal_lists_dict.items()]))
-    return(isomorphic_lists_list)
 
 def _get_isomorphic_queries_lol(base_qs_dict: dict, num_verifiers):
     isomorphic_qs_lol = []
@@ -221,10 +182,6 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
     # print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
     # console.print(isomorphic_qs_lol)
     # console.print(f"Saved {len(base_qs_dict) - len(isomorphic_qs_lol)} queries out of {len(base_qs_dict)}!")
-    # print("\nAlternate lol based on rules only:")
-    # console.print(
-    #     _get_isomorphic_queries_by_rules_only(base_qs_dict, possible_combos_with_answers, flat_rule_list)
-    # )
     return(useful_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them

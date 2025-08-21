@@ -3,10 +3,6 @@ import time
 import rules, config, solver_utils
 from definitions import *
 
-# from rich import print as rprint
-
-
-
 
 def fset_answers_from_cwa_iterable(cwa_iterable):
     return(frozenset([cwa[-1] for cwa in cwa_iterable]))
@@ -35,6 +31,8 @@ def one_answer_left(fset_cwa_indexes):
     return(True)
 # TODO: define a length method if switch to another set representation
 
+# useless_queries = 0
+# useful_queries = 0
 def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
     """
     num_queries_this_round is the number there will be after making this move.
@@ -63,9 +61,13 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
         )
         gs_tuple = (game_state_false, game_state_true)
         move_info = (move, cost, gs_tuple, p_tuple)
+        # global useful_queries
+        # useful_queries += 1
     else:
         # this is not a useful query. Take move out of the game state frozen set representing remaining moves, if you implement it. Actually, take out all such useless moves before making the next game states. Will require some refactoring.
         move_info = None
+        # global useless_queries
+        # useless_queries += 1
     return(move_info)
 
 def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
@@ -123,7 +125,6 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
                     pass # not a useful query. See other comments.
 
-
 class Solver:
     null_answer = (None, None, None, (0,0))
     initial_best_cost = (float('inf'), float('inf'))
@@ -165,7 +166,8 @@ class Solver:
         # sd.print_problem(self.rcs_list, self.problem)
         # exit()
 
-
+    # called_calculate = 0
+    # cache_hits = 0
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
     @profile
     def calculate_best_move(self, qs_dict, game_state: Game_State):
@@ -173,7 +175,9 @@ class Solver:
         Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
         """
+        # self.called_calculate += 1
         if(game_state in self.evaluations_cache):
+            # self.cache_hits += 1
             return(self.evaluations_cache[game_state])
         if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
             if(config.CACHE_END_STATES):
@@ -238,6 +242,9 @@ class Solver:
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
+        # console.print(f"{useless_queries:,} useless queries")
+        # console.print(f"{useful_queries:,} useful queries")
+        # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
