@@ -1,52 +1,21 @@
 from line_profiler import profile
-import math, itertools, time
-import rules, config
+import time
+import rules, config, solver_utils
 from definitions import *
+
 # from rich import print as rprint
 
-def get_all_rules_combinations(rcs_list):
-    """ Returns all combinations of rules from the rules cards, whether possible or not. """
-    num_rules_cards = len(rcs_list)
-    rcs_lengths = [len(rules_card) for rules_card in rcs_list]
-    total_num_combinations = math.prod(rcs_lengths)
-    rules_combos = [
-        [
-            rcs_list[rc_index][
-                (combo_num // math.prod(rcs_lengths[rc_index + 1:])) % rcs_lengths[rc_index]
-            ]
-            for rc_index in range(num_rules_cards)
-        ] for combo_num in range(total_num_combinations)
-    ]
-    # print all combos, possible or not.
-    # for (combo_num, combo) in enumerate(rules_combos, start=1):
-    #     print(f'{combo_num}: {[rule.name for rule in combo]}')
-    return(rules_combos)
 
-def is_combo_possible(combo):
-    """
-    WARN: can return None.
-    In Turing Machine, there are 2 requirements that any valid combination of verifiers/rules must satisfy:
-    1) There must be exactly one possible answer.
-    2) Each verifier eliminates at least one possibility that is not eliminated by any other verifier.
-    If the rules in combo satisfy those requirements, this function will return the one answer that satisfies all verifiers. Otherwise, this function will return None.
-    """
-    reject_sets = [rule.reject_set for rule in combo]
-    reject_sets_unions = set.union(*reject_sets)
-    if(len(reject_sets_unions) != (len(all_125_possibilities_set) - 1)):
-        return(None)
-    answer = (all_125_possibilities_set - reject_sets_unions).pop()
-    for (i, reject_set) in enumerate(reject_sets):
-        all_other_reject_sets = reject_sets[0 : i] + reject_sets[i + 1 :]
-        other_reject_sets_union = set.union(*all_other_reject_sets)
-        if(not(reject_set - other_reject_sets_union)):
-            return(None) # means that this rule is redundant.
-    return(answer)
 
-def get_possible_rules_combos_with_answers(rules_cards_list):
-    all_rules_combos = get_all_rules_combinations(rules_cards_list)
-    return([(c, a) for (c,a) in [(c, is_combo_possible(c)) for c in all_rules_combos] if(a is not None)])
 
-def one_answer_left(game_state_cwa_set):
+def fset_answers_from_cwa_iterable(cwa_iterable):
+    return(frozenset([cwa[-1] for cwa in cwa_iterable]))
+def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
+    fset_cwa_indexes_remaining = frozenset(
+            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
+        )
+    return(fset_cwa_indexes_remaining)
+def one_answer_left(fset_cwa_indexes):
     """
     Given a set of CWA as stored in the game state object, returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
     NOTE: if you change the game_state cwa sets to be implemented using a set of integers, or a list of booleans, or numpy bit pack, or a single long integer, or something else, will need to change the parameters: will need to add full_cwa as a parameter of this function.
@@ -54,7 +23,7 @@ def one_answer_left(game_state_cwa_set):
     seen_answer_set = set()
     # See comments in definitions.Game_State for the format game_state_cwa_set is in.
     # May not be a literal Python set object.
-    iterator = iter(game_state_cwa_set)
+    iterator = iter(fset_cwa_indexes)
     zeroth_cwa_representation = next(iterator)
     seen_answer_set.add(zeroth_cwa_representation[-1])
     current_cwa_representation = next(iterator, None)
@@ -64,180 +33,7 @@ def one_answer_left(game_state_cwa_set):
             return(False)
         current_cwa_representation = next(iterator, None)
     return(True)
-
-def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
-    """
-    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
-    """
-    num_vs = len(full_cwas[0][0])
-    # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
-    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
-    for cwa in full_cwas:
-        (c, p) = (cwa[0], cwa[1])
-        for (v_index, rule) in enumerate(c):
-            corresponding_set = possible_rule_ids_by_verifier[v_index]
-            possible_rule = c[p[v_index]] if(n_mode) else rule
-            corresponding_set.add(possible_rule.unique_id)
-    return(possible_rule_ids_by_verifier)
-
-def get_set_r_unique_ids_vs_from_cwas_set_representation(
-        cwas_set_representation,
-        rcs_list: list[list[Rule]]
-    ) ->  list[set[int]]:
-    """
-    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. WARN: only call this if n_mode is on
-    """
-    num_vs = len(rcs_list)
-    # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
-    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
-    for cwa in cwas_set_representation:
-        (c, p) = (cwa[0], cwa[1])
-        for (v_index, corresponding_rc) in enumerate(p):
-            corresponding_set = possible_rule_ids_by_verifier[v_index]
-            possible_card_index = c[corresponding_rc]
-            unique_id = rcs_list[corresponding_rc][possible_card_index].unique_id
-            corresponding_set.add(unique_id)
-    return(possible_rule_ids_by_verifier)
-
-def get_list_all_possible_unique_ids(full_cwas):
-    seen_unique_ids = set()
-    for cwa in full_cwas:
-        rules = cwa[0]
-        for rule in rules:
-            seen_unique_ids.add(rule.unique_id)
-    return(sorted(seen_unique_ids))
-
-def init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
-    useful_queries_dict = dict()
-    rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(possible_combos_with_answers, n_mode)
-    for (unsolved_verifier_index, possible_rule_ids_this_verifier) in enumerate(rules_by_verifier):
-        if(len(possible_rule_ids_this_verifier) < 2):
-            continue # this verifier is solved and has no useful queries, so on to the next one
-        possible_rules_this_verifier = [flat_rule_list[r_id] for r_id in possible_rule_ids_this_verifier]
-        for proposal in all_125_possibilities_set:
-            rejecting_rules_ids = set()
-            for possible_rule in possible_rules_this_verifier:
-                if(proposal in possible_rule.reject_set):
-                    rejecting_rules_ids.add(possible_rule.unique_id)
-            if(0 < len(rejecting_rules_ids) < len(possible_rules_this_verifier)): # useful query
-                possible_cwa_indexes_set_remaining_if_true = set()
-                possible_cwa_indexes_set_remaining_if_false = set()
-                for cwa in possible_combos_with_answers:
-                    (c, p) = (cwa[0], cwa[1])
-                    combo_rule_id = c[(
-                        p[unsolved_verifier_index] if(n_mode) else unsolved_verifier_index
-                    )].unique_id
-                    cwa_index = ((tuple([r.card_index for r in cwa[0]]),) + cwa[1:])
-                    if(combo_rule_id in rejecting_rules_ids):
-                        possible_cwa_indexes_set_remaining_if_false.add(cwa_index)
-                    else:
-                        possible_cwa_indexes_set_remaining_if_true.add(cwa_index)
-
-                query_info = Query_Info(
-                    possible_cwa_indexes_set_remaining_if_true,
-                    possible_cwa_indexes_set_remaining_if_false
-                )
-                if(proposal in useful_queries_dict):
-                    inner_dict = useful_queries_dict[proposal]
-                    assert (not(unsolved_verifier_index in inner_dict))
-                    inner_dict[unsolved_verifier_index] = query_info
-                else:
-                    useful_queries_dict[proposal] = {
-                        unsolved_verifier_index: query_info
-                    }
-    return(useful_queries_dict)
-
-def compare_two_qs_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
-    """ Returns true if they are the same or mirrored for all verifiers in them """
-    for v_index in range(num_verifiers):
-        q_info1 = inner_dict_1.get(v_index, (None, None))
-        q_info2 = inner_dict_2.get(v_index, (None, None))
-        if not (
-            # WARN TODO: think carefully about this. What if, for 1 verifier, they're isomorphic, and the other, they're mirrored? I think it still works, but consider it carefully. Print everything out.
-            ((q_info1[0] == q_info2[0]) and (q_info1[1] == q_info2[1])) or
-            ((q_info1[0] == q_info2[1]) and (q_info1[1] == q_info2[0]))
-        ):
-            return (False)
-    return(True)
-
-def get_isomorphic_lists_list(base_qs_dict: dict, full_cwas, flat_rule_list, num_verifiers):
-    isomorphic_lists_list = []
-
-    # list_possible_unique_ids = get_list_all_possible_unique_ids(full_cwas)
-    # rule_list = [flat_rule_list[unique_id] for unique_id in list_possible_unique_ids]
-    # representative_comparison_lists_tuple_list = []
-    # proposal_lists_dict = dict() # TODO delete
-    # # console.print([rule.name for rule in rule_list])
-    # for proposal in base_qs_dict:
-    #     # TODO: consider using numpy for making these lists and inverting/comparing them, especially if this will be performed during calculate best move
-    #     proposal_compared_to_rules = [(proposal not in rule.reject_set) for rule in rule_list]
-    #     proposal_lists_dict[proposal] = proposal_compared_to_rules # TODO: delete
-    #     for (isomorphic_list, representative_comparison_list_tuple) in zip(
-    #         isomorphic_lists_list,
-    #         representative_comparison_lists_tuple_list
-    #     ):
-    #         (comparison_list, mirrored_comparison_list) = representative_comparison_list_tuple
-    #         if(
-    #             (proposal_compared_to_rules == comparison_list) or
-    #             (proposal_compared_to_rules == mirrored_comparison_list)
-    #         ):
-    #             isomorphic_list.append(proposal)
-    #             break
-    #     else:
-    #         isomorphic_lists_list.append([proposal])
-    #         proposal_mirror_list = [not item for item in proposal_compared_to_rules]
-    #         representative_comparison_lists_tuple_list.append(
-    #             (proposal_compared_to_rules, proposal_mirror_list)
-    #         )
-    # console.print(sorted([item for item in proposal_lists_dict.items()]))
-
-    representative_info_list = []
-    for (proposal, inner_dict) in base_qs_dict.items():
-        for (isomorphic_list, representative_info) in zip(isomorphic_lists_list, representative_info_list):
-            if(compare_two_qs_inner_dicts(inner_dict, representative_info, num_verifiers)):
-                isomorphic_list.append(proposal)
-                break
-        else:
-            isomorphic_lists_list.append([proposal])
-            representative_info_list.append(inner_dict)
-
-    # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query (i.e. print everything to be sure it works)
-    print("Isomorphic lol printed from solver.get_isomorphic_lists_list")
-    console.print(isomorphic_lists_list)
-    console.print(f"Saved {len(base_qs_dict) - len(isomorphic_lists_list)} queries out of {len(base_qs_dict)}!")
-    return(isomorphic_lists_list)
-
-def filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol):
-    """ WARN: pay attention to whether this mutates the dict or returns a new one. Currently mutates. """
-    return_dict = dict()
-    for isomorphic_list in isomorphic_lol:
-        # proposal = isomorphic_list[0]
-        # return_dict[proposal] = base_qs_dict[proposal]
-
-        return_dict = base_qs_dict
-        for proposal in isomorphic_list[1:]:
-            del(base_qs_dict[proposal])
-
-    return(return_dict)
-
-def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
-    base_qs_dict = init_base_qs_dict(
-        all_125_possibilities_set,
-        possible_combos_with_answers,
-        flat_rule_list,
-        n_mode
-    )
-    isomorphic_lol = get_isomorphic_lists_list(
-        base_qs_dict,
-        possible_combos_with_answers,
-        flat_rule_list,
-        len(possible_combos_with_answers[0][0])
-    )
-    useful_qs_dict = filter_out_isomorphic_queries(base_qs_dict, isomorphic_lol)
-    return(useful_qs_dict)
-
-def fset_answers_from_cwa_iterable(cwa_iterable):
-    return(frozenset([cwa[-1] for cwa in cwa_iterable]))
+# TODO: define a length method if switch to another set representation
 
 def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
     """
@@ -271,69 +67,6 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
         # this is not a useful query. Take move out of the game state frozen set representing remaining moves, if you implement it. Actually, take out all such useless moves before making the next game states. Will require some refactoring.
         move_info = None
     return(move_info)
-
-def nightmare_get_and_apply_moves(
-    game_state: Game_State,
-    qs_dict: dict[int:dict[int:Query_Info]],
-    minimal_vs_list: list[set[int]]
-):
-    num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
-    if(game_state.proposal_used_this_round is None):
-        cost = (1, 1)
-        next_num_queries = 1
-        for (proposal, inner_dict) in qs_dict.items():
-            num_v_sets_left_to_hit = len(minimal_vs_list)
-            list_hit_v_sets = [False] * num_v_sets_left_to_hit
-            for (verifier_to_query, q_info) in inner_dict.items():
-                move = (proposal, verifier_to_query)
-                for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                    if(verifier_to_query in v_set):
-                        if(not(list_hit_v_sets[v_set_index])):
-                            # try it out
-                            move_info = create_move_info(
-                                num_combos_currently,
-                                game_state,
-                                next_num_queries,
-                                q_info,
-                                move,
-                                cost
-                            )
-                            if(move_info is not None):
-                                list_hit_v_sets[v_set_index] = True
-                                num_v_sets_left_to_hit -= 1
-                                yield(move_info)
-                        break
-                if(not num_v_sets_left_to_hit):
-                    break
-    else:
-        cost = (0, 1)
-        next_num_queries = (game_state.num_queries_this_round + 1) % 3
-        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
-        if(inner_dict_this_proposal is None):
-            return
-        num_v_sets_left_to_hit = len(minimal_vs_list)
-        list_hit_v_sets = [False] * num_v_sets_left_to_hit
-        for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
-            move = (game_state.proposal_used_this_round, verifier_to_query)
-            for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                if(verifier_to_query in v_set):
-                    if(not(list_hit_v_sets[v_set_index])):
-                        # try it out
-                        move_info = create_move_info(
-                            num_combos_currently,
-                            game_state,
-                            next_num_queries,
-                            q_info,
-                            move,
-                            cost
-                        )
-                        if(move_info is not None):
-                            list_hit_v_sets[v_set_index] = True
-                            num_v_sets_left_to_hit -= 1
-                            yield(move_info)
-                            if(not num_v_sets_left_to_hit):
-                                return
-                    break
 
 def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
     """
@@ -390,83 +123,26 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
                     pass # not a useful query. See other comments.
 
-def calculate_expected_cost(mcost, probs, gss_costs):
-    (mcost_rounds, mcost_queries) = mcost
-    (p_false, p_true) = probs
-    ((gs_false_round_cost, gs_false_query_cost), (gs_true_round_cost, gs_true_query_cost)) = gss_costs
-    expected_r_cost = mcost_rounds + (p_false * gs_false_round_cost) + (p_true * gs_true_round_cost)
-    expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
-    return((expected_r_cost, expected_q_cost))
-
-def calculate_worst_case_cost(mcost, probs, gss_costs):
-    bigger_cost_tup = max(gss_costs)
-    return(add_tups(bigger_cost_tup, mcost))
-
-def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
-    fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
-        )
-    return(fset_cwa_indexes_remaining)
-
-def make_full_cwa(problem, rcs_list):
-    possible_combos_with_answers = get_possible_rules_combos_with_answers(rcs_list)
-    if(problem.mode == NIGHTMARE):
-        nightmare_possible_combos_with_answers = []
-        vs = list(range(len(rcs_list))) # vs = [0, 1, 2, . . . for number of verifiers]
-        verifier_permutations = tuple(itertools.permutations(vs))
-        for original_cwa in possible_combos_with_answers:
-            for v_permutation in verifier_permutations:
-                nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
-        possible_combos_with_answers = nightmare_possible_combos_with_answers
-        # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
-    # sort the possible cwas by answer. Will be helpful in calculating one_answer_left when switch to bitsets.
-    possible_combos_with_answers.sort(key=lambda t:t[-1])
-    return(possible_combos_with_answers)
-
-def choose_best_move_depth_one(moves_list):
-    best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
-    for(move, mcost, gs_tuple, p_tuple) in moves_list:
-        (p_false, p_true) = p_tuple
-        (gs_false_answers_left, gs_true_answers_left) = [
-            len(fset_answers_from_cwa_iterable(gs.fset_cwa_indexes_remaining)) for gs in gs_tuple
-        ]
-        (gs_false_combos_left, gs_true_combos_left) = [
-            len(gs.fset_cwa_indexes_remaining) for gs in gs_tuple
-        ]
-        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
-        expected_result = (expected_answers_left, expected_combos_left)
-        if(expected_result < best_expected_result):
-            best_expected_result = expected_result
-            best_move = move
-            best_mcost = mcost
-            best_gs_tup = gs_tuple
-    answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
-    return(answer)
 
 class Solver:
     null_answer = (None, None, None, (0,0))
     initial_best_cost = (float('inf'), float('inf'))
-    def __init__(self, problem: Problem, capitulate: bool):
+    def __init__(self, problem: Problem):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
         self.evaluations_cache  = dict()
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
-        self.full_cwa           = make_full_cwa(problem, self.rcs_list)
+        self.full_cwa           = solver_utils.make_full_cwa(problem, self.rcs_list)
+        self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
+        # self.cost_calulator     = solver_utils.calculate_worst_case_cost # can also be calculate_worst_case_cost
         self.testing_stuff() # WARN TODO: delete
         self.initial_game_state = Game_State(
             0,
             None,
             fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
         )
-        self.calculator         = (
-            self.calculate_some_moves if capitulate else (
-                self.nightmare_calculate_best_move if(self.n_mode) else self.calculate_best_move
-            )
-        )
-        self.cost_calulator     = calculate_expected_cost # can also be calculate_worst_case_cost
         self.seconds_to_solve   = -1 # have not called solve() yet.
         if(not(self.full_cwa)):
             return
@@ -476,8 +152,8 @@ class Solver:
             (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
         }
 
-        self.qs_dict        = make_useful_qs_dict(
-            all_125_possibilities_set, self.full_cwa, self.flat_rule_list, (problem.mode == NIGHTMARE)
+        self.qs_dict        = solver_utils.make_useful_qs_dict(
+            all_125_possibilities_set, self.full_cwa, self.flat_rule_list, self.n_mode
         )
 
     def testing_stuff(self):
@@ -489,70 +165,7 @@ class Solver:
         # sd.print_problem(self.rcs_list, self.problem)
         # exit()
 
-    def calculate_some_moves(self, qs_dict, game_state):
-        """ A capitulation """
-        stack = [self.initial_game_state]
-        while(stack):
-            current_gs = stack.pop()
-            if not(one_answer_left(current_gs.fset_cwa_indexes_remaining)):
-                moves_list = list(get_and_apply_moves(current_gs, self.qs_dict))
-                if not(moves_list):
-                    new_game_state = Game_State(
-                        proposal_used_this_round=None,
-                        num_queries_this_round=0,
-                        fset_cwa_indexes_remaining=current_gs.fset_cwa_indexes_remaining
-                    )
-                    moves_list = list(get_and_apply_moves(new_game_state, self.qs_dict))
-                answer = choose_best_move_depth_one(moves_list)
-                self.evaluations_cache[current_gs] = answer
-                (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
-                stack.append(best_gs_tup[0])
-                stack.append(best_gs_tup[1])
-        # TODO: calculate actual expected rounds and queries to end if you use this.
-        Solver.calculate_actual_expected_for_capitulation(self.evaluations_cache, self.initial_game_state)
 
-    @staticmethod
-    def calculate_actual_expected_for_capitulation(evaluations_cache, game_state: Game_State):
-        if(not game_state in evaluations_cache):
-            return((0, 0))
-        (best_move, best_mcost, best_gs_tup, answer_combo_cost) = evaluations_cache[game_state]
-        (gs_false, gs_true) = best_gs_tup
-        p_false = len(gs_false.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
-        p_true = len(gs_true.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
-        cost_false = Solver.calculate_actual_expected_for_capitulation(evaluations_cache, gs_false)
-        cost_true = Solver.calculate_actual_expected_for_capitulation(evaluations_cache, gs_true)
-        actual_expected_cost = calculate_expected_cost(best_mcost, (p_false, p_true), (cost_false, cost_true))
-        evaluations_cache[game_state] = (best_move, best_mcost, best_gs_tup, actual_expected_cost)
-        return(actual_expected_cost)
-
-    def calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]: 
-        """ WARN: only use in nightmare mode. """
-        minimal_vs_list: list[set[int]] = []
-        r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
-            game_state.fset_cwa_indexes_remaining,
-            self.rcs_list
-        )
-        # TODO: print out and follow on a debugging nightmare game @ least through end of round 1 to be sure this is working
-        # TESTING
-        # full_cwas = self.full_cwa_from_game_state(game_state)
-        # full_cwa_r_unique_ids = get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode=True)
-        # assert r_unique_ids_by_verifier == full_cwa_r_unique_ids
-        # END TESTING
-        for v_index in range(self.num_rcs):
-            is_isomorphic_to_previous_verifier = False
-            for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                for arbitrary_v_set_member in v_set:
-                    break
-                if(r_unique_ids_by_verifier[v_index] == r_unique_ids_by_verifier[arbitrary_v_set_member]):
-                    is_isomorphic_to_previous_verifier = True
-                    break
-            if(is_isomorphic_to_previous_verifier):
-                minimal_vs_list[v_set_index].add(v_index)
-            else:
-                minimal_vs_list.append(set([v_index]))
-        return(minimal_vs_list)
-
-    # see get_moves docstring for definitions of move and cost.
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
     @profile
     def calculate_best_move(self, qs_dict, game_state: Game_State):
@@ -576,7 +189,7 @@ class Solver:
             gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
             gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
+            node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
@@ -590,6 +203,8 @@ class Solver:
                     # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break
         if(found_moves):
+            # uncomment below line for use with worst_case_cost with tiebreaker
+            # best_node_cost = (best_node_cost[0], best_node_cost[1])
             answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
         else:
             new_gs = Game_State(
@@ -598,69 +213,20 @@ class Solver:
                 fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
             )
             answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
-        self.evaluations_cache[game_state] = answer
-        return(answer)
 
-    def nightmare_calculate_best_move(
-        self,
-        qs_dict,
-        game_state: Game_State,
-        minimal_vs_list: list[set[int]] = None,
+        # comment out else block above and uncomment this to try starting new rounds early as well.
+        # if(game_state.num_queries_this_round != 0):
+        #     new_gs = Game_State(
+        #         num_queries_this_round=0,
+        #         proposal_used_this_round=None,
+        #         fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
+        #     )
+        #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+        #     if(end_round_early_result[3] < best_node_cost):
+        #         # breakpoint here to see if there are situations where ending the round early is better.
+        #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
+        #         answer = end_round_early_result
 
-    ):
-        if(game_state in self.evaluations_cache):
-            return(self.evaluations_cache[game_state])
-        if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
-            if(config.CACHE_END_STATES):
-                self.evaluations_cache[game_state] = Solver.null_answer
-            return(Solver.null_answer)
-        best_node_cost = Solver.initial_best_cost
-        if(game_state.proposal_used_this_round is None):
-            minimal_vs_list = self.calculate_minimal_vs_list(game_state)
-
-        found_moves = False
-        # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
-        # For testing purposes, make the entire moves_list before examining any moves.
-        for move_info in nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
-            (move, mcost, gs_tup, p_tup) = move_info
-            gs_false_node_cost = self.nightmare_calculate_best_move(
-                qs_dict, gs_tup[0],
-                minimal_vs_list
-            )[3]
-            gs_true_node_cost = self.nightmare_calculate_best_move(
-                qs_dict,
-                gs_tup[1],
-                minimal_vs_list
-            )[3]
-            gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = calculate_expected_cost(mcost, p_tup, gss_costs)
-            if(node_cost_tup < best_node_cost):
-                found_moves = True
-                best_node_cost = node_cost_tup
-                best_move = move
-                best_mov_cost = mcost
-                best_gs_tup = gs_tup
-                if(
-                    (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
-                ):
-                    # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
-                    break
-        if(found_moves):
-            answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
-        else:
-            # recalculate minimal_vs_list and try again
-            recalculated_minimal_vs_list = self.calculate_minimal_vs_list(game_state)
-            new_gs = Game_State(
-                num_queries_this_round=0,
-                proposal_used_this_round=None,
-                fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
-            )
-            answer = self.nightmare_calculate_best_move(
-                qs_dict=qs_dict,
-                game_state=new_gs,
-                minimal_vs_list=recalculated_minimal_vs_list
-            )
         self.evaluations_cache[game_state] = answer
         return(answer)
 
@@ -669,7 +235,7 @@ class Solver:
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
         start = time.time()
-        self.calculator(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
 

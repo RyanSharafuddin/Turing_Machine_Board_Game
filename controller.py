@@ -4,6 +4,8 @@ from definitions import *
 from config import *
 from problems import get_problem_by_id as get
 import display, solver
+from solver_capitulate import Solver_Capitulate
+from solver_nightmare import Solver_Nightmare
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -68,7 +70,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     score_line = f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}."
     display.end_play_display(answers_table, query_history_table, ans_line, score_line)
 
-def display_solution_from_solver(s, display_problem = True):
+def display_solution_from_solver(s: solver.Solver, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     """
@@ -76,7 +78,7 @@ def display_solution_from_solver(s, display_problem = True):
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
-    if(len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1):
+    if(solver.one_answer_left(s.initial_game_state.fset_cwa_indexes_remaining)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
     else:
         if(display_problem):
@@ -117,7 +119,12 @@ def get_relevant_parts_cache(evaluations_cache, initial_game_state):
     return(new_evaluations_cache)
 
 def make_solver(problem: Problem):
-    s = solver.Solver(problem, capitulate=args.capitulate)
+    if(args.capitulate):
+        s = Solver_Capitulate(problem)
+    elif(problem.mode == NIGHTMARE):
+        s = Solver_Nightmare(problem)
+    else:
+        s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
     if(DISPLAY):
         sd.print_problem(s.rcs_list, s.problem, active=True)
@@ -255,13 +262,11 @@ def play_from_file(f_name):
 #   2) display_problem_solution(problem, pickle_entire, force_overwrite, no_pickles)
 #   3) get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles) mainly for debugging/inspection.
 # NOTE: If a tree is too big to fit on screen of terminal, can use the following command:
-# python controller.py | less -SR -# 3
+# python controller.py <problem_name_prefix>| less -SR -# 3
 
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 # options
-
-                                   # speed significantly, but may run out of memory faster.
 
 # Profiling/Interactive Debugging
 # s = get_or_make_solver(f5x, no_pickles=True)[0] # ~3 minutes.
@@ -290,16 +295,6 @@ out = sys.stdout
 print(f"Using {platform.python_implementation()}.")
 p2_n = "2_N"
 first_nightmare = "I4BYJK"
-# play(latest)
-# display_problem_solution(latest)
-
-# latest = p1_n
-# display_problem_solution(latest, no_pickles=True)
-
-# display_problem_solution_from_file("Pickles/DreamCatcher/2_N.bin")
-
-# display_problem_solution(latest, no_pickles=False)
-# play(latest, no_pickles=True)
 
 # Use the below in REPL for testing/debugging purposes
 # s = get_or_make_solver(latest, no_pickles=False, force_overwrite=False)[0]

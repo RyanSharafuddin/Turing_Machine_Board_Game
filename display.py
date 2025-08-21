@@ -630,7 +630,7 @@ class Solver_Displayer:
         """
         if not(active):
             return
-        rule_ids_by_verifier = solver.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
+        rule_ids_by_verifier = solver.solver_utils.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
         # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
         possible_rules_this_verifier = [
             self.solver.flat_rule_list[r_id] for r_id in sorted(rule_ids_by_verifier[v_index])
