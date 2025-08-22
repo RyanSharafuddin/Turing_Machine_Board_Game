@@ -1,3 +1,4 @@
+from pympler.asizeof import asizeof # TODO: delete
 from line_profiler import profile
 import time
 import rules, config, solver_utils
@@ -224,7 +225,7 @@ class Solver:
         #         fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
         #     )
         #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
-        #     if(end_round_early_result[3] < best_node_cost):
+        #     if(end_round_early_result[1] < best_node_cost):
         #         # breakpoint here to see if there are situations where ending the round early is better.
         #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
         #         answer = end_round_early_result
@@ -240,6 +241,10 @@ class Solver:
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
+        console.print(
+            f"Size of evaluations cache in megabytes: {asizeof(self.evaluations_cache)//(2 ** 20):,}."
+        ) # TODO: delete
+        # self.print_cache_by_size()
         # console.print(f"{useless_queries:,} useless queries")
         # console.print(f"{useful_queries:,} useful queries")
         # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
@@ -295,3 +300,10 @@ class Solver:
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
+
+    # def print_cache_by_size(self):
+    #     l = [0] * (len(self.full_cwa) + 1)
+    #     for gs in self.evaluations_cache:
+    #         l[len(gs.fset_cwa_indexes_remaining)] += 1
+    #     for (size, num) in enumerate(l):
+    #         console.print(f"{size:>{3},}: {num:>{15},}")
