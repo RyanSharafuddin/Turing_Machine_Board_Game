@@ -27,7 +27,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     """
     sd = display.Solver_Displayer(s)
     current_gs = s.initial_game_state
-    full_cwa = s.full_cwa_from_game_state(current_gs)
+    full_cwa = s.full_cwa_list_from_game_state(current_gs)
     current_round_num = 0
     total_queries_made = 0
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
@@ -38,7 +38,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.get_move_mcost_gs_ncost_from_cache(
             current_gs
         )
-        full_cwa = s.full_cwa_from_game_state(current_gs)
+        full_cwa = s.full_cwa_list_from_game_state(current_gs)
         expected_winning_round = current_round_num + expected_cost_tup[0]
         expected_total_queries = total_queries_made + expected_cost_tup[1]
         if(total_queries_made > 0):
@@ -61,7 +61,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         current_gs = gs_tup[result]
         update_query_history(query_history, best_move_tup, mcost_tup[0], result)
     # Found an answer
-    full_cwa = s.full_cwa_from_game_state(current_gs)
+    full_cwa = s.full_cwa_list_from_game_state(current_gs)
     v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
     answers_table = sd.get_all_possible_answers_table(
         full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
@@ -81,7 +81,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     sd = display.Solver_Displayer(s)
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
-    full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
+    full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     if(solver.one_answer_left(s.initial_game_state.fset_cwa_indexes_remaining)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
     else:
@@ -139,7 +139,7 @@ def make_solver(problem: Problem):
         rprint("\nRule card numbers list: ", s.problem.rc_nums_list, end='')
         print("Exiting.")
         exit()
-    full_cwa = s.full_cwa_from_game_state(s.initial_game_state)
+    full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     if(DISPLAY):
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
     print("\nSolving . . .")
@@ -288,40 +288,32 @@ p1 = "1"
 p1_n = "1_N"
 p2 = "2"        # which is actually harder than any of the "hard" standard modes I've come across
 c63 = "C630YVB" # multiple combos, same answer
-f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 140 seconds currently
+f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 70 seconds currently
 f63 = "F63EZQM" # Nice tree.      Full combos.
 f52 = "F52LUJG" # Excellent tree. Full combos
-f43 = "F435FE"  # Large tree. Hardest problem yet, at 2,904 seconds.
-i = "Invalid"   # Testing purposes only.
+f43 = "F435FE"  # Large tree. Hard, at ~650 seconds.
+p2_n = "2_N"
+first_nightmare = "I4BYJK"
 
 null = open('/dev/null', 'w')
 out = sys.stdout
 
 print(f"Using {platform.python_implementation()}.")
-p2_n = "2_N"
-first_nightmare = "I4BYJK"
 
-# Use the below in REPL for testing/debugging purposes
-# s = get_or_make_solver(latest, no_pickles=False, force_overwrite=False)[0]
-# sd = display.Solver_Displayer(s)
 
-# sd.print_useful_qs_dict_info(
-#     s.qs_dict,
-#     s.full_cwa,
-#     verifier_index=None,          # set to None for all verifiers
-#     proposal_to_examine=None,   # set to None for all proposals
-#     see_all_combos=True
-# )
-# console.rule()
-# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
+
 if(__name__ == "__main__"):
     parser = argparse.ArgumentParser()
-    parser.add_argument("prob_id", type=str, help="Specify the problem id. Prefixes are fine.")
+    parser.add_argument(
+        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id"
+    )
     parser.add_argument("--display", "-d", action="store_true", help="Display the tree.")
     parser.add_argument("--play", "-p", action="store_true", help="Play the problem.")
     parser.add_argument("--no_pickles", "-np", action="store_true", help="No pickles.")
     parser.add_argument("--force_overwrite", "-fo", action="store_true", help="Force overwrite pickles.")
-    parser.add_argument("--from_file", action="store_true", help="Only display from file, using filename.")
+    parser.add_argument(
+        "--from_file", action="store_true", help="Get solver from file, using the main argument as a filename."
+    )
     parser.add_argument(
         "--capitulate","-c", action="store_true",
         help="Give up on being perfect. Choosing this turns on --no_pickles."
@@ -349,6 +341,18 @@ if(__name__ == "__main__"):
                 force_overwrite=args.force_overwrite
             )
         if(not(args.play or args.display)):
-            get_or_make_solver(args.prob_id, no_pickles=True)
+            s = get_or_make_solver(args.prob_id, no_pickles=True)[0]
 
     null.close()
+
+# Use the below in REPL for testing/debugging purposes
+# sd = display.Solver_Displayer(s)
+# sd.print_useful_qs_dict_info(
+#     s.qs_dict,
+#     s.initial_game_state.fset_cwa_indexes_remaining,
+#     verifier_index=None,          # set to None for all verifiers
+#     proposals_to_examine=[551],   # set to None for all proposals
+#     see_all_combos=False
+# )
+# console.rule()
+# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)

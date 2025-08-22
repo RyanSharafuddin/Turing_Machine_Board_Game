@@ -571,7 +571,7 @@ class Solver_Displayer:
         a = Text(f"Expected cost to win from current state: {ec_rounds:0.3f} rounds. {ec_queries:0.3f} queries.")
         b = Text(f"Best move: {mov_to_str(best_mov)}")
         b.stylize('b cyan', 12)
-        c = Text(f"Cost of best move: {r_cost} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
+        c = Text(f"Cost of best move: {int(r_cost)} round{'' if (r_cost == 1) else 's'}. {q_cost} query.")
         d = Text(f"Probability query returns False: {p_false:0.3f}")
         e = Text(f"Probability query returns True : { p_true:0.3f}")
         f = Text(f"Expected cost to win after false query: {expected_cost_false[0]:0.3f} rounds." +
@@ -617,7 +617,7 @@ class Solver_Displayer:
         prop_str = f'proposal_this_round: {gs.proposal_used_this_round}'
         center_print("\n" + q_str + prop_str)
         self.print_all_possible_answers(
-            cwas=self.solver.full_cwa_from_game_state(gs),
+            cwas=self.solver.full_cwa_list_from_game_state(gs),
             title=Text("CWA ").append(name),
             permutation_order=permutation_order,
             verifier_to_sort_by=verifier_to_sort_by,
@@ -673,16 +673,17 @@ class Solver_Displayer:
     def print_useful_qs_dict_info_helper(
         self,
         useful_qs_dict,
-        full_cwas,
+        cwa_set_when_q_dict_made,
         v_index,
-        proposal_to_examine=None,
+        proposals_to_examine=None,
         see_all_combos=True
     ):
         """
-        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
-        If proposal_to_examine is none, will print info about all useful proposals.
+        Displays all information in the useful_queries_dict about a specific verifier card/list of proposals.
+        If proposals_to_examine is none, will print info about all useful proposals.
         Note: will need the full_cwas used to make this useful_queries_dict.
         """
+        full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_q_dict_made)
         q_dict_this_card = dict()
         for (proposal, inner_dict) in sorted(useful_qs_dict.items()):
             if(v_index in inner_dict):
@@ -701,10 +702,15 @@ class Solver_Displayer:
         )
         # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
         for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
-            if not ((proposal_to_examine == proposal) or (proposal_to_examine is None)):
+            if not ((proposal in proposals_to_examine) or (proposals_to_examine is None)):
                 continue
-            (full_cwa_false, full_cwa_true) = \
-                [[self.solver.rc_indexes_cwa_to_full_combos_dict[indexes] for indexes in q_info_set_indexes] for q_info_set_indexes in (q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true)]
+            (full_cwa_false, full_cwa_true) = [
+                self.solver.full_cwa_list_from_cwa_set(
+                        self.solver.intersect_cwa_set(cwa_set_when_q_dict_made, q_info_cwa_set)
+                    ) for q_info_cwa_set in (
+                        q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true
+                    )
+            ]
 
             possible_rules_false_title = Text.assemble(
                 f"\n{prop_index}",
@@ -769,17 +775,25 @@ class Solver_Displayer:
                 )
 
     def print_useful_qs_dict_info(
-        self, useful_qs_dict, full_cwas, verifier_index=None, proposal_to_examine=None, see_all_combos=True
+        self,
+        useful_qs_dict,
+        cwa_set_when_q_dict_made,
+        verifier_index=None,
+        proposals_to_examine=None,
+        see_all_combos=True
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/proposal.
-        If either verifier_index or proposal_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if proposal_to_examine is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
-        Note: will need the full_cwas used to make this useful_queries_dict.
+        If either verifier_index or proposals_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if a proposal is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
+        Note: will need the cwa_set of the cwas that were possible when this useful_queries_dict was made.
+        proposals_to_examine can be either a single proposal or an iterable of proposals.
         """
+        if(type(proposals_to_examine) == int):
+            proposals_to_examine = [proposals_to_examine]
         for possible_v_index in range(len(self.solver.rcs_list)):
             if((verifier_index is None) or (possible_v_index == verifier_index)):
                 self.print_useful_qs_dict_info_helper(
-                    useful_qs_dict, full_cwas, possible_v_index, proposal_to_examine, see_all_combos
+                    useful_qs_dict, cwa_set_when_q_dict_made, possible_v_index, proposals_to_examine, see_all_combos
                 )
 
 def mov_to_str(move: tuple):
@@ -964,10 +978,10 @@ def node_to_str_table(tree: Tree):
             node_str = f"{nl.join(lines)}"
             rich_obj_to_print = Text(node_str, style=f"white on {TREE_BACKGROUND_COLOR}")
         else:
-            num_combos = len(tree.solver.full_cwa_from_game_state(tree.gs))
+            num_combos = len(tree.solver.full_cwa_list_from_game_state(tree.gs))
             num_empty_rows = Tree.max_combos_by_depth[tree.depth] - num_combos
             node_table = sd.get_all_possible_answers_table(
-                cwas=tree.solver.full_cwa_from_game_state(tree.gs),
+                cwas=tree.solver.full_cwa_list_from_game_state(tree.gs),
                 permutation_order=P_ORDER,
                 display_combo_number=True,
                 verifier_to_sort_by=verifier_to_sort_by,

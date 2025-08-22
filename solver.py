@@ -150,7 +150,7 @@ class Solver:
             return
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate (see big optimization)
-        self.rc_indexes_cwa_to_full_combos_dict = {
+        self._rc_indexes_cwa_to_full_combos_dict = {
             (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
         }
 
@@ -159,8 +159,6 @@ class Solver:
         )
 
     def testing_stuff(self):
-        # if(not config.USE_NIGHTMARE_CALCULATE):
-        #     self.calculator = self.calculate_best_move
         import display
         global sd
         sd = display.Solver_Displayer(self)
@@ -298,9 +296,17 @@ class Solver:
         # if num_queries_this_round is 3, then gs.proposal_used.. should be None
         return(gs.proposal_used_this_round != proposal)
 
-    def full_cwa_from_game_state(self, gs):
-        return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])
+    def full_cwa_list_from_cwa_set(self, cwa_set):
+        """ Given a cwa_set, return a list of the complete cwas in it. """
+        return([self._rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in cwa_set])
 
+    def full_cwa_list_from_game_state(self, gs: Game_State):
+        """ A convenience function for getting the full cwa list directly from a game state """
+        return(self.full_cwa_list_from_cwa_set(gs.fset_cwa_indexes_remaining))
+
+    def intersect_cwa_set(self, cwa_set_1, cwa_set_2):
+        """ Used by display.print_useful_qs_dict. """
+        return(cwa_set_1 & cwa_set_2)
     # def print_cache_by_size(self):
     #     l = [0] * (len(self.full_cwa) + 1)
     #     for gs in self.evaluations_cache:

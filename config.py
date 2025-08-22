@@ -64,4 +64,8 @@ PICKLE_DIRECTORY = "Pickles/IsomorphicQueryFilter" # "Pickles"       # Directory
 DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
                                  # Increases speed on many problems, but on other problems, such as I4BYJK (nightmare), causes the process to be terminated with a Killed: 9. signal. because it used too much memory.
 CACHE_END_STATES = False          # whether to cache the end states into the evaluations_cache
-# USE_NIGHTMARE_CALCULATE = True
+
+
+
+# Settings To Use For Debugging
+PRINT_ISOMORPHIC_LOL = True

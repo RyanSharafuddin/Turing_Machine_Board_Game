@@ -1,5 +1,6 @@
 import math, itertools
 from definitions import *
+import config
 
 def _get_all_rules_combinations(rcs_list):
     """ Returns all combinations of rules from the rules cards, whether possible or not. """
@@ -179,9 +180,10 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
     isomorphic_qs_lol = _get_isomorphic_queries_lol(base_qs_dict, num_verifiers)
     useful_qs_dict = _filter_out_isomorphic_queries(base_qs_dict, isomorphic_qs_lol)
 
-    # print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
-    # console.print(isomorphic_qs_lol)
-    # console.print(f"Saved {len(base_qs_dict) - len(isomorphic_qs_lol)} queries out of {len(base_qs_dict)}!")
+    if(config.PRINT_ISOMORPHIC_LOL):
+        print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
+        console.print(isomorphic_qs_lol)
+        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_qs_lol)} queries out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
