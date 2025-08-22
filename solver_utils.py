@@ -44,18 +44,57 @@ def _get_possible_rules_combos_with_answers(rules_cards_list):
     all_rules_combos = _get_all_rules_combinations(rules_cards_list)
     return([(c, a) for (c,a) in [(c, _is_combo_possible(c)) for c in all_rules_combos] if(a is not None)])
 
+_ISOMORPHIC    = 0
+_NOT_ISOMOPHIC = 1
+_EXCLUDE_FIRST = 2
+_EXCLUDE_SECOND = 3
 def _compare_two_qs_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
-    """ Returns true if they are the same or mirrored for all verifiers in them """
+    """
+    Returns one of 4 values:
+    _ISOMORPHIC     if the 2 proposals are isomorphic.
+    _NOT_ISOMORPHIC if they are not isomorphic and should be in separate isomorphic proposal lists.
+    _EXCLUDE_FIRST  if the first is strictly less useful than the second and should not be in any list.
+    _EXCLUDE_SECOND if the second is strictly less useful than the first and should not be in any list.
+    """
+    first_useful_on_something_second_isnt = False
+    second_useful_on_something_first_isnt = False
     for v_index in range(num_verifiers):
-        q_info1 = inner_dict_1.get(v_index, (None, None))
-        q_info2 = inner_dict_2.get(v_index, (None, None))
+        q_info1 = inner_dict_1.get(v_index, None)
+        q_info2 = inner_dict_2.get(v_index, None)
+        if(q_info1 is None):
+            if(q_info2 is None):
+                # both are None
+                continue
+            # 1 is None; q_info_2 is not None
+            second_useful_on_something_first_isnt = True
+            continue
+        else:
+            if(q_info2 is None):
+                # 1 is not None; 2 is None
+                first_useful_on_something_second_isnt = True
+                continue
+
+        # neither are None
         if not (
             # WARN TODO: think carefully about this. What if, for 1 verifier, they're isomorphic, and the other, they're mirrored? I think it still works, but consider it carefully. Print everything out.
             ((q_info1[0] == q_info2[0]) and (q_info1[1] == q_info2[1])) or
             ((q_info1[0] == q_info2[1]) and (q_info1[1] == q_info2[0]))
         ):
-            return (False)
-    return(True)
+            return(_NOT_ISOMOPHIC)
+    if(first_useful_on_something_second_isnt):
+        if(second_useful_on_something_first_isnt):
+            # They both cover verifiers the other doesn't.
+            return(_NOT_ISOMOPHIC)
+        else:
+            # first is strictly more useful than second.
+            return(_EXCLUDE_SECOND)
+    else:
+        if(second_useful_on_something_first_isnt):
+            # second is strictly more useful than first
+            return(_EXCLUDE_FIRST)
+        else:
+            # Neither covers a verifier the other doesn't
+            return(_ISOMORPHIC)
 
 def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
     useful_queries_dict = dict()
@@ -101,11 +140,20 @@ def _get_isomorphic_queries_lol(base_qs_dict: dict, num_verifiers):
     isomorphic_qs_lol = []
     representative_info_list = []
     for (proposal, inner_dict) in base_qs_dict.items():
-        for (isomorphic_list, representative_info) in zip(isomorphic_qs_lol, representative_info_list):
-            if(_compare_two_qs_inner_dicts(inner_dict, representative_info, num_verifiers)):
+        # TODO: stop enumerating after done debugging
+        for (list_index, (isomorphic_list, representative_info)) in enumerate(zip(isomorphic_qs_lol, representative_info_list), start=1):
+            comparison_result = _compare_two_qs_inner_dicts(inner_dict, representative_info, num_verifiers)
+            if(comparison_result is _ISOMORPHIC):
                 isomorphic_list.append(proposal)
                 break
+            elif(comparison_result is _EXCLUDE_FIRST):
+                # TODO: handle this case appropriately
+                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+            elif(comparison_result is _EXCLUDE_SECOND):
+                # TODO: handle this case appropriately
+                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
         else:
+            # Found a new group of isomorphic queries
             isomorphic_qs_lol.append([proposal])
             representative_info_list.append(inner_dict)
 
@@ -182,7 +230,8 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
 
     if(config.PRINT_ISOMORPHIC_LOL):
         print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
-        console.print(isomorphic_qs_lol)
+        for (index, isomorphic_list) in enumerate(isomorphic_qs_lol, start=1):
+            console.print(f'{index:>3,}', isomorphic_list, end=" ")
         console.print(f"Saved {len(base_qs_dict) - len(isomorphic_qs_lol)} queries out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 

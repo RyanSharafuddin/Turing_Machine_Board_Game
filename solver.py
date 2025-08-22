@@ -145,7 +145,8 @@ class Solver:
             None,
             fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
         )
-        self.seconds_to_solve   = -1 # have not called solve() yet.
+        self.seconds_to_solve                   = -1 # have not called solve() yet.
+        self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         if(not(self.full_cwa)):
             return
 
@@ -239,9 +240,7 @@ class Solver:
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        console.print(
-            f"Size of evaluations cache in megabytes: {asizeof(self.evaluations_cache)//(2 ** 20):,}."
-        ) # TODO: delete
+        self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache) # TODO: delete if this asizeof takes too long or hangs
         # self.print_cache_by_size()
         # console.print(f"{useless_queries:,} useless queries")
         # console.print(f"{useful_queries:,} useful queries")

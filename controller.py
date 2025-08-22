@@ -146,6 +146,13 @@ def make_solver(problem: Problem):
     s.solve()
     print(f"Finished.")
     console.print(f"It took {s.seconds_to_solve:,} seconds.")
+    if(s.size_of_evaluations_cache_in_bytes > 0):
+        console.print(
+            f"Size of evaluations cache in megabytes: {s.size_of_evaluations_cache_in_bytes//(2 ** 20):,}."
+        )
+        console.print(
+            f"Size of evaluations cache in     bytes: {s.size_of_evaluations_cache_in_bytes:,}."
+        )
     sys.stdout.flush()
     return(s)
 
@@ -251,6 +258,15 @@ def unpickle_solver_from_f_name(f_name):
             print("Commit message was not recorded.")
     else:
         print("This solver did not record the git commit it was created in.")
+    if(hasattr(s, "size_of_evaluations_cache_in_bytes")):
+        console.print(
+            f"Size of evaluations cache in megabytes: {s.size_of_evaluations_cache_in_bytes//(2 ** 20):,}."
+        )
+        console.print(
+            f"Size of evaluations cache in     bytes: {s.size_of_evaluations_cache_in_bytes:,}."
+        )
+    else:
+        print("This solver did not record the size of its evaluations cache.")
     return(s)
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
