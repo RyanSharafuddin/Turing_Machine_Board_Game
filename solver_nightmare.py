@@ -5,7 +5,7 @@ def get_set_r_unique_ids_vs_from_cwas_set_representation(
         rcs_list: list[list[Rule]]
     ) ->  list[set[int]]:
     """
-    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. WARN: only call this if n_mode is on
+    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
     """
     num_vs = len(rcs_list)
     # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
