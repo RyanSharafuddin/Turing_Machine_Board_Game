@@ -48,7 +48,7 @@ _ISOMORPHIC    = 0
 _NOT_ISOMOPHIC = 1
 _EXCLUDE_FIRST = 2
 _EXCLUDE_SECOND = 3
-def _compare_two_qs_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
+def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
     """
     Returns one of 4 values:
     _ISOMORPHIC     if the 2 proposals are isomorphic.
@@ -136,37 +136,50 @@ def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, 
                     }
     return(useful_queries_dict)
 
-def _get_isomorphic_queries_lol(base_qs_dict: dict, num_verifiers):
+def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
+    """
+    Get a list of lists of isomorphic queries. If one query is strictly less useful than another (isomorphic to it for all verifiers it can be used on, but the set of verifiers it can be used on is a strict subset of the verifiers the other query can be used on), then it won't appear in any output list.
+    """
     isomorphic_qs_lol = []
-    representative_info_list = []
+    representative_info_list = [] # same type as what is used to compare in compare_two_proposals
     for (proposal, inner_dict) in base_qs_dict.items():
-        # TODO: stop enumerating after done debugging
-        for (list_index, (isomorphic_list, representative_info)) in enumerate(zip(isomorphic_qs_lol, representative_info_list), start=1):
-            comparison_result = _compare_two_qs_inner_dicts(inner_dict, representative_info, num_verifiers)
+        for (list_index, (isomorphic_list, representative_info)) in enumerate(
+            zip(isomorphic_qs_lol, representative_info_list)
+        ):
+            if(isomorphic_list is None):
+                # this list was found to be strictly less useful than a later list
+                continue
+            comparison_result = _compare_two_proposals_inner_dicts(
+                inner_dict,
+                representative_info,
+                num_verifiers
+            )
             if(comparison_result is _ISOMORPHIC):
                 isomorphic_list.append(proposal)
                 break
             elif(comparison_result is _EXCLUDE_FIRST):
-                # TODO: handle this case appropriately
-                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+                # console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+                break
             elif(comparison_result is _EXCLUDE_SECOND):
-                # TODO: handle this case appropriately
-                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
+                # console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
+                isomorphic_qs_lol[list_index] = None
+            # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.
         else:
             # Found a new group of isomorphic queries
             isomorphic_qs_lol.append([proposal])
             representative_info_list.append(inner_dict)
 
-    # TODO: test that this includes everything in the above approach, and also print the representative info list/results for each query (i.e. print everything to be sure it works)
+    isomorphic_qs_lol = [isomorphic_l for isomorphic_l in isomorphic_qs_lol if (isomorphic_l is not None)]
     return(isomorphic_qs_lol)
 
-def _filter_out_isomorphic_queries(base_qs_dict, isomorphic_qs_lol):
+def _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol):
     """
     Given a queries dict and a an isomorphic_qs_lol, returns a new qs dict that contains only one of each isomorphic query.
-    WARN: pay attention to whether this mutates the dict or returns a new one. Currently returns new. """
+    WARN: pay attention to whether this mutates the dict or returns a new one. Currently returns new. 
+    """
     return_dict = dict()
-    for isomorphic_qs_list in isomorphic_qs_lol:
-        proposal = isomorphic_qs_list[0]
+    for isomorphic_proposals_list in isomorphic_proposals_lol:
+        proposal = isomorphic_proposals_list[0]
         return_dict[proposal] = base_qs_dict[proposal]
         # return_dict = base_qs_dict
         # for proposal in isomorphic_list[1:]:
@@ -211,10 +224,10 @@ def make_full_cwa(problem, rcs_list):
     possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
-def get_dict_filtered_of_isomorphic_qs(base_qs_dict, num_verifiers):
+def get_dict_filtered_of_isomorphic_proposals(base_qs_dict, num_verifiers):
     """ Given a queries dict, returns a NEW queries dict with the isomorphic queries filtered out. """
-    isomorphic_qs_lol = _get_isomorphic_queries_lol(base_qs_dict, num_verifiers)
-    filtered_qs_dict = _filter_out_isomorphic_queries(base_qs_dict, isomorphic_qs_lol)
+    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
+    filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
     return(filtered_qs_dict)
 
 def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
@@ -225,14 +238,14 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
         n_mode
     )
     num_verifiers = len(possible_combos_with_answers[0][0])
-    isomorphic_qs_lol = _get_isomorphic_queries_lol(base_qs_dict, num_verifiers)
-    useful_qs_dict = _filter_out_isomorphic_queries(base_qs_dict, isomorphic_qs_lol)
+    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
+    useful_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
 
     if(config.PRINT_ISOMORPHIC_LOL):
         print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
-        for (index, isomorphic_list) in enumerate(isomorphic_qs_lol, start=1):
+        for (index, isomorphic_list) in enumerate(isomorphic_proposals_lol):
             console.print(f'{index:>3,}', isomorphic_list, end=" ")
-        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_qs_lol)} queries out of {len(base_qs_dict)}!")
+        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} queries out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them

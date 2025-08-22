@@ -2,12 +2,12 @@ from solver import *
 
 def get_set_r_unique_ids_vs_from_cwas_set_representation(
         cwas_set_representation,
-        rcs_list: list[list[Rule]]
+        rcs_list: list[list[Rule]],
+        num_vs
     ) ->  list[set[int]]:
     """
-    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
+    Given a cwas_set, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
     """
-    num_vs = len(rcs_list)
     # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
     possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
     for cwa in cwas_set_representation:
@@ -24,7 +24,8 @@ def calculate_minimal_vs_list(rcs_list, num_rcs, game_state: Game_State) -> list
     minimal_vs_list: list[set[int]] = []
     r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
         game_state.fset_cwa_indexes_remaining,
-        rcs_list
+        rcs_list,
+        num_rcs
     )
     for v_index in range(num_rcs):
         is_isomorphic_to_previous_verifier = False
