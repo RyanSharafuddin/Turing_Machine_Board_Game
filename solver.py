@@ -5,8 +5,6 @@ import rules, config, solver_utils
 from definitions import *
 
 
-def fset_answers_from_cwa_iterable(cwa_iterable):
-    return(frozenset([cwa[-1] for cwa in cwa_iterable]))
 def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
     fset_cwa_indexes_remaining = frozenset(
             [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]

@@ -1,11 +1,14 @@
 from solver import *
 
+def fset_answers_from_cwa_set(cwa_set):
+    return(frozenset([cwa[-1] for cwa in cwa_set]))
+
 def choose_best_move_depth_one(moves_list):
     best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
     for(move, mcost, gs_tuple, p_tuple) in moves_list:
         (p_false, p_true) = p_tuple
         (gs_false_answers_left, gs_true_answers_left) = [
-            len(fset_answers_from_cwa_iterable(gs.fset_cwa_indexes_remaining)) for gs in gs_tuple
+            len(fset_answers_from_cwa_set(gs.fset_cwa_indexes_remaining)) for gs in gs_tuple
         ]
         (gs_false_combos_left, gs_true_combos_left) = [
             len(gs.fset_cwa_indexes_remaining) for gs in gs_tuple

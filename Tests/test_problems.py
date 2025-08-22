@@ -8,5 +8,5 @@ class TestProblems:
         """
         zero_query = problems.get_problem_by_id("B63YRW4")
         s = controller.get_or_make_solver(zero_query, no_pickles=True)[0]
-        assert (len(solver.fset_answers_from_cwa_iterable(s.initial_game_state.fset_cwa_indexes_remaining)) == 1)
+        assert (len(solver.fset_answers_from_cwa_set(s.initial_game_state.fset_cwa_indexes_remaining)) == 1)
         assert(s.seconds_to_solve == 0)
