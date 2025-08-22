@@ -135,20 +135,18 @@ class Solver_Nightmare(Solver):
             gs_false_node_cost = self.calculate_best_move(
                 qs_dict, gs_tup[0],
                 minimal_vs_list
-            )[3]
+            )[1]
             gs_true_node_cost = self.calculate_best_move(
                 qs_dict,
                 gs_tup[1],
                 minimal_vs_list
-            )[3]
+            )[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
                 best_move = move
-                best_mov_cost = mcost
-                best_gs_tup = gs_tup
                 if(
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
@@ -156,7 +154,7 @@ class Solver_Nightmare(Solver):
                     # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
                     break
         if(found_moves):
-            answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
+            answer = (best_move, best_node_cost)
         else:
             # don't have to recalculate minimal_vs_list here; the next invocation will do that.
             new_gs = Game_State(

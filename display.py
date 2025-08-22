@@ -5,7 +5,7 @@ from PrettyPrint import PrettyPrintTree
 # import colorama
 from rich.table import Table
 from rich.text import Text
-from rich import box
+# from rich import box
 from rich.highlighter import ReprHighlighter
 import solver
 from definitions import *
@@ -538,8 +538,12 @@ class Solver_Displayer:
         NOTE: in interactive debugging session, use like this:
         (gs_false, gs_true) = sd.print_evaluations_cache_info(gs, name)
         """
-        evaluations_cache = self.solver.evaluations_cache
-        (best_mov, best_mov_cost_tup, best_gs_tup, best_expected_cost_tup) = evaluations_cache[gs]
+        (
+            best_mov,
+            best_mov_cost_tup,
+            best_gs_tup,
+            best_expected_cost_tup
+        ) = self.solver.get_move_mcost_gs_ncost_from_cache(gs)
         (gs_false, gs_true) = best_gs_tup
         cwa_remaining_if_false = gs_false.fset_cwa_indexes_remaining
         num_cwa_false = len(cwa_remaining_if_false)
@@ -552,8 +556,14 @@ class Solver_Displayer:
         p_false = num_cwa_false / num_cwa_now
 
         # Remember that the cache does not contain already-won states.
-        expected_cost_false = evaluations_cache.get(gs_false, (None, None, None, (0,0)))[3]
-        expected_cost_true = evaluations_cache.get(gs_true, (None, None, None, (0,0)))[3]
+        expected_cost_false = self.solver.get_move_mcost_gs_ncost_from_cache(
+            gs_false,
+            (None, None, None, (0,0))
+        )[3]
+        expected_cost_true = self.solver.get_move_mcost_gs_ncost_from_cache(
+            gs_true,
+            (None, None, None, (0,0))
+        )[3]
 
         (ec_rounds, ec_queries) = best_expected_cost_tup
         self.print_game_state(gs, name=name, permutation_order=permutation_order, verifier_to_sort_by=best_mov[1])
@@ -783,8 +793,8 @@ def get_max_string_height_by_depth(tree):
     q = deque()
     q.append(tree)
     while(q):
-        curr_node = q.popleft()
-        if(curr_node.gs in tree.solver.evaluations_cache): # it's an internal node
+        curr_node : Tree = q.popleft()
+        if not(solver.one_answer_left(curr_node.gs.fset_cwa_indexes_remaining)): # internal node
             num_combinations = len(curr_node.gs.fset_cwa_indexes_remaining)
             if(curr_node.depth == len(answer)):
                 answer.append(num_combinations)
@@ -825,10 +835,11 @@ class Tree:
         # m_cost   # the cost the move in self.move
 
 def get_children_multi_move(tree):
+    raise Exception("Unimplemented")
     if(tree.type == 'move'):
+        pass
         # TODO: implement
         # should have set tree.gs_tup and tree.prob_tup for this move, so just return those.
-        raise Exception("Unimplemented")
     else:
         # tree is type game state
         if((tree.solver.evaluations_cache is not None) and (tree.gs in tree.solver.evaluations_cache)):
@@ -860,7 +871,7 @@ def node_to_str_multi_move(tree):
 
 def get_children(tree: Tree):
     if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
-        result = tree.solver.evaluations_cache.get(tree.gs)
+        result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
             current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
@@ -886,7 +897,7 @@ def node_to_str(tree: Tree):
     chars_to_print = [2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to print.
 
     if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
-        result = tree.solver.evaluations_cache.get(tree.gs)
+        result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
         (best_move, best_move_cost, gs_tup, total_expected_cost) = result
         combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
@@ -929,7 +940,7 @@ def node_to_str_table(tree: Tree):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
     if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
-        result = tree.solver.evaluations_cache.get(tree.gs)
+        result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         (best_move, best_move_cost, gs_tup, total_expected_cost) = result
         verifier_to_sort_by = (
             None if (tree.move_made_to_get_here is None) else tree.move_made_to_get_here[1]

@@ -126,7 +126,7 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     pass # not a useful query. See other comments.
 
 class Solver:
-    null_answer = (None, None, None, (0,0))
+    null_answer = (None, (0,0))
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -190,16 +190,14 @@ class Solver:
         for move_info in get_and_apply_moves(game_state, qs_dict):
             (move, mcost, gs_tup, p_tup) = move_info
             # console.print(f"Consider move {move}")
-            gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[3]
-            gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[3]
+            gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[1]
+            gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
                 best_move = move
-                best_mov_cost = mcost
-                best_gs_tup = gs_tup
                 if(
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
@@ -209,7 +207,7 @@ class Solver:
         if(found_moves):
             # uncomment below line for use with worst_case_cost with tiebreaker
             # best_node_cost = (best_node_cost[0], best_node_cost[1])
-            answer = (best_move, best_mov_cost, best_gs_tup, best_node_cost)
+            answer = (best_move, best_node_cost)
         else:
             new_gs = Game_State(
                 num_queries_this_round=0,
@@ -245,6 +243,55 @@ class Solver:
         # console.print(f"{useless_queries:,} useless queries")
         # console.print(f"{useful_queries:,} useful queries")
         # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+
+    def get_move_mcost_gs_ncost_from_cache(self, game_state: Game_State, default=None):
+        """
+        Given a game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
+        """
+        if not(game_state in self.evaluations_cache):
+            return(default)
+
+        (best_move, node_evaluation) = (
+            self.evaluations_cache[game_state][0], self.evaluations_cache[game_state][-1]
+        )
+        best_mcost = ((Solver.does_move_cost_round(best_move, game_state)), 1)
+        gs_tuple = self.apply_move_to_state(best_move, game_state)
+        constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
+        # assert(constructed_answer == self.evaluations_cache[game_state])
+        # if not(constructed_answer == self.evaluations_cache[game_state]):
+        #     print("O NOES!")
+        #     exit()
+        return(constructed_answer)
+
+    def apply_move_to_state(self, move, gs: Game_State) -> tuple[Game_State, Game_State]:
+        """ WARN: ONLY use this inside the get_move_mcost... fuction. Not for anything else """
+        (proposal, v_index) = move
+        (q_info_true, q_info_false) = self.qs_dict[proposal][v_index]
+        (cwa_set_false, cwa_set_true) = (
+            (gs.fset_cwa_indexes_remaining & q_info_false), (gs.fset_cwa_indexes_remaining & q_info_true)
+        )
+        num_queries_this_round = (1 if Solver.does_move_cost_round(move, gs) else (
+                (gs.num_queries_this_round + 1) % 3
+            )
+        )
+        proposal_used_this_round = (None if(num_queries_this_round == 0) else proposal)
+        gs_false = Game_State(
+            num_queries_this_round=num_queries_this_round,
+            proposal_used_this_round=proposal_used_this_round,
+            fset_cwa_indexes_remaining=cwa_set_false
+        )
+        gs_true = Game_State(
+            num_queries_this_round=num_queries_this_round,
+            proposal_used_this_round=proposal_used_this_round,
+            fset_cwa_indexes_remaining=cwa_set_true
+        )
+        return((gs_false, gs_true))
+
+    @staticmethod
+    def does_move_cost_round(move, gs: Game_State):
+        proposal = move[0]
+        # if num_queries_this_round is 3, then gs.proposal_used.. should be None
+        return(gs.proposal_used_this_round != proposal)
 
     def full_cwa_from_game_state(self, gs):
         return([self.rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in gs.fset_cwa_indexes_remaining])

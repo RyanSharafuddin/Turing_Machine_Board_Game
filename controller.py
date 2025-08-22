@@ -35,7 +35,9 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         sd.print_problem(s.rcs_list, s.problem, active=True)
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
     while not(solver.one_answer_left(current_gs.fset_cwa_indexes_remaining)):
-        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.evaluations_cache[current_gs]
+        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.get_move_mcost_gs_ncost_from_cache(
+            current_gs
+        )
         full_cwa = s.full_cwa_from_game_state(current_gs)
         expected_winning_round = current_round_num + expected_cost_tup[0]
         expected_total_queries = total_queries_made + expected_cost_tup[1]
@@ -64,9 +66,11 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     answers_table = sd.get_all_possible_answers_table(
         full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
     )
+    answer = full_cwa[0][-1]
     query_history_table = display.get_query_history_table(query_history, len(s.rcs_list))
-    ans_num_style = "b cyan1"
-    ans_line = f"Answer: [{ans_num_style}]{full_cwa[0][-1]}[/{ans_num_style}]"
+    # ans_num_style = "b cyan1"
+    ans_num_style = f'b {sd.answer_to_color_dict[answer]}'
+    ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
     score_line = f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}."
     display.end_play_display(answers_table, query_history_table, ans_line, score_line)
 
@@ -99,21 +103,22 @@ def f_name_from_id(identity):
     f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
     return(f_name)
 
-def get_relevant_parts_cache(evaluations_cache, initial_game_state):
+def get_relevant_parts_cache(s:solver.Solver):
     """
-    Given a cache and an initial_game_state, returns a new cache that only contains the initial game state and any states that are reachable from it in the best move tree. Note that leaf nodes, which only have one possible answer, are not included in either cache (this implies that if the initial game state takes zero queries to solve, both caches will be empty).
+    Given a cache and an initial_game_state, returns a new cache that only contains the initial game state and any states that are reachable from it in the best move tree.
     """
-    if(evaluations_cache is None):
+    if(s.evaluations_cache is None):
         return(None)
     new_evaluations_cache = dict()
-    stack : list[Game_State] = [initial_game_state]
+    stack : list[Game_State] = [s.initial_game_state]
     while(stack):
         curr_gs = stack.pop()
-        if((curr_gs in evaluations_cache) and (curr_gs not in new_evaluations_cache) and
+        if((curr_gs in s.evaluations_cache) and (curr_gs not in new_evaluations_cache) and
             (not solver.one_answer_left(curr_gs.fset_cwa_indexes_remaining))):
-            curr_gs_answer = evaluations_cache[curr_gs]
-            (curr_gs_false_result, curr_gs_true_result) = curr_gs_answer[2]
-            new_evaluations_cache[curr_gs] = curr_gs_answer
+            curr_gs_modified_answer = s.get_move_mcost_gs_ncost_from_cache(curr_gs)
+            curr_gs_raw_answer = s.evaluations_cache[curr_gs]
+            (curr_gs_false_result, curr_gs_true_result) = curr_gs_modified_answer[2]
+            new_evaluations_cache[curr_gs] = curr_gs_raw_answer
             stack.append(curr_gs_false_result)
             stack.append(curr_gs_true_result)
     return(new_evaluations_cache)
@@ -160,7 +165,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     print(f"\nPickling {f_name} . . .")
     if(not(pickle_entire)):
-        new_evaluations_cache = get_relevant_parts_cache(s.evaluations_cache, s.initial_game_state)
+        new_evaluations_cache = get_relevant_parts_cache(s)
         s.evaluations_cache = new_evaluations_cache
     git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
     git_message = git.Repo(search_parent_directories=True).head.object.message
