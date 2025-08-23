@@ -1,5 +1,4 @@
-from pympler.asizeof import asizeof
-import time
+import time, sys
 import rules, config, solver_utils
 from definitions import *
 
@@ -173,21 +172,20 @@ class Solver:
         self.evaluations_cache  = dict()
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
-        # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwas_list     = solver_utils.make_full_cwas_list(problem, self.rcs_list)
         self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
-        # self.cost_calulator     = solver_utils.calculate_worst_case_cost
-        self.testing_stuff() # WARN TODO: delete
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
+        self.qs_dict            = solver_utils.make_useful_qs_dict(
+            self.full_cwas_list,
+            self.flat_rule_list,
+            self.n_mode,
+        )
+        # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
-        if(not(self.full_cwas_list)):
-            return
-
-        self.qs_dict        = solver_utils.make_useful_qs_dict(
-            all_125_possibilities_set, self.full_cwas_list, self.flat_rule_list, self.n_mode
-        )
+        # self.cost_calulator     = solver_utils.calculate_worst_case_cost
+        # self.testing_stuff() # WARN TODO: delete
 
     def testing_stuff(self):
         import display
@@ -202,7 +200,6 @@ class Solver:
     # called_calculate = 0
     # cache_hits = 0
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
-    # @profile
     def calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
@@ -273,13 +270,27 @@ class Solver:
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        # WARN: The line below itself uses up a lot of memory. Delete when doing nightmare problems.
-        # self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache)
-        # self.number_duplicated_cwa_sets()
-        # self.print_cache_by_size()
-        # console.print(f"{useless_queries:,} useless queries")
-        # console.print(f"{useful_queries:,} useful queries")
-        # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+
+    def post_solve_printing(self):
+        """
+        Define what you would like controller to print after solving.
+        """
+        print(f"Finished.")
+        console.print(f"It took {self.seconds_to_solve:,} seconds.")
+        from display import Solver_Displayer
+        sd = Solver_Displayer(self)
+        sd.print_eval_cache_size()
+        if(config.PRINT_POST_SOLVE_DEBUG_INFO):
+            from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+            # WARN: The line below itself uses up a lot of memory and time.
+            # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
+            self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache)
+            self.print_eval_cache_stats()
+            self.print_cache_by_size()
+            # console.print(f"{useless_queries:,} useless queries")
+            # console.print(f"{useful_queries:,} useful queries")
+            # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+        sys.stdout.flush()
 
     def get_move_mcost_gs_ncost_from_cache(self, game_state: Game_State, default=None):
         """
@@ -341,15 +352,18 @@ class Solver:
         return(cwa_set_1 & cwa_set_2)
 
     def print_cache_by_size(self):
+        console.rule()
+        console.print(f"\nNumber of game states in evaluations cache by size:", justify="center")
         l = [0] * (len(self.full_cwas_list))
         for gs in self.evaluations_cache:
             # cwa_set representation_change need a function to get length from cwa_set
             # TODO: will need to change significantly once store game state's in the cache with minimal_possible_rules_by_verifier_set s instead of what currently doing.
             l[len(gs.cwa_set) - 1] += 1
         for (size, num) in enumerate(l, start=1):
-            console.print(f"{size:>{3},}: {num:>{15},}")
+            console.print(f"{size:>{4},}: {num:>{len(f'{max(l):,}')},}", justify="center")
+        console.rule()
 
-    def number_duplicated_cwa_sets(self):
+    def print_eval_cache_stats(self):
         """ Prints the number of cwa_sets in the evaluations cache that are duplicated and wasting memory. """
         cache_cwa_sets = dict()
         cache_gs_with_same_cwas = dict()
@@ -379,9 +393,9 @@ class Solver:
         console.print(f"Number of bytes they waste                : {wasted_memory:,}")
         console.print(f"Alternate number of bytes they waste      : {asizeof(list_dups) - asizeof([None] * len(list_dups)):,}")
         console.print(f"duplicates with same identity             : {duplicates_with_same_identity:,}")
-        for gs_list in cache_gs_with_same_cwas.values():
-            if(len(gs_list) < 2):
-                continue
-            console.rule()
-            for gs in gs_list:
-                sd.print_evaluations_cache_info(gs)
+        # for gs_list in cache_gs_with_same_cwas.values():
+        #     if(len(gs_list) < 2):
+        #         continue
+        #     console.rule()
+        #     for gs in gs_list:
+        #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)

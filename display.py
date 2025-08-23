@@ -2,7 +2,6 @@ import string, math, os
 from itertools import zip_longest
 from collections import deque
 from PrettyPrint import PrettyPrintTree
-# import colorama
 from rich.table import Table
 from rich.text import Text
 # from rich import box
@@ -339,7 +338,13 @@ class Solver_Displayer:
         else:
             print_indented_table(table, custom_indent)
 
-    def print_evaluations_cache_info(self, gs, name="game state", permutation_order=True):
+    def print_evaluations_cache_info(
+            self,
+            gs,
+            name="game state",
+            permutation_order=True,
+            print_succeeding_game_states=True
+        ):
         """
         Returns a tuple (gs_false, gs_true) for game states that could result from executing the best query. For use in interactive debugging sessions.
         NOTE: in interactive debugging session, use like this:
@@ -390,12 +395,13 @@ class Solver_Displayer:
         center_print(grid)
         title_false = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ❌")
         title_true = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ✅")
-        self.print_game_state(
-            gs_false, title_false, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="indian_red1"
-        )
-        self.print_game_state(
-            gs_true, title_true, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="chartreuse1"
-        )
+        if(print_succeeding_game_states):
+            self.print_game_state(
+                gs_false, title_false, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="indian_red1"
+            )
+            self.print_game_state(
+                gs_true, title_true, verifier_to_sort_by=best_mov[1], permutation_order=permutation_order, border_style="chartreuse1"
+            )
         ec_rounds_calculated = r_cost + p_false*expected_cost_false[0] + p_true*expected_cost_true[0]
         ec_queries_calculated = q_cost + p_false*expected_cost_false[1] + p_true*expected_cost_true[1]
         if(not(math.isclose(ec_rounds, ec_rounds_calculated))):
@@ -978,7 +984,6 @@ def node_to_str_table(tree: Tree):
         t.add_row(answer_text)
         t_str = ''.join(rich_obj_to_list_lines(answer_text))
         return(t_str)
-
 
 def print_best_move_tree(gs, show_combos, solver):
     print()

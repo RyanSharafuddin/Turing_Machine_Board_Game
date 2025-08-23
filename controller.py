@@ -145,10 +145,7 @@ def make_solver(problem: Problem):
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
     print("\nSolving . . .")
     s.solve()
-    print(f"Finished.")
-    console.print(f"It took {s.seconds_to_solve:,} seconds.")
-    sd.print_eval_cache_size()
-    sys.stdout.flush()
+    s.post_solve_printing()
     return(s)
 
 def pickle_solver(problem, pickle_entire=False, force_overwrite=False):

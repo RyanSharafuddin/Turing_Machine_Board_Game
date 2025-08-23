@@ -1,7 +1,9 @@
 import math, itertools
-from definitions import *
+# from definitions import *
+from definitions import Query_Info, NIGHTMARE, console, all_125_possibilities_set
 import config
 
+############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
     """ Returns all combinations of rules from the rules cards, whether possible or not. """
     num_rules_cards = len(rcs_list)
@@ -96,7 +98,7 @@ def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, n
             # Neither covers a verifier the other doesn't
             return(_ISOMORPHIC)
 
-def _init_base_qs_dict(all_125_possibilities_set, full_cwas_list, flat_rule_list, n_mode):
+def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
     base_queries_dict = dict()
     rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(full_cwas_list, n_mode)
     for (unsolved_verifier_index, possible_rule_ids_this_verifier) in enumerate(rules_by_verifier):
@@ -192,14 +194,7 @@ def _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol):
         #     del(base_qs_dict[proposal])
     return(return_dict)
 
-
-
-
-
-
-
-
-
+############################## PUBLIC FUNCTIONS #################################################
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """
     Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.
@@ -236,14 +231,14 @@ def get_dict_filtered_of_isomorphic_proposals(base_qs_dict, num_verifiers):
     filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
     return(filtered_qs_dict)
 
-def make_useful_qs_dict(all_125_possibilities_set, full_cwas_list, flat_rule_list, n_mode):
+def make_useful_qs_dict(full_cwas_list, flat_rule_list, n_mode):
+    if not full_cwas_list: # only happens on invalid problems.
+        return None
     base_qs_dict = _init_base_qs_dict(
-        all_125_possibilities_set,
         full_cwas_list,
         flat_rule_list,
         n_mode
     )
-
     num_verifiers = len(full_cwas_list[0][0])
     isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
     useful_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
@@ -270,4 +265,3 @@ def calculate_worst_case_cost(mcost, probs, gss_costs):
     # return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1, tie_breaker))
     # Using a tiebreaker to differentiate b/t nodes with the same worst case costs is pretty interesting, but rather expensive, as it adds +10% total time.
     return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1))
-

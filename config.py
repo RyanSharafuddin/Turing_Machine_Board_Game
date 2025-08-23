@@ -76,4 +76,5 @@ CACHE_END_STATES = False          # whether to cache the end states into the eva
 
 
 # Settings To Use For Debugging
-PRINT_ISOMORPHIC_LOL = False
+PRINT_ISOMORPHIC_LOL        = False
+PRINT_POST_SOLVE_DEBUG_INFO = False
