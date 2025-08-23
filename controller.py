@@ -4,6 +4,7 @@ from definitions import *
 from config import *
 from problems import get_problem_by_id as get
 from problems import print_all_problems
+import problems
 import display, solver
 from solver_capitulate import Solver_Capitulate
 from solver_nightmare import Solver_Nightmare
@@ -189,6 +190,10 @@ def get_or_make_solver(
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
     problem = get(problem_id)
+    if(problem is None):
+        print()
+        problems.print_all_problems()
+        exit()
     f = out if (DISPLAY) else null
     print(f"\nReturning solver for problem: {problem.identity}.", file=f)
     if(DISABLE_GC):
@@ -306,7 +311,7 @@ print(f"Using {platform.python_implementation()}.")
 if(__name__ == "__main__"):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id",
+        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Run without any arguments to see a list of available problems.",
         nargs="?",
         default=None
     )
@@ -321,8 +326,15 @@ if(__name__ == "__main__"):
         "--capitulate","-c", action="store_true",
         help="Give up on being perfect. Choosing this turns on --no_pickles."
     )
+    parser.add_argument("--new_problem", "-n", nargs="*", help="Create a problem from user input, rather than specifying an already-existing problem. Syntax: p_id rc_num rc_num ... mode, which is one of S, E, or N. If no mode, S will be assumed. Here's an example of a valid problem input: 'python controller.py -n Fire 4 9 11 12 N -d'")
 
     args = parser.parse_args()
+    if(args.new_problem): # if no -n, this is None
+        p = problems.front_facing_user_input(' '.join(args.new_problem))
+        if(p is None):
+            print("Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed.")
+            exit()
+        args.prob_id = p.identity
     if(args.prob_id is None):
         # no problem specified. Perhaps display all problems?
         print_all_problems()

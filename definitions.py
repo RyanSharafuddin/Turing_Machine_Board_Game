@@ -53,18 +53,6 @@ NIGHTMARE = 2
 console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
 # By default, Rich strips color escape codes if it detects that it is not printing directly to a terminal (for example, if it is printing to a file or if it's being piped into another program like less). With force_terminal, we can make it print color codes regardless of whether it is directly printing to a terminal.
 
-# rules_card_infos[i] is a dict for the ith verifier (which, in a non-nightmare game, corresponds to the ith rules card in rules_cards_list). That dict is:
-
-# rules_card_infos[i] = {
-#   outer_key = rule_index (index within card of a possible rule that the ith card could be):
-#   if nightmare mode, outer_key = (corresponding_rc_index, rule_index). corresponding_rc_index is an index of a rule card that this verifier card could correspond to, and rule_index is the index of a rule on that card that this verifier could be verifying.
-#   val = {
-#       key = possible answer int that could be the case if the verifier is checking for the rule given by the outer key :
-#       val = [all rule combos that correspond to that answer tuple and outer_key]
-#             in nightmare mode, each item in above list is a tuple of (combo, permutation)
-#             otherwise, each list item is just the combo
-#   }
-# }
 
 # useful_queries_dict is {
 #     key = proposal (answer int): value = {

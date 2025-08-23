@@ -2,8 +2,11 @@ from rich.table import Table
 from rich.text import Text
 from config import *
 from definitions import *
-from display import MODE_NAMES
+from display import MODE_NAMES, Solver_Displayer
+import rules # WARN: side effects?
+import solver
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
+USER_PROBS_FILE_NAME = "user_problems.txt"
 
 # STANDARD
 STANDARD_PROB_TUPS = [
@@ -29,6 +32,15 @@ EXTREME_PROB_TUPS = [
 NIGHTMARE_PROB_TUPS = [
     ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
 ]
+def read_user_problems_from_file(f_name):
+    """ Reads user problems from a file line by line and returns a list of them """
+    l = []
+    with open(f_name, 'r') as f:
+        for line in f:
+            if(line.strip()):
+                p = eval(line)
+            l.append(p)
+    return(l)
 derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in STANDARD_PROB_TUPS]
 derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in NIGHTMARE_PROB_TUPS]
 NIGHTMARE_PROB_TUPS += derived_nightmare_prob_tups
@@ -40,16 +52,22 @@ STANDARD_PROB_TUPS += derived_standard_prob_tups
 standard_problems = [Problem(*(problem_tup + (STANDARD,))) for problem_tup in STANDARD_PROB_TUPS]
 extreme_problems =  [Problem(*(problem_tup + (EXTREME,))) for problem_tup in EXTREME_PROB_TUPS]
 nightmare_problems =  [Problem(*(problem_tup + (NIGHTMARE,))) for problem_tup in NIGHTMARE_PROB_TUPS]
-all_problems = standard_problems + extreme_problems + nightmare_problems
+all_problems = standard_problems + extreme_problems + nightmare_problems + read_user_problems_from_file(USER_PROBS_FILE_NAME)
 problem_identities = set()
 for p in all_problems:
     if(p.identity in problem_identities):
         print(f"Error! There are multiple problems with identity {p.identity}. Exiting.")
         exit()
     problem_identities.add(p.identity)
-id_to_problem_dict : dict[str:Problem] = {problem.identity: problem for problem in all_problems}
-prefix_id_to_problem_list_dict = dict()
-for (identity, problem) in id_to_problem_dict.items():
+ID_TO_PROBLEM_DICT : dict[str:Problem] = {problem.identity: problem for problem in all_problems}
+PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
+
+def add_problem_to_both_dicts(problem: Problem):
+    ID_TO_PROBLEM_DICT[problem.identity] = problem
+    add_problem_to_prefix_id_dict(problem)
+
+def add_problem_to_prefix_id_dict(problem: Problem):
+    identity = problem.identity
     for i in range(len(identity)):
         prefix: str = identity[:i+1]
         if not(identity.endswith('_N') or identity.endswith('_S')):
@@ -58,20 +76,22 @@ for (identity, problem) in id_to_problem_dict.items():
             pref_add = f'{prefix}_{identity[-1]}'
         else:
             break
-        if(pref_add in prefix_id_to_problem_list_dict):
-            prefix_id_to_problem_list_dict[pref_add].append(problem)
+        if(pref_add in PREFIX_ID_TO_PROBLEM_LIST_DICT):
+            PREFIX_ID_TO_PROBLEM_LIST_DICT[pref_add].append(problem)
         else:
-            prefix_id_to_problem_list_dict[pref_add] = [problem]
+            PREFIX_ID_TO_PROBLEM_LIST_DICT[pref_add] = [problem]
 
+for problem in ID_TO_PROBLEM_DICT.values():
+    add_problem_to_prefix_id_dict(problem)
 
 # console.print(prefix_id_to_problem_list_dict)
 def get_problem_by_id(problem_id: str):
-    """ All problems should be defined in problems.py. See this file for how it all works. """
+    """ All problems should be defined in problems.py or the user problem file. See this file for how it all works. """
     problem_id = problem_id.upper()
-    problem_list = prefix_id_to_problem_list_dict.get(problem_id, [])
+    problem_list = PREFIX_ID_TO_PROBLEM_LIST_DICT.get(problem_id, [])
     if(not problem_list):
-        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py. Exiting.")
-        exit()
+        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py.")
+        return(None)
     if(len(problem_list) > 1):
         print(f"There are multiple problems f{problem_id} could refer to. Here they are:\n")
         for(index, problem) in enumerate(problem_list, start=1):
@@ -79,6 +99,88 @@ def get_problem_by_id(problem_id: str):
         a = int(input("\nWhich one would you like?\n> "))
         return(problem_list[a - 1])
     return(problem_list[0])
+
+def front_facing_user_input(s):
+    intermediate = user_input_to_triplet(s)
+    if(intermediate is None):
+        return(None)
+    return(process_problem_input_from_user(*intermediate))
+
+ACCEPTABLE_MODES = ["S", "E", "N"]
+def user_input_to_triplet(s:str):
+    l = s.split()
+    if(len(l) < 3):
+        console.print(f"Error: '{s}' cannot be interpreted as a problem description.")
+        return(None)
+    if(l[-1].upper() not in ACCEPTABLE_MODES):
+        l.append('S') # assume mode 
+    return(l[0], ' '.join(l[1:len(l)-1]), l[-1])
+
+def process_problem_input_from_user(p_id, rc_nums_str, mode_str):
+    """ Makes a problem out of user input from stdin, adds it to the problem dicts and the text file of user problems, and returns it. """
+    # console.print("Enter problem ID", end="")
+    problem_id = p_id.upper()
+    if(problem_id in ID_TO_PROBLEM_DICT):
+        console.print(f"Error: There already exists a problem with ID '{problem_id}'")
+        print("Note that problem IDs are not case-sensitive.")
+        print(f"Returning the pre-existing problem with ID: '{problem_id}' instead.")
+        return(ID_TO_PROBLEM_DICT[problem_id])
+    if(problem_id.endswith("_S") or problem_id.endswith("_N")):
+        print("Error: Don't end problem IDs with '_S' or '_N'.")
+        return(None)
+    # console.print("Enter rule card numbers", end="")
+    # rc_nums_str = input(": ")
+    rcs_nums_strs_list = rc_nums_str.split()
+    rc_nums = []
+    for rc_num_str in rcs_nums_strs_list:
+        try:
+            rc = int(rc_num_str)
+            rc_nums.append(rc)
+            if(not rc in rules.rcs_deck):
+                console.print(f"Error: rule card {rc} is not defined in the rule card deck.")
+                return(None)
+        except ValueError:
+            print(f"Error: '{rc_num_str}' cannot be interpreted as a rule card number.")
+            return(None)
+    if len(set(rc_nums)) != len(rc_nums):
+        print(f"Error: Each rule card can only appear once in a problem.")
+        return(None)
+    # console.print("Enter problem mode.\n1: Standard\n2: Extreme\n3: Nightmare")
+    # mode = input(": ")
+    if(mode_str.upper() not in ACCEPTABLE_MODES):
+        print(f"Error: {mode_str} could not be interpreted as a mode.")
+        return(None)
+    mode = ACCEPTABLE_MODES.index(mode_str.upper())
+    if((mode == 1) and ((len(rc_nums) % 2) != 0)):
+        print("Error: In Extreme mode, there should be an even number of rule cards.")
+        return(None)
+    p = Problem(identity=problem_id, rc_nums_list=rc_nums, mode=int(mode))
+    s = solver.Solver(p)
+    if not s.full_cwas_list:
+        sd = Solver_Displayer(s)
+        sd.print_problem(s.rcs_list, p)
+        console.print(f"Error. This is an invalid problem with no solutions.")
+        return(None)
+    add_problem_to_both_dicts(p)
+    write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
+    if((p.mode == STANDARD) or (p.mode == NIGHTMARE)):
+        other_version_mode = NIGHTMARE if (p.mode == STANDARD) else STANDARD
+        other_version_suffix = "_S" if other_version_mode == STANDARD else "_N"
+        other_version_problem = Problem(
+            f"{p.identity}{other_version_suffix}", p.rc_nums_list, other_version_mode
+        )
+        add_problem_to_both_dicts(other_version_problem)
+        write_user_problem_to_file(USER_PROBS_FILE_NAME, other_version_problem)
+    return(p)
+
+# p = get_problem_input_from_user()
+# console.print(p)
+
+# TODO: write the user problems to a text file so that they persist between uses.
+def write_user_problem_to_file(f_name, p: Problem):
+    with open(f_name, "a") as f:
+        f.write(repr(p))
+        f.write("\n")
 
 def print_all_problems():
     table = Table(
@@ -90,7 +192,8 @@ def print_all_problems():
     table.add_column("ID", justify="right", style=PROBLEM_ID_COLOR)
     table.add_column("Rule Cards List", justify="left", style=RULE_CARD_NUMS_COLOR)
     table.add_column("Mode")
-    probs_list = list(id_to_problem_dict.values())
+    probs_list = list(ID_TO_PROBLEM_DICT.values()) # TODO: sort probs list first by mode, then ID alphabetical?
+    probs_list.sort(key=lambda p: (p.mode, p.identity))
     for (i, p) in enumerate(probs_list):
         table.add_row(
             p.identity,
@@ -100,3 +203,4 @@ def print_all_problems():
         if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
             table.add_section()
     console.print(table)
+
