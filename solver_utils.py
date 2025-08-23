@@ -76,7 +76,7 @@ def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, n
 
         # neither are None
         if not (
-            # WARN TODO: think carefully about this. What if, for 1 verifier, they're isomorphic, and the other, they're mirrored? I think it still works, but consider it carefully. Print everything out.
+            # cwa_set representation_change (if numpy arrays for example, will have to change how they compare equal, by using == .all(), or something like that.)
             ((q_info1[0] == q_info2[0]) and (q_info1[1] == q_info2[1])) or
             ((q_info1[0] == q_info2[1]) and (q_info1[1] == q_info2[0]))
         ):
@@ -96,9 +96,9 @@ def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, n
             # Neither covers a verifier the other doesn't
             return(_ISOMORPHIC)
 
-def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
-    useful_queries_dict = dict()
-    rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(possible_combos_with_answers, n_mode)
+def _init_base_qs_dict(all_125_possibilities_set, full_cwas_list, flat_rule_list, n_mode):
+    base_queries_dict = dict()
+    rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(full_cwas_list, n_mode)
     for (unsolved_verifier_index, possible_rule_ids_this_verifier) in enumerate(rules_by_verifier):
         if(len(possible_rule_ids_this_verifier) < 2):
             continue # this verifier is solved and has no useful queries, so on to the next one
@@ -109,37 +109,39 @@ def _init_base_qs_dict(all_125_possibilities_set, possible_combos_with_answers, 
                 if(proposal in possible_rule.reject_set):
                     rejecting_rules_ids.add(possible_rule.unique_id)
             if(0 < len(rejecting_rules_ids) < len(possible_rules_this_verifier)): # useful query
-                possible_cwa_indexes_set_remaining_if_true = set()
-                possible_cwa_indexes_set_remaining_if_false = set()
-                for cwa in possible_combos_with_answers:
+                # cwa_set representation_change
+                cwa_set_true = set()
+                cwa_set_false = set()
+                for (cwa_index, cwa) in enumerate(full_cwas_list):
                     (c, p) = (cwa[0], cwa[1])
                     combo_rule_id = c[(
                         p[unsolved_verifier_index] if(n_mode) else unsolved_verifier_index
                     )].unique_id
-                    cwa_index = ((tuple([r.card_index for r in cwa[0]]),) + cwa[1:])
+                    # cwa_set representation_change
                     if(combo_rule_id in rejecting_rules_ids):
-                        possible_cwa_indexes_set_remaining_if_false.add(cwa_index)
+                        cwa_set_false.add(cwa_index)
                     else:
-                        possible_cwa_indexes_set_remaining_if_true.add(cwa_index)
+                        cwa_set_true.add(cwa_index)
 
                 query_info = Query_Info(
-                    possible_cwa_indexes_set_remaining_if_true,
-                    possible_cwa_indexes_set_remaining_if_false
+                    cwa_set_true,
+                    cwa_set_false
                 )
-                if(proposal in useful_queries_dict):
-                    inner_dict = useful_queries_dict[proposal]
+                if(proposal in base_queries_dict):
+                    inner_dict = base_queries_dict[proposal]
                     assert (not(unsolved_verifier_index in inner_dict))
                     inner_dict[unsolved_verifier_index] = query_info
                 else:
-                    useful_queries_dict[proposal] = {
+                    base_queries_dict[proposal] = {
                         unsolved_verifier_index: query_info
                     }
-    return(useful_queries_dict)
+    return(base_queries_dict)
 
 def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
     """
     Get a list of lists of isomorphic queries. If one query is strictly less useful than another (isomorphic to it for all verifiers it can be used on, but the set of verifiers it can be used on is a strict subset of the verifiers the other query can be used on), then it won't appear in any output list.
     """
+    # TODO: instead of making the full list of list, just directly make the flat list of proposals you need right here. i.e. if you find that a proposal is isomorphic to something before it, don't append it to that list; just don't include it at all. Have this function return a flat list of all the proposals you need to include. Maybe make a debug mode function that does make the full lol.
     isomorphic_proposals_lol = []
     representative_info_list = [] # same type as what is used to compare in compare_two_proposals
     for (proposal, inner_dict) in base_qs_dict.items():
@@ -159,12 +161,12 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
                 break
             elif(comparison_result is _EXCLUDE_FIRST):
                 # debug mode print out a proposal got eliminated
-                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+                # console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
                 break
             elif(comparison_result is _EXCLUDE_SECOND):
                 # debug mode print out a proposal list is about to get eliminated
                 # if you're in debug mode, can print out something here to show which proposals are about to be eliminated. Consider looking into if __debug__ and see if there's a way to optimize it away when running for real without changing code.
-                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
+                # console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
                 isomorphic_proposals_lol[list_index] = None
                 # NOTE: should NOT break out of loop early here, b/c even though this proposal is guaranteed to not be isomorphic to any of the other proposals in any isomorphic proposals list, it could still eliminate more future isomorphic proposals lists from the LOL, and if you broke out of this loop right now, those future isomorphic proposals lists that should have been eliminated will not be eliminated.
             # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.
@@ -203,7 +205,7 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.
     """
     num_vs = len(full_cwas[0][0])
-    # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
+    # TODO: consider optimizing the 'sets' belows w/ bitarray or python int or numpy packed bits or something.
     possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
     for cwa in full_cwas:
         (c, p) = (cwa[0], cwa[1])
@@ -213,7 +215,7 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
             corresponding_set.add(possible_rule.unique_id)
     return(possible_rule_ids_by_verifier)
 
-def make_full_cwa(problem, rcs_list):
+def make_full_cwas_list(problem, rcs_list):
     possible_combos_with_answers = _get_possible_rules_combos_with_answers(rcs_list)
     if(problem.mode == NIGHTMARE):
         nightmare_possible_combos_with_answers = []
@@ -234,14 +236,15 @@ def get_dict_filtered_of_isomorphic_proposals(base_qs_dict, num_verifiers):
     filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
     return(filtered_qs_dict)
 
-def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers, flat_rule_list, n_mode):
+def make_useful_qs_dict(all_125_possibilities_set, full_cwas_list, flat_rule_list, n_mode):
     base_qs_dict = _init_base_qs_dict(
         all_125_possibilities_set,
-        possible_combos_with_answers,
+        full_cwas_list,
         flat_rule_list,
         n_mode
     )
-    num_verifiers = len(possible_combos_with_answers[0][0])
+
+    num_verifiers = len(full_cwas_list[0][0])
     isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
     useful_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
 

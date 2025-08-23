@@ -352,13 +352,13 @@ class Solver_Displayer:
             best_expected_cost_tup
         ) = self.solver.get_move_mcost_gs_ncost_from_cache(gs)
         (gs_false, gs_true) = best_gs_tup
-        cwa_remaining_if_false = gs_false.fset_cwa_indexes_remaining
-        num_cwa_false = len(cwa_remaining_if_false)
+        full_cwa_remaining_if_false = self.solver.full_cwa_list_from_game_state(gs_false)
+        num_cwa_false = len(full_cwa_remaining_if_false)
 
-        cwa_remaining_if_true = gs_true.fset_cwa_indexes_remaining
-        num_cwa_true = len(cwa_remaining_if_true)
+        full_cwa_remaining_if_true = self.solver.full_cwa_list_from_game_state(gs_true)
+        num_cwa_true = len(full_cwa_remaining_if_true)
 
-        num_cwa_now = len(gs.fset_cwa_indexes_remaining)
+        num_cwa_now = len(self.solver.full_cwa_list_from_game_state(gs))
         p_true = num_cwa_true / num_cwa_now
         p_false = num_cwa_false / num_cwa_now
 
@@ -573,10 +573,10 @@ class Solver_Displayer:
         Note: will need the full_cwas used to make this useful_queries_dict.
         """
         full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_q_dict_made)
-        q_dict_this_card = dict()
+        q_dict_this_card: dict[int: Query_Info] = dict()
         for (proposal, inner_dict) in sorted(useful_qs_dict.items()):
             if(v_index in inner_dict):
-                q_info = inner_dict[v_index]
+                q_info: Query_Info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
 
         possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
@@ -595,10 +595,8 @@ class Solver_Displayer:
                 continue
             (full_cwa_false, full_cwa_true) = [
                 self.solver.full_cwa_list_from_cwa_set(
-                        self.solver.intersect_cwa_set(cwa_set_when_q_dict_made, q_info_cwa_set)
-                    ) for q_info_cwa_set in (
-                        q_info.set_indexes_cwa_remaining_false, q_info.set_indexes_cwa_remaining_true
-                    )
+                        self.solver.intersect_cwa_sets(cwa_set_when_q_dict_made, q_info_cwa_set)
+                    ) for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
             ]
 
             possible_rules_false_title = Text.assemble(
@@ -809,26 +807,6 @@ class Solver_Displayer:
 def mov_to_str(move: tuple):
     return(f"{move[0]} {letters[move[1]]}")
 
-def get_max_string_height_by_depth(tree):
-    """
-    Given a tree, returns a list l, where l[i] is the maximum number of combinations of an internal node at that height.
-    """
-    answer = []
-    q = deque()
-    q.append(tree)
-    while(q):
-        curr_node : Tree = q.popleft()
-        if not(solver.one_answer_left(curr_node.gs.fset_cwa_indexes_remaining)): # internal node
-            num_combinations = len(curr_node.gs.fset_cwa_indexes_remaining)
-            if(curr_node.depth == len(answer)):
-                answer.append(num_combinations)
-            else:
-                answer[curr_node.depth] = max(answer[curr_node.depth], num_combinations)
-            children = get_children(curr_node)
-            for child in children:
-                q.append(child)
-    return(answer)
-
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.
@@ -857,6 +835,27 @@ class Tree:
         # prob_tup # probabilities of the move being (false, true)
         # gs_tup   # resulting game states from the move being false, true
         # m_cost   # the cost the move in self.move
+
+def get_max_string_height_by_depth(tree: Tree):
+    """
+    Given a tree, returns a list l, where l[i] is the maximum number of combinations of an internal node at that height.
+    """
+    answer = []
+    q = deque()
+    q.append(tree)
+    while(q):
+        curr_node : Tree = q.popleft()
+        full_cwas_current_node = tree.solver.full_cwa_list_from_cwa_set(curr_node.gs.cwa_set)
+        if not(solver.one_answer_left(tree.solver.full_cwas_list, curr_node.gs.cwa_set)): # internal node
+            num_combinations = len(full_cwas_current_node)
+            if(curr_node.depth == len(answer)):
+                answer.append(num_combinations)
+            else:
+                answer[curr_node.depth] = max(answer[curr_node.depth], num_combinations)
+            children = get_children(curr_node)
+            for child in children:
+                q.append(child)
+    return(answer)
 
 def get_children_multi_move(tree):
     raise Exception("Unimplemented")
@@ -894,12 +893,14 @@ def node_to_str_multi_move(tree):
     raise Exception("Unimplemented")
 
 def get_children(tree: Tree):
-    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
+    if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
         result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         if(result is not None):
             (best_move, best_move_cost, gs_tup, total_expected_cost) = result
-            current_num_combos = len(tree.gs.fset_cwa_indexes_remaining)
-            num_combos_if_q_true = len(gs_tup[1].fset_cwa_indexes_remaining)
+            full_cwas_node = tree.solver.full_cwa_list_from_game_state(tree.gs)
+            current_num_combos = len(full_cwas_node)
+            full_cwas_if_q_true = tree.solver.full_cwa_list_from_game_state(gs_tup[1])
+            num_combos_if_q_true = len(full_cwas_if_q_true)
             p_true = num_combos_if_q_true / current_num_combos
             p_false = 1 - p_true
             prob_tup = (p_false, p_true)
@@ -915,55 +916,11 @@ def get_children(tree: Tree):
             ]
             return(children)
     return([])
-def node_to_str(tree: Tree):
-    nl = '\n'
-    rcs_lengths = [len(rc) for rc in tree.solver.rcs_list]
-    chars_to_print = [2 if (i > 10) else 1 for i in rcs_lengths] # chars_to_print[i] is the number of chars needed to print a rule index on the ith rule card, since some rule cards have over 10 rules on them, so rule index 10 (zero-based) will need two characters to print.
-
-    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
-        result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
-        combos_l = sorted(tree.gs.fset_cwa_indexes_remaining, key = lambda t: t[1])
-        (best_move, best_move_cost, gs_tup, total_expected_cost) = result
-        combos_strs = [f"{n:>2}. {c[1]}: {' '.join(str(f'{i:>{chars_to_print[rc_ind]}}') for (rc_ind, i) in enumerate(c[0]))}" for (n, c) in enumerate(combos_l, start=1)]
-        prob_str = f"{tree.prob:0.3f}" # Note: in format 0.123
-        prob_str = f"{prob_str[2:4]}.{prob_str[4]}%"
-        move_str = f"{best_move[0]} {letters[best_move[1]]}"
-        # NOTE: comment out below if block to not mark new rounds in the best move tree
-        if(best_move_cost[0] == 1): # if the best move costs a round
-            move_str += ' (R)'
-        cost_of_node_str = ' '.join([f'{add_tups(tree.cost_to_get_here, total_expected_cost)[i]:.3f}' for i in range(2)])
-        verifier_names_str = (" " * 9) + ' '.join( # NOTE: change the 9 if change combo lines beginning
-            [f'{letters[i]:>{chars_to_print[i]}}' for i in range(len(combos_l[0][0]))]
-        )
-        if(Tree.show_combos_in_tree): # only show combos in tree if user asks for it.
-            combos_lines = [verifier_names_str] + combos_strs + ['' for i in range(Tree.max_combos_by_depth[tree.depth] - len(combos_strs))]
-        else:
-            combos_lines = []
-
-        if(tree.prob == 1):
-            prob_line = [] # don't show probability for initial game state where probability is 1
-        else:
-            prob_line = [prob_str]
-
-        lines = (
-            prob_line +
-            [cost_of_node_str] +
-            combos_lines +
-            [move_str]
-        )
-        max_line_length = max([len(l) for l in lines])
-        lines = [f"{l:^{max_line_length}}" for l in lines] # the ^ centers the lines
-        node_str = f"{nl.join(lines)}"
-        return(node_str)
-    else: # leaf node
-        l = list(tree.gs.fset_cwa_indexes_remaining)
-        answer = l[0][-1]
-        return(answer)
 
 def node_to_str_table(tree: Tree):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
-    if not(solver.one_answer_left(tree.gs.fset_cwa_indexes_remaining)):
+    if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
         result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         (best_move, best_move_cost, gs_tup, total_expected_cost) = result
         verifier_to_sort_by = (
@@ -1009,8 +966,8 @@ def node_to_str_table(tree: Tree):
         node_str = '\n'.join(node_list_lines).strip()
         return(node_str)
     else: # leaf node
-        l = list(tree.gs.fset_cwa_indexes_remaining)
-        answer = l[0][-1]
+        full_cwas_node = tree.solver.full_cwa_list_from_game_state(tree.gs)
+        answer = full_cwas_node[0][-1]
         t = Table.grid()
         leaf_foreground_color = (
             f"b {sd.answer_to_color_dict[answer]}" if WRITE_ANSWERS_MULTIPLE_TIMES_COLOR 
@@ -1024,22 +981,12 @@ def node_to_str_table(tree: Tree):
 
 
 def print_best_move_tree(gs, show_combos, solver):
-    # TODO: finish testing the trees, then use only the table_tree, w/correct show_combos, instead of all 4
     print()
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs=gs, solver=solver)
     Tree.max_combos_by_depth = get_max_string_height_by_depth(tree)
-    regular_tree = PrettyPrintTree(get_children, node_to_str)
     table_tree = PrettyPrintTree(get_children, node_to_str_table, color='')
-    # regular_tree(tree)
-    # print()
     table_tree(tree)
-    # TODO: delete below block
-    # print("\nOpposite show combos\n")
-    # Tree.show_combos_in_tree = not(show_combos)
-    # regular_tree(tree)
-    # print()
-    # table_tree(tree)
 
 def print_multi_move_tree(gs, show_combos, solver):
     raise Exception("Unimplemented")

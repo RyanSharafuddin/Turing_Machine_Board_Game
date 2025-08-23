@@ -1,49 +1,89 @@
-from pympler.asizeof import asizeof # TODO: delete
-from line_profiler import profile
+from pympler.asizeof import asizeof
 import time
 import rules, config, solver_utils
 from definitions import *
 
+def make_initial_game_state(full_cwas_list):
+    # cwa_set representation_change
+    cwa_set = frozenset(list(range(len(full_cwas_list))))
+    initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
+    return(initial_game_state)
 
-def get_cwa_set_for_initial_game_state(full_cwas_list):
-    fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwas_list]
-        )
-    return(fset_cwa_indexes_remaining)
-def one_answer_left(fset_cwa_indexes):
+def one_answer_left(full_cwas_list, cwa_set):
     """
     Given a set of CWA as stored in the game state object, returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
-    NOTE: if you change the game_state cwa sets to be implemented using a set of integers, or a list of booleans, or numpy bit pack, or a single long integer, or something else, will need to change the parameters: will need to add full_cwa as a parameter of this function.
     """
+    # cwa_set representation_change
+    # TODO: see if using answer block intersection helps or hurts.
+    # TODO: see which of sorting/not sorting the full cwas list in solver_utils.make_full_cwas_list is better.
     seen_answer_set = set()
     # See comments in definitions.Game_State for the format game_state_cwa_set is in.
     # May not be a literal Python set object.
-    iterator = iter(fset_cwa_indexes)
+    iterator = iter(cwa_set)
     zeroth_cwa_representation = next(iterator)
-    seen_answer_set.add(zeroth_cwa_representation[-1])
+    seen_answer_set.add(full_cwas_list[zeroth_cwa_representation][-1])
     current_cwa_representation = next(iterator, None)
 
     while(current_cwa_representation is not None):
-        if(current_cwa_representation[-1] not in seen_answer_set):
+        if(full_cwas_list[current_cwa_representation][-1] not in seen_answer_set):
             return(False)
         current_cwa_representation = next(iterator, None)
     return(True)
+
+def get_set_r_unique_ids_vs_from_cwas_set_representation(
+        full_cwas_list,
+        cwas_set_representation,
+        num_vs,
+        n_mode: bool,
+    ) ->  list[set[int]]:
+    """
+    Given a cwas_set, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
+    """
+    # cwa_set representation_change
+    # TODO: consider optimizing the 'sets' in possible_rule_ids_by_verifier w/ bitsets or ints or numpy packed bits or bools or something.
+    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
+    # NOTE: if replace the output of this with a numpy packed bits, then instead of doing a slow Python loop
+    # here over every CWA, can store a numpy array containing the possible rules by verifier bits for every possible CWA, and replace this with a fast vectorized numpy bitwise OR.
+    # for example, let's say that the first CWA assigns some rules to some verifiers that look
+    # like this: 00110010 (a numpy array representing which rules are assigned to which verifiers for the zeroth CWA)
+    # Then, the next CWA may be 11001010.
+    # If you make a numpy double array (an array of arrays) where the double array corresponds to the whole
+    # CWA list, and each array within it corresponds to the rules assigned to verifiers for that specific CWA,
+    # then, you can get the index the full CWA list double array by which CWAs are present now, and then
+    # numpy bitwise OR that indexed list together, for speed gainz. See if you can index a numpy array with a packed bit array; otherwise will have to unpack to booleans. And pay attention to endianness.
+    for cwa_index in cwas_set_representation:
+        cwa = full_cwas_list[cwa_index]
+        (c, p) = (cwa[0], cwa[1])
+        for v_index in range(num_vs):
+            corresponding_set = possible_rule_ids_by_verifier[v_index]
+            rc_index_for_this_v = p[v_index] if(n_mode) else v_index
+            unique_id = c[rc_index_for_this_v].unique_id
+            corresponding_set.add(unique_id)
+    return(possible_rule_ids_by_verifier)
 # TODO: define a length method if switch to another set representation
 
 # useless_queries = 0
 # useful_queries = 0
-def create_move_info(num_combos_currently, game_state, num_queries_this_round, q_info, move, cost):
+def create_move_info(
+        num_combos_currently,
+        game_state: Game_State,
+        num_queries_this_round,
+        q_info: Query_Info,
+        move,
+        cost
+    ):
     """
     num_queries_this_round is the number there will be after making this move.
     WARN: could be None
     """
-    fset_indexes_cwa_remaining_true = \
-        game_state.fset_cwa_indexes_remaining & q_info.set_indexes_cwa_remaining_true
-    fset_indexes_cwa_remaining_false = \
-        game_state.fset_cwa_indexes_remaining &  q_info.set_indexes_cwa_remaining_false
-    if(bool(fset_indexes_cwa_remaining_false) and bool(fset_indexes_cwa_remaining_true)):
+    # cwa_set representation_change
+    # will need the function to intersect two sets as well as to see if a set is nonempty.
+    cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
+    cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
+    if(bool(cwa_set_if_false) and bool(cwa_set_if_true)):
         # this is a useful query.
-        num_combos_remaining_true = len(fset_indexes_cwa_remaining_true)
+        # cwa_set representation_change Will need a function to get the length of a set.
+        num_combos_remaining_true = len(cwa_set_if_true)
         p_true = num_combos_remaining_true / num_combos_currently
         p_false = 1 - p_true
         p_tuple = (p_false, p_true)
@@ -51,12 +91,12 @@ def create_move_info(num_combos_currently, game_state, num_queries_this_round, q
         game_state_false = Game_State(
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = proposal_used_this_round,
-            fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_false,
+            cwa_set = cwa_set_if_false,
         )
         game_state_true = Game_State(
             num_queries_this_round = num_queries_this_round,
             proposal_used_this_round = proposal_used_this_round,
-            fset_cwa_indexes_remaining = fset_indexes_cwa_remaining_true,
+            cwa_set = cwa_set_if_true,
         )
         gs_tuple = (game_state_false, game_state_true)
         move_info = (move, cost, gs_tuple, p_tuple)
@@ -76,7 +116,8 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
     cost is a tuple (round cost, query cost)
     """
     # calling len() to figure out num_combos_currently here so don't have to do it repeatedly inside loop
-    num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
+    # cwa_set representation_change Will have to implement a function to get length of set
+    num_combos_currently = len(game_state.cwa_set)
     if(game_state.proposal_used_this_round is None):
         # Yield all proposals b/c it's a new round.
         cost = (1, 1)
@@ -99,8 +140,8 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                 )
                 if(move_info is not None):
                     yield(move_info)
-                else:
-                    pass # not a useful query
+                # else:
+                #     pass # not a useful query
 
     else:
         # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
@@ -120,9 +161,8 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                 )
                 if(move_info is not None):
                     yield(move_info)
-                else:
-                    # TODO: use line profiling to figure out how many times you're hitting this line (as well as the equivalent line in the block below), and get an estimate of how much time you spend on the set intersection operation in create_move_info on useless queries, and, if it's substantial, consider making a new qs_dict with every call to calculate_best_move that doesn't include known useless queries. But maybe before doing this, replace the set_indexes_cwa in game_states and q_infos with simple ints that are indexes into the solver.full possible combos list (not tuples for index, answer; just ints), and make a function called contains_one_answer(cwa_index_list, full_cwa_list). This way, performing set intersection should take substantially less time, which will better inform you if making new qs_dicts with every calculate_best_move call is worth it.
-                    pass # not a useful query. See other comments.
+                # else:
+                #     pass # not a useful query. See other comments.
 
 class Solver:
     null_answer = (None, (0,0))
@@ -135,24 +175,15 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
-        self.full_cwas_list           = solver_utils.make_full_cwa(problem, self.rcs_list)
+        self.full_cwas_list     = solver_utils.make_full_cwas_list(problem, self.rcs_list)
         self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
-        # self.cost_calulator     = solver_utils.calculate_worst_case_cost # can also be calculate_worst_case_cost
+        # self.cost_calulator     = solver_utils.calculate_worst_case_cost
         self.testing_stuff() # WARN TODO: delete
-        self.initial_game_state = Game_State(
-            0,
-            None,
-            get_cwa_set_for_initial_game_state(self.full_cwas_list)
-        )
+        self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         if(not(self.full_cwas_list)):
             return
-
-        # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate (see big optimization)
-        self._rc_indexes_cwa_to_full_combos_dict = {
-            (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwas_list
-        }
 
         self.qs_dict        = solver_utils.make_useful_qs_dict(
             all_125_possibilities_set, self.full_cwas_list, self.flat_rule_list, self.n_mode
@@ -163,12 +194,15 @@ class Solver:
         global sd
         sd = display.Solver_Displayer(self)
         # sd.print_problem(self.rcs_list, self.problem)
+        # sd.print_all_possible_answers(
+        #     self.full_cwas_list,
+        # )
         # exit()
 
     # called_calculate = 0
     # cache_hits = 0
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
-    @profile
+    # @profile
     def calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
@@ -178,7 +212,7 @@ class Solver:
         if(game_state in self.evaluations_cache):
             # self.cache_hits += 1
             return(self.evaluations_cache[game_state])
-        if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
+        if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
@@ -201,7 +235,7 @@ class Solver:
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
                 ):
-                    # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                    # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
         if(found_moves):
             # uncomment below line for use with worst_case_cost with tiebreaker
@@ -211,7 +245,7 @@ class Solver:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
-                fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
+                cwa_set=game_state.cwa_set
             )
             answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
 
@@ -220,7 +254,7 @@ class Solver:
         #     new_gs = Game_State(
         #         num_queries_this_round=0,
         #         proposal_used_this_round=None,
-        #         fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
+        #         cwa_set=game_state.cwa_set
         #     )
         #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
         #     if(end_round_early_result[1] < best_node_cost):
@@ -239,7 +273,9 @@ class Solver:
         self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache) # TODO: delete if this asizeof takes too long or hangs
+        # WARN: The line below itself uses up a lot of memory. Delete when doing nightmare problems.
+        # self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache)
+        # self.number_duplicated_cwa_sets()
         # self.print_cache_by_size()
         # console.print(f"{useless_queries:,} useless queries")
         # console.print(f"{useful_queries:,} useful queries")
@@ -251,25 +287,21 @@ class Solver:
         """
         if not(game_state in self.evaluations_cache):
             return(default)
-
         (best_move, node_evaluation) = (
             self.evaluations_cache[game_state][0], self.evaluations_cache[game_state][-1]
         )
         best_mcost = ((Solver.does_move_cost_round(best_move, game_state)), 1)
         gs_tuple = self.apply_move_to_state(best_move, game_state)
         constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
-        # assert(constructed_answer == self.evaluations_cache[game_state])
-        # if not(constructed_answer == self.evaluations_cache[game_state]):
-        #     print("O NOES!")
-        #     exit()
         return(constructed_answer)
 
     def apply_move_to_state(self, move, gs: Game_State) -> tuple[Game_State, Game_State]:
-        """ WARN: ONLY use this inside the get_move_mcost... fuction. Not for anything else """
+        """ WARN: ONLY use this inside the get_move_mcost... function. Not for anything else """
         (proposal, v_index) = move
         (q_info_true, q_info_false) = self.qs_dict[proposal][v_index]
         (cwa_set_false, cwa_set_true) = (
-            (gs.fset_cwa_indexes_remaining & q_info_false), (gs.fset_cwa_indexes_remaining & q_info_true)
+            self.intersect_cwa_sets(gs.cwa_set, q_info_false),
+            self.intersect_cwa_sets(gs.cwa_set, q_info_true)
         )
         num_queries_this_round = (1 if Solver.does_move_cost_round(move, gs) else (
                 (gs.num_queries_this_round + 1) % 3
@@ -279,12 +311,12 @@ class Solver:
         gs_false = Game_State(
             num_queries_this_round=num_queries_this_round,
             proposal_used_this_round=proposal_used_this_round,
-            fset_cwa_indexes_remaining=cwa_set_false
+            cwa_set=cwa_set_false
         )
         gs_true = Game_State(
             num_queries_this_round=num_queries_this_round,
             proposal_used_this_round=proposal_used_this_round,
-            fset_cwa_indexes_remaining=cwa_set_true
+            cwa_set=cwa_set_true
         )
         return((gs_false, gs_true))
 
@@ -295,19 +327,61 @@ class Solver:
         return(gs.proposal_used_this_round != proposal)
 
     def full_cwa_list_from_cwa_set(self, cwa_set):
+        # cwa_set representation_change
         """ Given a cwa_set, return a list of the complete cwas in it. """
-        return([self._rc_indexes_cwa_to_full_combos_dict[cwa] for cwa in cwa_set])
+        return([self.full_cwas_list[cwa_index] for cwa_index in cwa_set])
 
     def full_cwa_list_from_game_state(self, gs: Game_State):
         """ A convenience function for getting the full cwa list directly from a game state """
-        return(self.full_cwa_list_from_cwa_set(gs.fset_cwa_indexes_remaining))
+        return(self.full_cwa_list_from_cwa_set(gs.cwa_set))
 
-    def intersect_cwa_set(self, cwa_set_1, cwa_set_2):
+    def intersect_cwa_sets(self, cwa_set_1, cwa_set_2):
         """ Used by display.print_useful_qs_dict. """
+        # cwa_set representation_change
         return(cwa_set_1 & cwa_set_2)
-    # def print_cache_by_size(self):
-    #     l = [0] * (len(self.full_cwa) + 1)
-    #     for gs in self.evaluations_cache:
-    #         l[len(gs.fset_cwa_indexes_remaining)] += 1
-    #     for (size, num) in enumerate(l):
-    #         console.print(f"{size:>{3},}: {num:>{15},}")
+
+    def print_cache_by_size(self):
+        l = [0] * (len(self.full_cwas_list))
+        for gs in self.evaluations_cache:
+            # cwa_set representation_change need a function to get length from cwa_set
+            # TODO: will need to change significantly once store game state's in the cache with minimal_possible_rules_by_verifier_set s instead of what currently doing.
+            l[len(gs.cwa_set) - 1] += 1
+        for (size, num) in enumerate(l, start=1):
+            console.print(f"{size:>{3},}: {num:>{15},}")
+
+    def number_duplicated_cwa_sets(self):
+        """ Prints the number of cwa_sets in the evaluations cache that are duplicated and wasting memory. """
+        cache_cwa_sets = dict()
+        cache_gs_with_same_cwas = dict()
+        unnecesary_duplicated_cwa_sets = 0
+        wasted_memory = 0
+        duplicates_with_same_identity = 0
+        for game_state in self.evaluations_cache:
+            game_state: Game_State
+            if(game_state.cwa_set in cache_cwa_sets):
+                previously_seen_list = cache_cwa_sets[game_state.cwa_set]
+                cache_gs_with_same_cwas[game_state.cwa_set].append(game_state)
+                for previously_seen_item in previously_seen_list:
+                    if(previously_seen_item is game_state.cwa_set):
+                        duplicates_with_same_identity += 1
+                        break
+                else:
+                    unnecesary_duplicated_cwa_sets += 1
+                    previously_seen_list.append(game_state.cwa_set)
+                    wasted_memory += asizeof(game_state.cwa_set)
+            else:
+                cache_cwa_sets[game_state.cwa_set] = [game_state.cwa_set]
+                cache_gs_with_same_cwas[game_state.cwa_set] = [game_state]
+        list_dups = []
+        for previously_seen_list in cache_cwa_sets.values():
+            list_dups += previously_seen_list
+        console.print(f"Number of unnecessary duplicates          : {unnecesary_duplicated_cwa_sets:,}")
+        console.print(f"Number of bytes they waste                : {wasted_memory:,}")
+        console.print(f"Alternate number of bytes they waste      : {asizeof(list_dups) - asizeof([None] * len(list_dups)):,}")
+        console.print(f"duplicates with same identity             : {duplicates_with_same_identity:,}")
+        for gs_list in cache_gs_with_same_cwas.values():
+            if(len(gs_list) < 2):
+                continue
+            console.rule()
+            for gs in gs_list:
+                sd.print_evaluations_cache_info(gs)

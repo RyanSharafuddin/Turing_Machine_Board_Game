@@ -1,42 +1,21 @@
 from solver import *
 
-def get_set_r_unique_ids_vs_from_cwas_set_representation(
-        cwas_set_representation,
-        rcs_list: list[list[Rule]],
-        num_vs
-    ) ->  list[set[int]]:
-    """
-    Given a cwas_set, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
-    """
-    # TODO: consider optimizing the 'sets' belows w/ bitsets or something.
-    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
-    for cwa in cwas_set_representation:
-        (c, p) = (cwa[0], cwa[1])
-        for (v_index, corresponding_rc) in enumerate(p):
-            corresponding_set = possible_rule_ids_by_verifier[v_index]
-            possible_card_index = c[corresponding_rc]
-            unique_id = rcs_list[corresponding_rc][possible_card_index].unique_id
-            corresponding_set.add(unique_id)
-    return(possible_rule_ids_by_verifier)
-
-def calculate_minimal_vs_list(rcs_list, num_rcs, game_state: Game_State) -> list[set[int]]: 
+def calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]: 
     # TODO: print this out to make sure it works
     minimal_vs_list: list[set[int]] = []
     r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
-        game_state.fset_cwa_indexes_remaining,
-        rcs_list,
-        num_rcs
+        full_cwas_list,
+        game_state.cwa_set,
+        num_rcs,
+        n_mode=True,
     )
     for v_index in range(num_rcs):
-        is_isomorphic_to_previous_verifier = False
         for (v_set_index, v_set) in enumerate(minimal_vs_list):
             for arbitrary_v_set_member in v_set:
                 break
             if(r_unique_ids_by_verifier[v_index] == r_unique_ids_by_verifier[arbitrary_v_set_member]):
-                is_isomorphic_to_previous_verifier = True
+                v_set.add(v_index)
                 break
-        if(is_isomorphic_to_previous_verifier):
-            minimal_vs_list[v_set_index].add(v_index)
         else:
             minimal_vs_list.append(set([v_index]))
     return(minimal_vs_list)
@@ -47,7 +26,8 @@ def nightmare_get_and_apply_moves(
         minimal_vs_list: list[set[int]]
     ):
     # TODO: step through with a debugger to understand how the minimal vs_list is working.
-    num_combos_currently = len(game_state.fset_cwa_indexes_remaining)
+    # cwa_set representation_change Will have to implement a function to get length of set
+    num_combos_currently = len(game_state.cwa_set)
     if(game_state.proposal_used_this_round is None):
         cost = (1, 1)
         next_num_queries = 1
@@ -120,13 +100,15 @@ class Solver_Nightmare(Solver):
         if(game_state in self.evaluations_cache):
             # self.cache_hits += 1
             return(self.evaluations_cache[game_state])
-        if(one_answer_left(game_state.fset_cwa_indexes_remaining)):
+        if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
         best_node_cost = Solver.initial_best_cost
         if(game_state.proposal_used_this_round is None):
-            minimal_vs_list = calculate_minimal_vs_list(self.rcs_list, self.num_rcs, game_state)
+            minimal_vs_list = calculate_minimal_vs_list(
+                self.num_rcs, game_state, self.full_cwas_list
+            )
 
         found_moves = False
         # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
@@ -134,7 +116,8 @@ class Solver_Nightmare(Solver):
         for move_info in nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self.calculate_best_move(
-                qs_dict, gs_tup[0],
+                qs_dict,
+                gs_tup[0],
                 minimal_vs_list
             )[1]
             gs_true_node_cost = self.calculate_best_move(
@@ -152,7 +135,7 @@ class Solver_Nightmare(Solver):
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
                 ):
-                    # can solve within 1 query and 0 rounds, or 1 query and all queries cost a round, so return early
+                    # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
         if(found_moves):
             answer = (best_move, best_node_cost)
@@ -161,11 +144,8 @@ class Solver_Nightmare(Solver):
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
-                fset_cwa_indexes_remaining=game_state.fset_cwa_indexes_remaining
+                cwa_set=game_state.cwa_set
             )
-            answer = self.calculate_best_move(
-                qs_dict=qs_dict,
-                game_state=new_gs,
-            )
+            answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
         self.evaluations_cache[game_state] = answer
         return(answer)

@@ -1,7 +1,8 @@
-from definitions import *
-from display import MODE_NAMES
 from rich.table import Table
 from rich.text import Text
+from config import *
+from definitions import *
+from display import MODE_NAMES
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
 
 # STANDARD
@@ -80,17 +81,21 @@ def get_problem_by_id(problem_id: str):
     return(problem_list[0])
 
 def print_all_problems():
-    table = Table(title="Available Problems", title_style="bright_white", header_style="magenta")
-    table.add_column("ID", justify="right", style="turquoise2")
-    table.add_column("Rule Cards List", justify="left", style="dark_goldenrod")
-    table.add_column("Mode", style="indian_red1")
+    table = Table(
+        title="Available Problems",
+        title_style="bright_white",
+        header_style=PROBLEM_TABLE_HEADER_COLOR,
+        border_style=PROBLEM_TABLE_BORDER,
+    )
+    table.add_column("ID", justify="right", style=PROBLEM_ID_COLOR)
+    table.add_column("Rule Cards List", justify="left", style=RULE_CARD_NUMS_COLOR)
+    table.add_column("Mode")
     probs_list = list(id_to_problem_dict.values())
     for (i, p) in enumerate(probs_list):
-        # console.print(p)
         table.add_row(
             p.identity,
             ' '.join([f'{n:>2}' for n in p.rc_nums_list]),
-            Text(MODE_NAMES[p.mode], style=['green', 'yellow', 'red'][p.mode])
+            Text(MODE_NAMES[p.mode], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode])
         )
         if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
             table.add_section()

@@ -35,7 +35,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
         sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
-    while not(solver.one_answer_left(current_gs.fset_cwa_indexes_remaining)):
+    while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
         (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.get_move_mcost_gs_ncost_from_cache(
             current_gs
         )
@@ -83,7 +83,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    if(solver.one_answer_left(s.initial_game_state.fset_cwa_indexes_remaining)):
+    if(solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
     else:
         if(display_problem):
@@ -115,7 +115,7 @@ def get_relevant_parts_cache(s:solver.Solver):
     while(stack):
         curr_gs = stack.pop()
         if((curr_gs in s.evaluations_cache) and (curr_gs not in new_evaluations_cache) and
-            (not solver.one_answer_left(curr_gs.fset_cwa_indexes_remaining))):
+            (not solver.one_answer_left(s.full_cwas_list, curr_gs.cwa_set))):
             curr_gs_modified_answer = s.get_move_mcost_gs_ncost_from_cache(curr_gs)
             curr_gs_raw_answer = s.evaluations_cache[curr_gs]
             (curr_gs_false_result, curr_gs_true_result) = curr_gs_modified_answer[2]
@@ -362,7 +362,7 @@ if(__name__ == "__main__"):
 # sd = display.Solver_Displayer(s)
 # sd.print_useful_qs_dict_info(
 #     s.qs_dict,
-#     s.initial_game_state.fset_cwa_indexes_remaining,
+#     s.initial_game_state.cwa_set
 #     verifier_index=None,          # set to None for all verifiers
 #     proposals_to_examine=None,   # set to None for all proposals
 #     see_all_combos=True

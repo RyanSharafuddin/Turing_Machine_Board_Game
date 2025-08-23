@@ -24,8 +24,8 @@ Rule = namedtuple('Rule', ['name', 'reject_set', 'func', 'card_index', 'unique_i
 Query_Info = namedtuple(
     'Query_Info',
     [
-        'set_indexes_cwa_remaining_true', # corresponds to game state sets of indexes remaining
-        'set_indexes_cwa_remaining_false' # corresponds to game state sets of indexes remaining
+        'cwa_set_true',
+        'cwa_set_false'
     ]
 )
 
@@ -34,14 +34,7 @@ Game_State = namedtuple(
     [
         'num_queries_this_round',
         'proposal_used_this_round',
-        'fset_cwa_indexes_remaining', # {((2, 3, 4, 7), 121), ...}
-        # In nightmare mode, each item in fset_cwa_indexes_remaining is:
-        # (
-        #     (card_indices of rules for each rule card (not verifier) in combo),
-        #     (verifier permutation tuple),
-        #     answer int
-        # )
-        # in standard or extreme, each item is ((card_indexes_tuple), answer_int)
+        'cwa_set', # a set of ints corresponding to the indexes of the cwas in the the full_cwas_list
     ]
 )
 

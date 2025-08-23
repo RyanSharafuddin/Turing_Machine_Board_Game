@@ -1,9 +1,11 @@
 from solver import *
 
 def fset_answers_from_cwa_set(cwa_set):
+    # cwa_set representation_change TODO!!
     return(frozenset([cwa[-1] for cwa in cwa_set]))
 
 def choose_best_move_depth_one(moves_list):
+    # cwa_set representation_change TODO!!
     best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
     for(move, mcost, gs_tuple, p_tuple) in moves_list:
         (p_false, p_true) = p_tuple
@@ -25,6 +27,7 @@ def choose_best_move_depth_one(moves_list):
     return(answer)
 
 def calculate_actual_expected_for_capitulation(evaluations_cache, game_state: Game_State):
+    # cwa_set representation_change TODO!!
     if(not game_state in evaluations_cache):
         return((0, 0))
     (best_move, best_mcost, best_gs_tup, answer_combo_cost) = evaluations_cache[game_state]
@@ -48,7 +51,7 @@ class Solver_Capitulate(Solver):
         stack = [self.initial_game_state]
         while(stack):
             current_gs = stack.pop()
-            if not(one_answer_left(current_gs.fset_cwa_indexes_remaining)):
+            if not(one_answer_left(self.full_cwas_list, current_gs.fset_cwa_indexes_remaining)):
                 moves_list = list(get_and_apply_moves(current_gs, self.qs_dict))
                 if not(moves_list):
                     new_game_state = Game_State(
