@@ -11,6 +11,8 @@ import solver
 from definitions import *
 from config import *
 
+MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
+
 letters = string.ascii_uppercase
 def r_names_perm_order(rl, permutation, permutation_order):
     permutation = permutation if(permutation_order) else range(len(rl))
@@ -224,7 +226,6 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
             return(result_table)
-
 def end_play_display(answers_table, q_history_table, ans_line, score_line):
     """ comment or uncomment to choose behavior of end_play_display """
     # line below left aligns everything and then prints that unit in the center
@@ -251,9 +252,6 @@ def highlight(*items):
     l = [h(item) for item in items]
     return(l if(len(l) > 1) else l[0])
 
-def no_hi_then_hi(s1, s2):
-    return(Text(s1) + highlight(s2))
-
 def center_print(*args, **kwargs):
     console.print(*args, **kwargs, justify="center", highlight=True)
 
@@ -274,9 +272,8 @@ class Solver_Displayer:
         )
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
-        modes = ["Standard", "Extreme", "Nightmare"]
         if(active):
-            title = f"\nProblem: {problem.identity}. Mode: {modes[problem.mode]}"
+            title = f"\nProblem: {problem.identity}. Mode: {MODE_NAMES[problem.mode]}"
             self.print_rcs_list(rcs_list, title, justify=justify)
 
     def print_rcs_list(
@@ -305,196 +302,6 @@ class Solver_Displayer:
         else:
             console.print(table, justify=justify)
 
-    def _get_card_indexes_text(self, card_index_col_widths, c):
-        card_indexes_list = [r.card_index for r in c]
-        card_indexes_strings_list = [
-            str(ci).rjust(card_index_col_widths[col]) for (col, ci) in enumerate(card_indexes_list)
-        ]
-        card_indexes_text = Text()
-        for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
-            style=self._rule_to_color_dict[c[combo_index].unique_id]
-            card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
-        return(card_indexes_text)
-
-    def _get_r_names_texts_list(self, c, p, permutation_order, verifier_to_sort_by, color_all=True):
-        n_wo_p = self.n_mode and not(permutation_order)
-        r_names_list = _make_r_name_list(c, p, permutation_order)
-        _apply_style_to_r_names(
-            r_names_list, verifier_to_sort_by, permutation_order, self._rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
-        )
-        return(r_names_list)
-
-    def _make_answer_table_cols(
-        self,
-        table,
-        p_order,
-        final_answer,
-        display_combo_number,
-        verifier_to_sort_by,
-        tree_version
-    ):
-        n_wo_p = self.n_mode and not(p_order)
-        rule_col_title = '' if tree_version else f"{'Rule Card ' if (n_wo_p) else 'Verifier '}"
-        rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
-        if(not final_answer):
-            table.add_column("", justify="right") # answer index column
-        table.add_column("Ans")                   # answer       column
-        if(display_combo_number):
-            table.add_column("", justify="right") # combo index column
-        for v_index in range(len(self.solver.rcs_list)):
-            if(p_order):
-                table.add_column("")              # RC          column (nightmare mode only)
-            rule_column_name = f"{rule_col_title}{letters[v_index]}"
-            rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
-            col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
-            table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
-        if not tree_version:
-            table.add_column("Rule Indexes")          # Rule Indexes column
-            if(self.n_mode):
-                table.add_column("Permutation")       # Permutation column (nightmare mode only)
-
-    def get_all_possible_answers_table(
-            self,
-            cwas,
-            title                = "",
-            permutation_order    = False,
-            display_combo_number = True,
-            verifier_to_sort_by  = None,
-            tree_version         = False,
-            num_empty_rows       = 0,     # used for tree tables
-            **kwargs
-        ):
-        """
-        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
-
-        verifier_to_sort_by: optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
-
-        All **kwargs passed to Table.
-        """
-        n_mode = (self.solver.problem.mode == NIGHTMARE)
-        permutation_order = permutation_order and n_mode
-        n_wo_p = n_mode and not(permutation_order)
-        unzipped_cwa = list(zip(*cwas))
-        (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
-        set_possible_answers = set(answers)
-        final_answer = (len(set_possible_answers) == 1)
-
-        if not("header_style" in kwargs):
-            kwargs["header_style"] = "magenta"
-        if not("title_style" in kwargs):
-            kwargs["title_style"] = ""
-        table = Table(title=title, **kwargs)
-        self._make_answer_table_cols(
-            table,
-            permutation_order,
-            final_answer,
-            display_combo_number,
-            verifier_to_sort_by,
-            tree_version
-        )
-        # NOTE: Set LINES_BETWEEN_ANSWERS to True/False to enable/disable lines between new answers
-
-
-        # TODO: consider making the row arguments its own function.
-        sorted_cwas = sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by))
-        a_index = 0
-        card_index_col_widths = _get_col_widths(
-            [
-                ([c[p_num].card_index for p_num in p] if (permutation_order) else [r.card_index for r in c])
-                for (c, p) in zip(combos, permutations)
-            ]
-        )
-
-        if(tree_version):
-            if(permutation_order):
-                card_index_col_widths = [num + 1 for num in card_index_col_widths]
-            header_style=f"b bright_white on {TREE_BACKGROUND_COLOR}"
-            default_tree_style = f"b bright_white on {TREE_BACKGROUND_COLOR}"
-            table = Table(
-                box=None,
-                padding=(0, 1),
-                collapse_padding=True,
-                # style=default_tree_style,
-                header_style=header_style,
-                title_style=header_style
-            )
-            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}", justify="right") # combo index column
-            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}") # Answer column
-            for v_index in range(len(combos[0])):
-                table.add_column(
-                    # if column has even width, put the verifier name on right side of center.
-                    (' ' if (card_index_col_widths[v_index] % 2 == 0) else '') + letters[v_index],
-                    style=f"on {TREE_BACKGROUND_COLOR}",
-                    justify="center",
-                )
-            table.caption_style=header_style
-
-        for (c_index, cwa) in enumerate(sorted_cwas, start=1): # note that c_index starts at 1
-            (c, a) = (cwa[0], cwa[-1])
-            p = cwa[1] if (n_mode) else None
-            new_ans = ((c_index == 1) or (a != sorted_cwas[c_index - 2][-1]))
-            a_index += new_ans
-            only_unique_answer_index = Text(str(a_index) if(new_ans) else '', style="white")
-            if(new_ans and LINES_BETWEEN_ANSWERS):
-                table.add_section()
-
-            card_indexes_text = self._get_card_indexes_text(card_index_col_widths, c)
-            r_names_texts_list = self._get_r_names_texts_list(
-                c, p, permutation_order, verifier_to_sort_by, color_all=True
-            )
-            if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR):
-                answer_color = self.answer_to_color_dict[a]
-                answer_write = Text(str(a), style=f'b {answer_color}')
-            else:
-                answer_write = Text(str(a) if(new_ans) else '', "b bright_white")
-            tree_index_num = (
-                Text(str(c_index)) if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR) else
-                only_unique_answer_index
-            )
-            if not(tree_version):
-                t_row_args = (
-                    (tuple() if (final_answer) else (only_unique_answer_index,)) +
-                    (answer_write,) +
-                    ((str(c_index),) if(display_combo_number) else tuple()) +
-                    tuple(r_names_texts_list) +
-                    (card_indexes_text,) + 
-                    ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
-                )
-            else:
-                p = p if(permutation_order) else range(len(c))
-                table_unique_id_list = [c[p_num].unique_id for p_num in p]
-                table_color_list = [self._rule_to_color_dict[t_uid] for t_uid in table_unique_id_list]
-                table_chars_list = [
-                    f'{letters[rc_index] if(permutation_order) else ""}' +
-                    f'{self.solver.flat_rule_list[t_uid].card_index}'
-                    for (rc_index, t_uid) in zip(p, table_unique_id_list)
-                ]
-                # table_text_list = [Text("", f'on {tree_background_color}')] +\
-                table_text_list = [
-                    tree_index_num.append("." if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR or new_ans) else ''),
-                    answer_write,
-                ] +\
-                [
-                    Text(
-                        text=f"{chars}",
-                        style=f'b {"r " if ((col == verifier_to_sort_by) and not(n_wo_p)) else""}{color}',
-                        justify="right"
-                    )
-                    for (col, (chars, color)) in
-                    enumerate(zip(table_chars_list, table_color_list))
-                ]
-
-                # for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
-                t_row_args = table_text_list
-                # style=self.rule_to_color_dict[c[combo_index].unique_id]
-                # card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
-                # t_row_args = (card_indexes_text,)
-            num_row_args = len(t_row_args)
-            table.add_row(*t_row_args)
-        for v_index in range(num_empty_rows):
-            table.add_row(*['' * num_row_args])
-        return(table)
-
     def print_all_possible_answers(
             self,
             cwas,
@@ -519,7 +326,7 @@ class Solver_Displayer:
         """
         if(not active):
             return
-        table = self.get_all_possible_answers_table(
+        table = self._get_all_possible_answers_table(
             cwas,
             title                = title,
             permutation_order    = permutation_order,
@@ -670,7 +477,89 @@ class Solver_Displayer:
             rcs_list_possible, title, justify=justify, indent=indent, border_style=border_style, **kwargs
         )
 
-    def print_useful_qs_dict_info_helper(
+    def print_useful_qs_dict_info(
+        self,
+        useful_qs_dict,
+        cwa_set_when_q_dict_made,
+        verifier_index=None,
+        proposals_to_examine=None,
+        see_all_combos=True
+    ):
+        """
+        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
+        If either verifier_index or proposals_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if a proposal is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
+        Note: will need the cwa_set of the cwas that were possible when this useful_queries_dict was made.
+        proposals_to_examine can be either a single proposal or an iterable of proposals.
+        """
+        if(type(proposals_to_examine) == int):
+            proposals_to_examine = [proposals_to_examine]
+        for possible_v_index in range(len(self.solver.rcs_list)):
+            if((verifier_index is None) or (possible_v_index == verifier_index)):
+                self._print_useful_qs_dict_info_helper(
+                    useful_qs_dict, cwa_set_when_q_dict_made, possible_v_index, proposals_to_examine, see_all_combos
+                )
+
+    def print_eval_cache_size(self):
+        if not(hasattr(self.solver, "size_of_evaluations_cache_in_bytes")):
+            console.print("This solver did not record the size of its evaluations cache.")
+            return
+        size = self.solver.size_of_evaluations_cache_in_bytes
+        if(size > 0):
+            if(size >= (2 ** 30)):
+                console.print(f"Size of evaluations cache in gigabytes: {size /(2 ** 30):,.2f}.")
+            if(size >= (2 ** 20)):
+                console.print(f"Size of evaluations cache in megabytes: {size /(2 ** 20):,.2f}.")
+            console.print(f"Size of evaluations cache in     bytes: {size:,}.")
+
+    def _get_card_indexes_text(self, card_index_col_widths, c):
+        card_indexes_list = [r.card_index for r in c]
+        card_indexes_strings_list = [
+            str(ci).rjust(card_index_col_widths[col]) for (col, ci) in enumerate(card_indexes_list)
+        ]
+        card_indexes_text = Text()
+        for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
+            style=self._rule_to_color_dict[c[combo_index].unique_id]
+            card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
+        return(card_indexes_text)
+
+    def _get_r_names_texts_list(self, c, p, permutation_order, verifier_to_sort_by, color_all=True):
+        n_wo_p = self.n_mode and not(permutation_order)
+        r_names_list = _make_r_name_list(c, p, permutation_order)
+        _apply_style_to_r_names(
+            r_names_list, verifier_to_sort_by, permutation_order, self._rule_to_color_dict, c, p, color_all=color_all, single_out_queried=not(n_wo_p)
+        )
+        return(r_names_list)
+
+    def _make_answer_table_cols(
+        self,
+        table,
+        p_order,
+        final_answer,
+        display_combo_number,
+        verifier_to_sort_by,
+        tree_version
+    ):
+        n_wo_p = self.n_mode and not(p_order)
+        rule_col_title = '' if tree_version else f"{'Rule Card ' if (n_wo_p) else 'Verifier '}"
+        rule_col_width = max(len(f"{rule_col_title} X"), self.max_possible_rule_length)
+        if(not final_answer):
+            table.add_column("", justify="right") # answer index column
+        table.add_column("Ans")                   # answer       column
+        if(display_combo_number):
+            table.add_column("", justify="right") # combo index column
+        for v_index in range(len(self.solver.rcs_list)):
+            if(p_order):
+                table.add_column("")              # RC          column (nightmare mode only)
+            rule_column_name = f"{rule_col_title}{letters[v_index]}"
+            rule_col_style = 'r' if((v_index == verifier_to_sort_by) and not(n_wo_p)) else ''
+            col_text = Text(text=rule_column_name, style=rule_col_style, justify="center")
+            table.add_column(col_text, min_width=rule_col_width) # Verifier/Rule Card columns
+        if not tree_version:
+            table.add_column("Rule Indexes")          # Rule Indexes column
+            if(self.n_mode):
+                table.add_column("Permutation")       # Permutation column (nightmare mode only)
+
+    def _print_useful_qs_dict_info_helper(
         self,
         useful_qs_dict,
         cwa_set_when_q_dict_made,
@@ -774,27 +663,148 @@ class Solver_Displayer:
                     border_style="#58A500"
                 )
 
-    def print_useful_qs_dict_info(
-        self,
-        useful_qs_dict,
-        cwa_set_when_q_dict_made,
-        verifier_index=None,
-        proposals_to_examine=None,
-        see_all_combos=True
-    ):
+    def _get_all_possible_answers_table(
+            self,
+            cwas,
+            title                = "",
+            permutation_order    = False,
+            display_combo_number = True,
+            verifier_to_sort_by  = None,
+            tree_version         = False,
+            num_empty_rows       = 0,     # used for tree tables
+            **kwargs
+        ):
         """
-        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
-        If either verifier_index or proposals_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if a proposal is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
-        Note: will need the cwa_set of the cwas that were possible when this useful_queries_dict was made.
-        proposals_to_examine can be either a single proposal or an iterable of proposals.
+        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
+
+        verifier_to_sort_by: optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
+
+        All **kwargs passed to Table.
         """
-        if(type(proposals_to_examine) == int):
-            proposals_to_examine = [proposals_to_examine]
-        for possible_v_index in range(len(self.solver.rcs_list)):
-            if((verifier_index is None) or (possible_v_index == verifier_index)):
-                self.print_useful_qs_dict_info_helper(
-                    useful_qs_dict, cwa_set_when_q_dict_made, possible_v_index, proposals_to_examine, see_all_combos
+        n_mode = (self.solver.problem.mode == NIGHTMARE)
+        permutation_order = permutation_order and n_mode
+        n_wo_p = n_mode and not(permutation_order)
+        unzipped_cwa = list(zip(*cwas))
+        (combos, permutations, answers) = (unzipped_cwa[0], unzipped_cwa[1], unzipped_cwa[-1])
+        set_possible_answers = set(answers)
+        final_answer = (len(set_possible_answers) == 1)
+
+        if not("header_style" in kwargs):
+            kwargs["header_style"] = "magenta"
+        if not("title_style" in kwargs):
+            kwargs["title_style"] = ""
+        table = Table(title=title, **kwargs)
+        self._make_answer_table_cols(
+            table,
+            permutation_order,
+            final_answer,
+            display_combo_number,
+            verifier_to_sort_by,
+            tree_version
+        )
+        # NOTE: Set LINES_BETWEEN_ANSWERS to True/False to enable/disable lines between new answers
+
+
+        # TODO: consider making the row arguments its own function.
+        sorted_cwas = sorted(cwas, key=_get_sort_key(n_mode, n_wo_p, verifier_to_sort_by))
+        a_index = 0
+        card_index_col_widths = _get_col_widths(
+            [
+                ([c[p_num].card_index for p_num in p] if (permutation_order) else [r.card_index for r in c])
+                for (c, p) in zip(combos, permutations)
+            ]
+        )
+
+        if(tree_version):
+            if(permutation_order):
+                card_index_col_widths = [num + 1 for num in card_index_col_widths]
+            header_style=f"b bright_white on {TREE_BACKGROUND_COLOR}"
+            default_tree_style = f"b bright_white on {TREE_BACKGROUND_COLOR}"
+            table = Table(
+                box=None,
+                padding=(0, 1),
+                collapse_padding=True,
+                # style=default_tree_style,
+                header_style=header_style,
+                title_style=header_style
+            )
+            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}", justify="right") # combo index column
+            table.add_column("", style=f"on {TREE_BACKGROUND_COLOR}") # Answer column
+            for v_index in range(len(combos[0])):
+                table.add_column(
+                    # if column has even width, put the verifier name on right side of center.
+                    (' ' if (card_index_col_widths[v_index] % 2 == 0) else '') + letters[v_index],
+                    style=f"on {TREE_BACKGROUND_COLOR}",
+                    justify="center",
                 )
+            table.caption_style=header_style
+
+        for (c_index, cwa) in enumerate(sorted_cwas, start=1): # note that c_index starts at 1
+            (c, a) = (cwa[0], cwa[-1])
+            p = cwa[1] if (n_mode) else None
+            new_ans = ((c_index == 1) or (a != sorted_cwas[c_index - 2][-1]))
+            a_index += new_ans
+            only_unique_answer_index = Text(str(a_index) if(new_ans) else '', style="white")
+            if(new_ans and LINES_BETWEEN_ANSWERS):
+                table.add_section()
+
+            card_indexes_text = self._get_card_indexes_text(card_index_col_widths, c)
+            r_names_texts_list = self._get_r_names_texts_list(
+                c, p, permutation_order, verifier_to_sort_by, color_all=True
+            )
+            if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR):
+                answer_color = self.answer_to_color_dict[a]
+                answer_write = Text(str(a), style=f'b {answer_color}')
+            else:
+                answer_write = Text(str(a) if(new_ans) else '', "b bright_white")
+            tree_index_num = (
+                Text(str(c_index)) if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR) else
+                only_unique_answer_index
+            )
+            if not(tree_version):
+                t_row_args = (
+                    (tuple() if (final_answer) else (only_unique_answer_index,)) +
+                    (answer_write,) +
+                    ((str(c_index),) if(display_combo_number) else tuple()) +
+                    tuple(r_names_texts_list) +
+                    (card_indexes_text,) + 
+                    ( ( f'{" ".join([str(r_index) for r_index in p])}', )  if(n_mode) else tuple())
+                )
+            else:
+                p = p if(permutation_order) else range(len(c))
+                table_unique_id_list = [c[p_num].unique_id for p_num in p]
+                table_color_list = [self._rule_to_color_dict[t_uid] for t_uid in table_unique_id_list]
+                table_chars_list = [
+                    f'{letters[rc_index] if(permutation_order) else ""}' +
+                    f'{self.solver.flat_rule_list[t_uid].card_index}'
+                    for (rc_index, t_uid) in zip(p, table_unique_id_list)
+                ]
+                # table_text_list = [Text("", f'on {tree_background_color}')] +\
+                table_text_list = [
+                    tree_index_num.append("." if(WRITE_ANSWERS_MULTIPLE_TIMES_COLOR or new_ans) else ''),
+                    answer_write,
+                ] +\
+                [
+                    Text(
+                        text=f"{chars}",
+                        style=f'b {"r " if ((col == verifier_to_sort_by) and not(n_wo_p)) else""}{color}',
+                        justify="right"
+                    )
+                    for (col, (chars, color)) in
+                    enumerate(zip(table_chars_list, table_color_list))
+                ]
+
+                # for (combo_index, c_index_str) in enumerate(card_indexes_strings_list):
+                t_row_args = table_text_list
+                # style=self.rule_to_color_dict[c[combo_index].unique_id]
+                # card_indexes_text.append(Text(text=f'{c_index_str} ', style=style))
+                # t_row_args = (card_indexes_text,)
+            num_row_args = len(t_row_args)
+            table.add_row(*t_row_args)
+        for v_index in range(num_empty_rows):
+            table.add_row(*['' * num_row_args])
+        return(table)
+
 
 def mov_to_str(move: tuple):
     return(f"{move[0]} {letters[move[1]]}")
@@ -980,7 +990,7 @@ def node_to_str_table(tree: Tree):
         else:
             num_combos = len(tree.solver.full_cwa_list_from_game_state(tree.gs))
             num_empty_rows = Tree.max_combos_by_depth[tree.depth] - num_combos
-            node_table = sd.get_all_possible_answers_table(
+            node_table = sd._get_all_possible_answers_table(
                 cwas=tree.solver.full_cwa_list_from_game_state(tree.gs),
                 permutation_order=P_ORDER,
                 display_combo_number=True,

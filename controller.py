@@ -3,6 +3,7 @@ from rich import print as rprint
 from definitions import *
 from config import *
 from problems import get_problem_by_id as get
+from problems import print_all_problems
 import display, solver
 from solver_capitulate import Solver_Capitulate
 from solver_nightmare import Solver_Nightmare
@@ -63,7 +64,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     # Found an answer
     full_cwa = s.full_cwa_list_from_game_state(current_gs)
     v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
-    answers_table = sd.get_all_possible_answers_table(
+    answers_table = sd._get_all_possible_answers_table(
         full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
     )
     answer = full_cwa[0][-1]
@@ -146,13 +147,7 @@ def make_solver(problem: Problem):
     s.solve()
     print(f"Finished.")
     console.print(f"It took {s.seconds_to_solve:,} seconds.")
-    if(s.size_of_evaluations_cache_in_bytes > 0):
-        console.print(
-            f"Size of evaluations cache in megabytes: {s.size_of_evaluations_cache_in_bytes//(2 ** 20):,}."
-        )
-        console.print(
-            f"Size of evaluations cache in     bytes: {s.size_of_evaluations_cache_in_bytes:,}."
-        )
+    sd.print_eval_cache_size()
     sys.stdout.flush()
     return(s)
 
@@ -249,6 +244,7 @@ def unpickle_solver_from_f_name(f_name):
     s: solver.Solver = pickle.load(f)
     f.close()
     print("Done.")
+    sd = display.Solver_Displayer(s)
     console.print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
     if(hasattr(s, "git_hash")):
         console.print(f"This solver was created in git commit {s.git_hash}.")
@@ -258,15 +254,7 @@ def unpickle_solver_from_f_name(f_name):
             print("Commit message was not recorded.")
     else:
         print("This solver did not record the git commit it was created in.")
-    if(hasattr(s, "size_of_evaluations_cache_in_bytes")):
-        console.print(
-            f"Size of evaluations cache in megabytes: {s.size_of_evaluations_cache_in_bytes//(2 ** 20):,}."
-        )
-        console.print(
-            f"Size of evaluations cache in     bytes: {s.size_of_evaluations_cache_in_bytes:,}."
-        )
-    else:
-        print("This solver did not record the size of its evaluations cache.")
+    sd.print_eval_cache_size()
     return(s)
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
@@ -307,7 +295,7 @@ c63 = "C630YVB" # multiple combos, same answer
 f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 70 seconds currently
 f63 = "F63EZQM" # Nice tree.      Full combos.
 f52 = "F52LUJG" # Excellent tree. Full combos
-f43 = "F435FE"  # Large tree. Hard, at ~650 seconds.
+f43 = "F435FE"  # Large tree. Hard, at ~500 seconds.
 p2_n = "2_N"
 first_nightmare = "I4BYJK"
 
@@ -321,7 +309,9 @@ print(f"Using {platform.python_implementation()}.")
 if(__name__ == "__main__"):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id"
+        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id",
+        nargs="?",
+        default=None
     )
     parser.add_argument("--display", "-d", action="store_true", help="Display the tree.")
     parser.add_argument("--play", "-p", action="store_true", help="Play the problem.")
@@ -336,28 +326,35 @@ if(__name__ == "__main__"):
     )
 
     args = parser.parse_args()
-    if(args.capitulate):
-        args.no_pickles = True
-    if(args.from_file):
-        if(args.play):
-            play_from_file(args.prob_id)
-        if(args.display):
-            display_problem_solution_from_file(args.prob_id)
+    if(args.prob_id is None):
+        # no problem specified. Perhaps display all problems?
+        print_all_problems()
     else:
-        if(args.display):
-            display_problem_solution(
-                args.prob_id,
-                no_pickles=args.no_pickles,
-                force_overwrite=args.force_overwrite
-            )
-        if(args.play):
-            play(
-                args.prob_id,
-                no_pickles=args.no_pickles,
-                force_overwrite=args.force_overwrite
-            )
-        if(not(args.play or args.display)):
-            s = get_or_make_solver(args.prob_id, no_pickles=True)[0]
+        if(args.capitulate):
+            args.no_pickles = True
+        if(args.from_file):
+            if(args.play):
+                play_from_file(args.prob_id)
+            if(args.display):
+                display_problem_solution_from_file(args.prob_id)
+        else:
+            if(args.display):
+                display_problem_solution(
+                    args.prob_id,
+                    no_pickles=args.no_pickles,
+                    force_overwrite=args.force_overwrite
+                )
+            if(args.play):
+                play(
+                    args.prob_id,
+                    no_pickles=args.no_pickles,
+                    force_overwrite=args.force_overwrite
+                )
+            if(not(args.play or args.display)):
+                if(args.force_overwrite):
+                    s = get_or_make_solver(args.prob_id, force_overwrite=args.force_overwrite)
+                else:
+                    s = get_or_make_solver(args.prob_id, no_pickles=True)[0]
 
     null.close()
 

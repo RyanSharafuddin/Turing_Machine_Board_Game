@@ -1,5 +1,7 @@
 from definitions import *
-
+from display import MODE_NAMES
+from rich.table import Table
+from rich.text import Text
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
 
 # STANDARD
@@ -10,13 +12,13 @@ STANDARD_PROB_TUPS = [
     ("A52F7E1",     [ 7,  8, 12, 14, 17]),
     ( "C5HCBJ",     [ 2, 15, 30, 31, 33]),
     ("B63YRW4", [ 2,  5,  9, 15, 18, 22]), # zero_query
-    ("C630YVB", [ 9, 22, 24, 31, 37, 40]), # multiple combos -> same answer
+    ("C630YVB", [ 9, 22, 24, 31, 37, 40]), # multiple combos -> same answer. nightmare version 2880 cwas.
     ("INVALID", [ 1,  2,  3,  4,  5,  6])  # invalid problem for testing purposes
 ]
 
 # EXTREME
 EXTREME_PROB_TUPS = [
-    ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 -> 1,195 -> ~650
+    ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 -> 1,195 -> ~650 -> ~500
     ( "F5XTDF",          [28, 14, 19,  6, 27, 16,  9, 47, 20, 21]), #    86 -> 70
     ("F52LUJG",          [15, 16, 23,  8, 46, 13, 34, 17,  9, 37]),
     ("E63YF4H",  [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9]),
@@ -44,7 +46,7 @@ for p in all_problems:
         print(f"Error! There are multiple problems with identity {p.identity}. Exiting.")
         exit()
     problem_identities.add(p.identity)
-id_to_problem_dict = {problem.identity: problem for problem in all_problems}
+id_to_problem_dict : dict[str:Problem] = {problem.identity: problem for problem in all_problems}
 prefix_id_to_problem_list_dict = dict()
 for (identity, problem) in id_to_problem_dict.items():
     for i in range(len(identity)):
@@ -76,3 +78,20 @@ def get_problem_by_id(problem_id: str):
         a = int(input("\nWhich one would you like?\n> "))
         return(problem_list[a - 1])
     return(problem_list[0])
+
+def print_all_problems():
+    table = Table(title="Available Problems", title_style="bright_white", header_style="magenta")
+    table.add_column("ID", justify="right", style="turquoise2")
+    table.add_column("Rule Cards List", justify="left", style="dark_goldenrod")
+    table.add_column("Mode", style="indian_red1")
+    probs_list = list(id_to_problem_dict.values())
+    for (i, p) in enumerate(probs_list):
+        # console.print(p)
+        table.add_row(
+            p.identity,
+            ' '.join([f'{n:>2}' for n in p.rc_nums_list]),
+            Text(MODE_NAMES[p.mode], style=['green', 'yellow', 'red'][p.mode])
+        )
+        if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
+            table.add_section()
+    console.print(table)

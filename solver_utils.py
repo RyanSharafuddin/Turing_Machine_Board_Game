@@ -140,11 +140,11 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
     """
     Get a list of lists of isomorphic queries. If one query is strictly less useful than another (isomorphic to it for all verifiers it can be used on, but the set of verifiers it can be used on is a strict subset of the verifiers the other query can be used on), then it won't appear in any output list.
     """
-    isomorphic_qs_lol = []
+    isomorphic_proposals_lol = []
     representative_info_list = [] # same type as what is used to compare in compare_two_proposals
     for (proposal, inner_dict) in base_qs_dict.items():
         for (list_index, (isomorphic_list, representative_info)) in enumerate(
-            zip(isomorphic_qs_lol, representative_info_list)
+            zip(isomorphic_proposals_lol, representative_info_list)
         ):
             if(isomorphic_list is None):
                 # this list was found to be strictly less useful than a later list
@@ -158,19 +158,23 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
                 isomorphic_list.append(proposal)
                 break
             elif(comparison_result is _EXCLUDE_FIRST):
-                # console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+                # debug mode print out a proposal got eliminated
+                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
                 break
             elif(comparison_result is _EXCLUDE_SECOND):
-                # console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
-                isomorphic_qs_lol[list_index] = None
+                # debug mode print out a proposal list is about to get eliminated
+                # if you're in debug mode, can print out something here to show which proposals are about to be eliminated. Consider looking into if __debug__ and see if there's a way to optimize it away when running for real without changing code.
+                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
+                isomorphic_proposals_lol[list_index] = None
+                # NOTE: should NOT break out of loop early here, b/c even though this proposal is guaranteed to not be isomorphic to any of the other proposals in any isomorphic proposals list, it could still eliminate more future isomorphic proposals lists from the LOL, and if you broke out of this loop right now, those future isomorphic proposals lists that should have been eliminated will not be eliminated.
             # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.
         else:
             # Found a new group of isomorphic queries
-            isomorphic_qs_lol.append([proposal])
+            isomorphic_proposals_lol.append([proposal])
             representative_info_list.append(inner_dict)
 
-    isomorphic_qs_lol = [isomorphic_l for isomorphic_l in isomorphic_qs_lol if (isomorphic_l is not None)]
-    return(isomorphic_qs_lol)
+    isomorphic_proposals_lol = [isomorphic_l for isomorphic_l in isomorphic_proposals_lol if (isomorphic_l is not None)]
+    return(isomorphic_proposals_lol)
 
 def _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol):
     """
@@ -245,7 +249,7 @@ def make_useful_qs_dict(all_125_possibilities_set, possible_combos_with_answers,
         print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
         for (index, isomorphic_list) in enumerate(isomorphic_proposals_lol):
             console.print(f'{index:>3,}', isomorphic_list, end=" ")
-        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} queries out of {len(base_qs_dict)}!")
+        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} proposals out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them

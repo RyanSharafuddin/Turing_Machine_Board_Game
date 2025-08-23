@@ -133,6 +133,7 @@ class Solver:
         self.evaluations_cache  = dict()
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
+        # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwa           = solver_utils.make_full_cwa(problem, self.rcs_list)
         self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
