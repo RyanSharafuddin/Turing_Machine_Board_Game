@@ -258,17 +258,17 @@ def center_print(*args, **kwargs):
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
         self.solver = solver
-        self._rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwa])
+        self._rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in self.solver.full_cwas_list])
         self.card_index_to_color_dict = _make_list_objs_to_color_dict(
-            [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwa]
+            [tuple([r.card_index for r in cwa[0]]) for cwa in solver.full_cwas_list]
         )
-        self.answer_to_color_dict = _make_list_objs_to_color_dict([cwa[-1] for cwa in solver.full_cwa])
+        self.answer_to_color_dict = _make_list_objs_to_color_dict([cwa[-1] for cwa in solver.full_cwas_list])
         self.n_mode = (self.solver.problem.mode == NIGHTMARE)
         self.max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in self.solver.rcs_list])
         # note that max_possible_rule_length is different from max_rule_name_length,
         # b/c not all rules in the problem are necessarily possible.
         self.max_possible_rule_length = max(
-            [max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwa], default=0
+            [max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwas_list], default=0
         )
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
@@ -591,7 +591,7 @@ class Solver_Displayer:
         )
         # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
         for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
-            if not ((proposal in proposals_to_examine) or (proposals_to_examine is None)):
+            if not ((proposals_to_examine is None) or (proposal in proposals_to_examine)):
                 continue
             (full_cwa_false, full_cwa_true) = [
                 self.solver.full_cwa_list_from_cwa_set(

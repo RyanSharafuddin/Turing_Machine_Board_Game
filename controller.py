@@ -134,7 +134,7 @@ def make_solver(problem: Problem):
     sd = display.Solver_Displayer(s)
     if(DISPLAY):
         sd.print_problem(s.rcs_list, s.problem, active=True)
-    if(not(s.full_cwa)):
+    if(not(s.full_cwas_list)):
         rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py.")
         console.print("Reminder that any rule combination must obey two rules:\n  1. There is exactly one proposal that satisfies them all.\n  2. Each rule eliminates at least one possibility that is not eliminated by any other rule.", highlight=False)
         rprint("\nRule card numbers list: ", s.problem.rc_nums_list, end='')
@@ -364,8 +364,8 @@ if(__name__ == "__main__"):
 #     s.qs_dict,
 #     s.initial_game_state.fset_cwa_indexes_remaining,
 #     verifier_index=None,          # set to None for all verifiers
-#     proposals_to_examine=[551],   # set to None for all proposals
-#     see_all_combos=False
+#     proposals_to_examine=None,   # set to None for all proposals
+#     see_all_combos=True
 # )
 # console.rule()
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)

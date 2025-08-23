@@ -5,9 +5,9 @@ import rules, config, solver_utils
 from definitions import *
 
 
-def fset_cwa_indexes_remaining_from_full_cwa(full_cwa):
+def get_cwa_set_for_initial_game_state(full_cwas_list):
     fset_cwa_indexes_remaining = frozenset(
-            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwa]
+            [(tuple([r.card_index for r in cwa[0]]),) + cwa[1:] for cwa in full_cwas_list]
         )
     return(fset_cwa_indexes_remaining)
 def one_answer_left(fset_cwa_indexes):
@@ -135,27 +135,27 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
-        self.full_cwa           = solver_utils.make_full_cwa(problem, self.rcs_list)
+        self.full_cwas_list           = solver_utils.make_full_cwa(problem, self.rcs_list)
         self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
         # self.cost_calulator     = solver_utils.calculate_worst_case_cost # can also be calculate_worst_case_cost
         self.testing_stuff() # WARN TODO: delete
         self.initial_game_state = Game_State(
             0,
             None,
-            fset_cwa_indexes_remaining_from_full_cwa(self.full_cwa)
+            get_cwa_set_for_initial_game_state(self.full_cwas_list)
         )
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
-        if(not(self.full_cwa)):
+        if(not(self.full_cwas_list)):
             return
 
         # self.rc_indexes_cwa_to_full_combos_dict # TODO eliminate (see big optimization)
         self._rc_indexes_cwa_to_full_combos_dict = {
-            (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwa
+            (tuple([r.card_index for r in cwa[0]]),) + cwa[1:] : cwa for cwa in self.full_cwas_list
         }
 
         self.qs_dict        = solver_utils.make_useful_qs_dict(
-            all_125_possibilities_set, self.full_cwa, self.flat_rule_list, self.n_mode
+            all_125_possibilities_set, self.full_cwas_list, self.flat_rule_list, self.n_mode
         )
 
     def testing_stuff(self):
