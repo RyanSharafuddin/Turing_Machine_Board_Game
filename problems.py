@@ -52,7 +52,12 @@ STANDARD_PROB_TUPS += derived_standard_prob_tups
 standard_problems = [Problem(*(problem_tup + (STANDARD,))) for problem_tup in STANDARD_PROB_TUPS]
 extreme_problems =  [Problem(*(problem_tup + (EXTREME,))) for problem_tup in EXTREME_PROB_TUPS]
 nightmare_problems =  [Problem(*(problem_tup + (NIGHTMARE,))) for problem_tup in NIGHTMARE_PROB_TUPS]
-all_problems = standard_problems + extreme_problems + nightmare_problems + read_user_problems_from_file(USER_PROBS_FILE_NAME)
+all_problems = (
+    standard_problems +
+    extreme_problems +
+    nightmare_problems +
+    read_user_problems_from_file(USER_PROBS_FILE_NAME)
+)
 problem_identities = set()
 for p in all_problems:
     if(p.identity in problem_identities):
@@ -62,11 +67,11 @@ for p in all_problems:
 ID_TO_PROBLEM_DICT : dict[str:Problem] = {problem.identity: problem for problem in all_problems}
 PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
 
-def add_problem_to_both_dicts(problem: Problem):
+def _add_problem_to_both_dicts(problem: Problem):
     ID_TO_PROBLEM_DICT[problem.identity] = problem
-    add_problem_to_prefix_id_dict(problem)
+    _add_problem_to_prefix_id_dict(problem)
 
-def add_problem_to_prefix_id_dict(problem: Problem):
+def _add_problem_to_prefix_id_dict(problem: Problem):
     identity = problem.identity
     for i in range(len(identity)):
         prefix: str = identity[:i+1]
@@ -82,7 +87,7 @@ def add_problem_to_prefix_id_dict(problem: Problem):
             PREFIX_ID_TO_PROBLEM_LIST_DICT[pref_add] = [problem]
 
 for problem in ID_TO_PROBLEM_DICT.values():
-    add_problem_to_prefix_id_dict(problem)
+    _add_problem_to_prefix_id_dict(problem)
 
 # console.print(prefix_id_to_problem_list_dict)
 def get_problem_by_id(problem_id: str):
@@ -101,13 +106,13 @@ def get_problem_by_id(problem_id: str):
     return(problem_list[0])
 
 def front_facing_user_input(s):
-    intermediate = user_input_to_triplet(s)
+    intermediate = _user_input_to_triplet(s)
     if(intermediate is None):
         return(None)
-    return(process_problem_input_from_user(*intermediate))
+    return(_process_problem_input_from_user(*intermediate))
 
 ACCEPTABLE_MODES = ["S", "E", "N"]
-def user_input_to_triplet(s:str):
+def _user_input_to_triplet(s:str):
     l = s.split()
     if(len(l) < 3):
         console.print(f"Error: '{s}' cannot be interpreted as a problem description.")
@@ -116,7 +121,7 @@ def user_input_to_triplet(s:str):
         l.append('S') # assume mode 
     return(l[0], ' '.join(l[1:len(l)-1]), l[-1])
 
-def process_problem_input_from_user(p_id, rc_nums_str, mode_str):
+def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
     """ Makes a problem out of user input from stdin, adds it to the problem dicts and the text file of user problems, and returns it. """
     # console.print("Enter problem ID", end="")
     problem_id = p_id.upper()
@@ -161,7 +166,7 @@ def process_problem_input_from_user(p_id, rc_nums_str, mode_str):
         sd.print_problem(s.rcs_list, p)
         console.print(f"Error. This is an invalid problem with no solutions.")
         return(None)
-    add_problem_to_both_dicts(p)
+    _add_problem_to_both_dicts(p)
     write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
     if((p.mode == STANDARD) or (p.mode == NIGHTMARE)):
         other_version_mode = NIGHTMARE if (p.mode == STANDARD) else STANDARD
@@ -169,7 +174,7 @@ def process_problem_input_from_user(p_id, rc_nums_str, mode_str):
         other_version_problem = Problem(
             f"{p.identity}{other_version_suffix}", p.rc_nums_list, other_version_mode
         )
-        add_problem_to_both_dicts(other_version_problem)
+        _add_problem_to_both_dicts(other_version_problem)
         write_user_problem_to_file(USER_PROBS_FILE_NAME, other_version_problem)
     return(p)
 
@@ -188,19 +193,41 @@ def print_all_problems():
         title_style="bright_white",
         header_style=PROBLEM_TABLE_HEADER_COLOR,
         border_style=PROBLEM_TABLE_BORDER,
+        row_styles=["", "on #1c1c1c"],
     )
     table.add_column("ID", justify="right", style=PROBLEM_ID_COLOR)
     table.add_column("Rule Cards List", justify="left", style=RULE_CARD_NUMS_COLOR)
     table.add_column("Mode")
+    table.add_column("Comments")
     probs_list = list(ID_TO_PROBLEM_DICT.values()) # TODO: sort probs list first by mode, then ID alphabetical?
     probs_list.sort(key=lambda p: (p.mode, p.identity))
     for (i, p) in enumerate(probs_list):
+        if(p.mode == 1):
+            top_row = ''
+            bottom_row = ''
+            for i in range(len(p.rc_nums_list) // 2):
+                top_row += f'{p.rc_nums_list[2 * i]:>2}' + ' '
+                bottom_row += f'{p.rc_nums_list[2 * i + 1]:>2}' + ' '
+            rc_nums_str = top_row.rstrip() + '\n' + bottom_row.rstrip()
+        else:
+            rc_nums_str = ' '.join([f'{n:>2}' for n in p.rc_nums_list])
         table.add_row(
             p.identity,
-            ' '.join([f'{n:>2}' for n in p.rc_nums_list]),
-            Text(MODE_NAMES[p.mode], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode])
+            rc_nums_str,
+            Text(MODE_NAMES[p.mode], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
+            IDS_TO_COMMENTS_DICT.get(p.identity, "")
         )
         if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
             table.add_section()
     console.print(table)
 
+IDS_TO_COMMENTS_DICT = {
+    "B63YRW4" : "Zero query",
+    "C630YVB" : "Mult. combos",
+    "F5XTDF"  : "~180s -> ~56s",
+    "F63EZQM" : "Excellent tree",
+    "F52LUJG" : "Excellent tree",
+    "F435FE"  : "~3,500s -> ~500s",
+    "I4BYJK"  : "Killed 9",
+    "INVALID" : "Example test"
+}
