@@ -219,7 +219,7 @@ def print_all_problems():
         )
         if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
             table.add_section()
-    console.print(table)
+    console.print(table, justify="center")
 
 IDS_TO_COMMENTS_DICT = {
     "B63YRW4" : "Zero query",
