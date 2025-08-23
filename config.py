@@ -51,6 +51,7 @@ PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
 RULE_CARD_NUMS_COLOR       = "#ffafff"
 PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
+STACK_EXTREME_RULE_CARDS   = True # print out a problems table with this true or false to see what this does.
 STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', '#FFFF00', "#FF0000"]
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
@@ -70,8 +71,8 @@ PICKLE_DIRECTORY = "Pickles/IsomorphicQueryFilter" # "Pickles"       # Directory
 # PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
 DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
-                                 # Increases speed on many problems, but on other problems, such as I4BYJK (nightmare), causes the process to be terminated with a Killed: 9. signal. because it used too much memory.
-CACHE_END_STATES = False          # whether to cache the end states into the evaluations_cache
+                                # Increases speed on many problems, but uses more memory, and some problems already get killed due to out of memory even without this.
+CACHE_END_STATES = False         # whether to cache the end states into the evaluations_cache
 
 
 

@@ -265,19 +265,15 @@ def play_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
     play_from_solver(s)
 
-# NOTE: How to use:
 # Make problems (see above. Get from www.turingmachine.info)
-# Problem are in form Problem(rc_nums_list, ID, mode (standard, extreme, or nightmare))
-# Then, can use one of 3 main functions:
-#   1) play(problem, pickle_entire, force_overwrite, no_pickles)
-#   2) display_problem_solution(problem, pickle_entire, force_overwrite, no_pickles)
-#   3) get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles) mainly for debugging/inspection.
+#   1) play(problem_id, pickle_entire, force_overwrite, no_pickles)
+#   2) display_problem_solution(problem_id, pickle_entire, force_overwrite, no_pickles)
+#   3) get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles) mainly for debugging/inspection.
 # NOTE: If a tree is too big to fit on screen of terminal, can use the following command:
 # python controller.py <problem_name_prefix>| less -SR -# 3
 
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
-# options
 
 # Profiling/Interactive Debugging
 # s = get_or_make_solver(f5x, no_pickles=True)[0] # ~3 minutes.
@@ -288,24 +284,10 @@ def play_from_file(f_name):
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initital_game_state)
 
 
-# Good problems for demonstration purposes:
-zero_query = "B63YRW4"
-p1 = "1"
-p1_n = "1_N"
-p2 = "2"        # which is actually harder than any of the "hard" standard modes I've come across
-c63 = "C630YVB" # multiple combos, same answer
-f5x = "F5XTDF"  # Nice tree. May want to turn off combo printing. Kinda hard: 70 seconds currently
-f63 = "F63EZQM" # Nice tree.      Full combos.
-f52 = "F52LUJG" # Excellent tree. Full combos
-f43 = "F435FE"  # Large tree. Hard, at ~500 seconds.
-p2_n = "2_N"
-first_nightmare = "I4BYJK"
-
 null = open('/dev/null', 'w')
 out = sys.stdout
 
 print(f"Using {platform.python_implementation()}.")
-
 
 
 if(__name__ == "__main__"):

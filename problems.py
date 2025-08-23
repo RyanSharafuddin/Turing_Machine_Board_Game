@@ -202,7 +202,7 @@ def print_all_problems():
     probs_list = list(ID_TO_PROBLEM_DICT.values()) # TODO: sort probs list first by mode, then ID alphabetical?
     probs_list.sort(key=lambda p: (p.mode, p.identity))
     for (i, p) in enumerate(probs_list):
-        if(p.mode == 1):
+        if((p.mode == 1) and STACK_EXTREME_RULE_CARDS):
             top_row = ''
             bottom_row = ''
             for i in range(len(p.rc_nums_list) // 2):
