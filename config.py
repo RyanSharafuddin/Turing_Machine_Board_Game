@@ -75,7 +75,9 @@ DISABLE_GC = False               # Whether to disable the garbage collector whil
 CACHE_END_STATES = False         # whether to cache the end states into the evaluations_cache
 
 
-
 # Settings To Use For Debugging
 PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False
+
+# Miscellanea
+USER_PROBS_FILE_NAME = "user_problems.txt"

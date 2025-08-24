@@ -6,7 +6,6 @@ from display import MODE_NAMES, Solver_Displayer
 import rules # WARN: side effects?
 import solver
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
-USER_PROBS_FILE_NAME = "user_problems.txt"
 
 # STANDARD
 STANDARD_PROB_TUPS = [
