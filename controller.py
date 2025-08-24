@@ -30,50 +30,45 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     sd = display.Solver_Displayer(s)
     current_gs = s.initial_game_state
     full_cwa = s.full_cwa_list_from_game_state(current_gs)
-    current_round_num = 0
-    total_queries_made = 0
+    current_score = (0, 0) # current_round_num, total_queries_made
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
-    if(display_problem):
-        sd.print_problem(s.rcs_list, s.problem, active=True)
-        sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
+    sd.print_problem(s.rcs_list, s.problem, active=display_problem)
+    title = "\nAll Possible Answers"
+    sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
     while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
-        (best_move_tup, mcost_tup, gs_tup, expected_cost_tup) = s.get_move_mcost_gs_ncost_from_cache(
+        (best_move, mcost, gs_tup, expected_cost) = s.get_move_mcost_gs_ncost_from_cache(
             current_gs
         )
         full_cwa = s.full_cwa_list_from_game_state(current_gs)
-        expected_winning_round = current_round_num + expected_cost_tup[0]
-        expected_total_queries = total_queries_made + expected_cost_tup[1]
-        if(total_queries_made > 0):
+        expected_total_score = add_tups(current_score, expected_cost)
+        if(current_score > (0, 0)):
             # only print this table after having made some queries, since already printed it at start.
             sd.print_all_possible_answers(
                 full_cwa, "Remaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, verifier_to_sort_by=verifier_to_sort_by
             )
-        current_round_num += mcost_tup[0]
-        total_queries_made += mcost_tup[1]
-        query_this_round = 1 if (mcost_tup[0]) else current_gs.num_queries_this_round + 1
-        display.display_new_round(current_round_num, query_this_round, best_move_tup)
+        current_score = add_tups(current_score, mcost)
+        query_this_round = 1 if (mcost[0]) else current_gs.num_queries_this_round + 1
+        display.display_new_round(current_score[0], query_this_round, best_move)
         result = display.conduct_query(
-            best_move_tup,
-            expected_winning_round,
-            expected_total_queries,
+            best_move,
+            expected_total_score,
             query_this_round,
-            total_queries_made
+            current_score[1]
         )
-        verifier_to_sort_by = best_move_tup[1]
+        verifier_to_sort_by = best_move[1]
         current_gs = gs_tup[result]
-        update_query_history(query_history, best_move_tup, mcost_tup[0], result)
+        update_query_history(query_history, best_move, mcost[0], result)
     # Found an answer
     full_cwa = s.full_cwa_list_from_game_state(current_gs)
-    v_to_sort_by = None if(total_queries_made == 0) else best_move_tup[1]
+    v_to_sort_by = None if(current_score == (0, 0)) else best_move[1]
     answers_table = sd._get_all_possible_answers_table(
         full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
     )
     answer = full_cwa[0][-1]
-    query_history_table = display.get_query_history_table(query_history, len(s.rcs_list))
-    # ans_num_style = "b cyan1"
+    query_history_table = display.get_query_history_table(query_history, s.num_rcs)
     ans_num_style = f'b {sd.answer_to_color_dict[answer]}'
     ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
-    score_line = f"Final Score: Rounds: {current_round_num}. Total Queries: {total_queries_made}."
+    score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."
     display.end_play_display(answers_table, query_history_table, ans_line, score_line)
 
 def display_solution_from_solver(s: solver.Solver, display_problem = True):

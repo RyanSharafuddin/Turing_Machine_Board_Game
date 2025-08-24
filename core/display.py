@@ -140,21 +140,24 @@ def _apply_style_to_r_names(
             r_names_list[i] = Text(r_names_list[i], style=apply_style)
 
 def display_new_round(current_round_num, query_this_round, query_tup):
-    """ This function checks if it is a new round, and displays it """
+    """ This function checks if it is a new round, and displays it. If it's not a new round, does nothing. """
     proposal = query_tup[0]
     if(query_this_round == 1):
         title = Text(f"Round {current_round_num} Proposal {proposal}")
         console.rule(title=title)
-def conduct_query(query_tup, expected_winning_round, expected_total_queries, query_this_round, total_query):
+def conduct_query(query_tup, expected_total_score, query_this_round, total_query):
     """
     Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
     """
     # can include the q_round_this_line in the grid, if you want to align it with the other things.
     # currently fine as is.
+    (expected_winning_round, expected_total_queries) = expected_total_score
     q_this_round_line = f"\nQuery: {query_this_round}. Total Query: {total_query}."
     console.print(q_this_round_line, justify="center", highlight=False)
     (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
-    longest_line = f"Expected Final Score: Rounds: {expected_winning_round:.3f}. Queries: {expected_total_queries:.3f}."
+    round_display_str = f"Rounds: {expected_winning_round:.3f}"
+    query_display_str = f"Queries: {expected_total_queries:.3f}"
+    longest_line = f"Expected Final Score: {round_display_str}. {query_display_str}."
 
     g = Table.grid()
     # g.add_row(q_this_round_line)
