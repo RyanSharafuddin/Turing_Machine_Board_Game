@@ -59,17 +59,8 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         current_gs = gs_tup[result]
         update_query_history(query_history, best_move, mcost[0], result)
     # Found an answer
-    full_cwa = s.full_cwa_list_from_game_state(current_gs)
     v_to_sort_by = None if(current_score == (0, 0)) else best_move[1]
-    answers_table = sd._get_all_possible_answers_table(
-        full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
-    )
-    answer = full_cwa[0][-1]
-    query_history_table = display.get_query_history_table(query_history, s.num_rcs)
-    ans_num_style = f'b {sd.answer_to_color_dict[answer]}'
-    ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
-    score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."
-    display.end_play_display(answers_table, query_history_table, ans_line, score_line)
+    sd.end_play_display(current_gs, v_to_sort_by, query_history, current_score)
 
 def display_solution_from_solver(s: solver.Solver, display_problem = True):
     """
@@ -284,35 +275,57 @@ def play_from_file(f_name):
 null = open('/dev/null', 'w')
 out = sys.stdout
 
-
-
 if(__name__ == "__main__"):
     console.print(" ", style="green")
     print(f"Using {platform.python_implementation()}.")
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Run without any arguments to see a list of available problems.",
+        "prob_id",
+        type=str,
         nargs="?",
-        default=None
+        default=None,
+        help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Run without any arguments to see a list of available problems.",
     )
     parser.add_argument("--display", "-d", action="store_true", help="Display the tree.")
     parser.add_argument("--play", "-p", action="store_true", help="Play the problem.")
     parser.add_argument("--no_pickles", "-np", action="store_true", help="No pickles.")
     parser.add_argument("--force_overwrite", "-fo", action="store_true", help="Force overwrite pickles.")
     parser.add_argument(
-        "--from_file", action="store_true", help="Get solver from file, using the main argument as a filename."
+        "--from_file",
+        action="store_true",
+        help="Get solver from file, using the main argument as a filename."
     )
     parser.add_argument(
-        "--capitulate","-c", action="store_true",
+        "--capitulate","-c",
+        action="store_true",
         help="Give up on being perfect. Choosing this turns on --no_pickles."
     )
-    parser.add_argument("--new_problem", "-n", nargs="*", help="Create a problem from user input, rather than specifying an already-existing problem. Syntax: p_id rc_num rc_num ... mode, which is one of S, E, or N. If no mode, S will be assumed. Here's an example of a valid problem input: 'python controller.py -n Fire 4 9 11 12 N -d'")
-    parser.add_argument("--web", "-w", action="store_true", help="Get a problem straight from turingmachine.info. If the positional argument prob_id is given, will get the problem with that ID; otherwise will get a problem from the optional -m (mode, S, E, or N, or 0, 1, or 2), -l (level, 0, 1, or 2), and -v (number verifiers: 4, 5, or 6). If any of the mode, difficulty, or number of verifiers are not chosen, the computer will choose them 'randomly'. Examples: python controller.py -d -w FWW23A. or python controller.py -d -w -m N -l 2 -v 4")
-    parser.add_argument("--mode", "-m", help="Only has an effect when used with -w to get a problem from the web. Specify the mode of problems (S, E, or N. Or 0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
-    parser.add_argument("--level", "-l", type=int, help="Only has an effect when used with -w to get a problem from the web. Specify the level of difficulty of problems (0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
-    parser.add_argument("--verifiers", "-v", type=int, help="Only has an effect when used with -w to get a problem from the web. Specify the number of verifiers (4, 5, or 6) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
-
+    parser.add_argument(
+        "--new_problem", "-n",
+        nargs="*",
+        help="Create a problem from user input, rather than specifying an already-existing problem. Syntax: p_id rc_num rc_num ... mode, which is one of S, E, or N. If no mode, S will be assumed. Here's an example of a valid problem input: 'python controller.py -n Fire 4 9 11 12 N -d'"
+    )
+    parser.add_argument(
+        "--web", "-w",
+        action="store_true",
+        help="Get a problem straight from turingmachine.info. If the positional argument prob_id is given, will get the problem with that ID; otherwise will get a problem from the optional -m (mode, S, E, or N, or 0, 1, or 2), -l (level, 0, 1, or 2), and -v (number verifiers: 4, 5, or 6). If any of the mode, difficulty, or number of verifiers are not chosen, the computer will choose them 'randomly'. Examples: python controller.py -d -w FWW23A. or python controller.py -d -w -m N -l 2 -v 4"
+    )
+    parser.add_argument(
+        "--mode", "-m",
+        help="Only has an effect when used with -w to get a problem from the web. Specify the mode of problems (S, E, or N. Or 0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly."
+    )
+    parser.add_argument(
+        "--level", "-l",
+        type=int,
+        help="Only has an effect when used with -w to get a problem from the web. Specify the level of difficulty of problems (0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly."
+    )
+    parser.add_argument(
+        "--verifiers", "-v",
+        type=int,
+        help="Only has an effect when used with -w to get a problem from the web. Specify the number of verifiers (4, 5, or 6) obtained from turingmachine.info. If unspecified, will be chosen randomly."
+    )
     args = parser.parse_args()
+
     if(args.web):
         if(args.prob_id):
             console.print(f"Getting problem [orange1]{args.prob_id}[/orange1] from turingmachine.info!")
@@ -334,7 +347,7 @@ if(__name__ == "__main__"):
             core.problems.add_problem_to_known_problems(p, ignore_warning=True)
             args.prob_id = p.identity
     if(args.new_problem): # if no -n, this is None
-        p = core.problems.front_facing_user_input(' '.join(args.new_problem))
+        p = core.problems.get_problem_from_user_string(' '.join(args.new_problem))
         if(p is None):
             print("Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed.")
             exit()

@@ -89,7 +89,6 @@ def _add_problem_to_prefix_id_dict(problem: Problem):
 for problem in ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(problem)
 
-# console.print(prefix_id_to_problem_list_dict)
 def get_problem_by_id(problem_id: str):
     """ All problems should be defined in problems.py or the user problem file. See this file for how it all works. """
     problem_id = problem_id.upper()
@@ -105,7 +104,7 @@ def get_problem_by_id(problem_id: str):
         return(problem_list[a - 1])
     return(problem_list[0])
 
-def front_facing_user_input(s):
+def get_problem_from_user_string(s):
     intermediate = _user_input_to_triplet(s)
     if(intermediate is None):
         return(None)
@@ -190,7 +189,6 @@ def add_problem_to_known_problems(p: Problem, ignore_warning=False):
         _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
         return(p)
 
-
 def print_all_problems():
     table = Table(
         title="Available Problems",
@@ -206,7 +204,7 @@ def print_all_problems():
     table.add_column("Time Taken", justify="right")
     probs_list = list(ID_TO_PROBLEM_DICT.values())
     probs_list.sort(key=lambda p: (p.mode, p.identity))
-    for (i, p) in enumerate(probs_list):
+    for (problem_index, p) in enumerate(probs_list):
         time_pickle_seconds = PICKLED_TIME_DICT.get(p.identity, None)
         if(time_pickle_seconds is not None):
             time_pickle_str = f"{time_pickle_seconds:,}"
@@ -228,7 +226,7 @@ def print_all_problems():
             IDS_TO_COMMENTS_DICT.get(p.identity, ""),
             Text(time_pickle_str, style=""),
         )
-        if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
+        if(p.mode < 2) and (probs_list[problem_index +1].mode != p.mode):
             table.add_section()
     console.print(table, justify="center")
 

@@ -13,7 +13,7 @@ from .config import *
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 
 letters = string.ascii_uppercase
-def r_names_perm_order(rl, permutation, permutation_order):
+def _r_names_perm_order(rl, permutation, permutation_order):
     permutation = permutation if(permutation_order) else range(len(rl))
     return([rl[i].name for i in permutation])
 def _rules_list_to_names_list(rl, permutation=None):
@@ -228,21 +228,8 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
             return(result_table)
-def end_play_display(answers_table, q_history_table, ans_line, score_line):
-    """ comment or uncomment to choose behavior of end_play_display """
-    # line below left aligns everything and then prints that unit in the center
-    console.print(combine(answers_table, q_history_table, ans_line, score_line), justify="center")
-    # line below centers everything
-    # console.print(
-    #     answers_table,
-    #     q_history_table,
-    #     ans_line,
-    #     score_line,
-    #     sep="\n",
-    #     justify="center"
-    # )
 
-def combine(*items):
+def _combine(*items):
     """ Takes a variable number of renderables and combines them into a single left-aligned grid. """
     grid = Table.grid()
     for i in items:
@@ -402,7 +389,7 @@ class Solver_Displayer:
         g = Text(f"Expected cost to win after true query : {expected_cost_true[0]:0.3f} rounds." +
              f" {expected_cost_true[1]:0.3f} queries.")
         l = highlight(a,b,c,d,e,f,g)
-        grid = combine(*l)
+        grid = _combine(*l)
         center_print(grid)
         title_false = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ❌")
         title_true = Text.assemble((f"{mov_to_str(best_mov)}", "b cyan"), " returns ✅")
@@ -528,6 +515,18 @@ class Solver_Displayer:
                 console.print(f"Size of evaluations cache in megabytes: {size /(2 ** 20):,.2f}.")
             console.print(f"Size of evaluations cache in     bytes: {size:,}.")
 
+    def end_play_display(self, current_gs, v_to_sort_by, query_history, current_score):
+        full_cwa = self.solver.full_cwa_list_from_game_state(current_gs)
+        answers_table = self._get_all_possible_answers_table(
+            full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
+        )
+        answer = full_cwa[0][-1]
+        q_history_table = get_query_history_table(query_history, self.solver.num_rcs)
+        ans_num_style = f'b {self.answer_to_color_dict[answer]}'
+        ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
+        score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."
+        console.print(_combine(answers_table, q_history_table, ans_line, score_line), justify="center")
+
     def _get_card_indexes_text(self, card_index_col_widths, c):
         card_indexes_list = [r.card_index for r in c]
         card_indexes_strings_list = [
@@ -597,7 +596,6 @@ class Solver_Displayer:
                 q_dict_this_card[proposal] = q_info
 
         possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
-        # TODO: order the tables correctly and set indents and justifies how you want it.
         # NOTE print table
         self.print_possible_rules_by_verifier_from_cwas(
             full_cwas,
@@ -853,7 +851,7 @@ class Tree:
         # gs_tup   # resulting game states from the move being false, true
         # m_cost   # the cost the move in self.move
 
-def get_max_string_height_by_depth(tree: Tree):
+def _get_max_string_height_by_depth(tree: Tree):
     """
     Given a tree, returns a list l, where l[i] is the maximum number of combinations of an internal node at that height.
     """
@@ -1000,7 +998,7 @@ def print_best_move_tree(gs, show_combos, solver):
     print()
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs=gs, solver=solver)
-    Tree.max_combos_by_depth = get_max_string_height_by_depth(tree)
+    Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)
     table_tree = PrettyPrintTree(get_children, node_to_str_table, color='')
     table_tree(tree)
 
