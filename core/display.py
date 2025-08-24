@@ -228,7 +228,14 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
             return(result_table)
-
+def cprint_if_active(active, *args, **kwargs):
+    """
+    If active is True, does console.print with all args/kwargs. If there is no justify in kwargs, sets it to center.
+    """
+    if(active):
+        if("justify" not in kwargs):
+            kwargs["justify"] = "center"
+        console.print(*args, **kwargs)
 def _combine(*items):
     """ Takes a variable number of renderables and combines them into a single left-aligned grid. """
     grid = Table.grid()

@@ -94,7 +94,10 @@ def get_problem_by_id(problem_id: str):
     problem_id = problem_id.upper()
     problem_list = PREFIX_ID_TO_PROBLEM_LIST_DICT.get(problem_id, [])
     if(not problem_list):
-        print(f"Error: The problem id requested '{problem_id}' is not defined in problems.py.")
+        console.print(
+            f"[b red]Error[/b red]: The problem ID requested '{problem_id}' is not defined locally. Use -w to get a problem from the web.",
+            justify="center"
+        )
         return(None)
     if(len(problem_list) > 1):
         print(f"There are multiple problems f{problem_id} could refer to. Here they are:\n")
@@ -105,6 +108,9 @@ def get_problem_by_id(problem_id: str):
     return(problem_list[0])
 
 def get_problem_from_user_string(s):
+    """
+    Make a problem out of a single user input string, add it to the problem dicts and the text file of user problems, and return it. Return None if the problem is invalid in some way.
+    """
     intermediate = _user_input_to_triplet(s)
     if(intermediate is None):
         return(None)
@@ -112,6 +118,7 @@ def get_problem_from_user_string(s):
 
 ACCEPTABLE_MODES = ["S", "E", "N"]
 def _user_input_to_triplet(s:str):
+    """ helper function for get_problem_from_user_string """
     l = s.split()
     if(len(l) < 3):
         console.print(f"Error: '{s}' cannot be interpreted as a problem description.")
@@ -121,7 +128,7 @@ def _user_input_to_triplet(s:str):
     return(l[0], ' '.join(l[1:len(l)-1]), l[-1])
 
 def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
-    """ Makes a problem out of user input from stdin, adds it to the problem dicts and the text file of user problems, and returns it. """
+    """ helper function for get_problem_from_user_string """
     problem_id = p_id.upper()
     if(problem_id in ID_TO_PROBLEM_DICT):
         console.print(f"Error: There already exists a problem with ID '{problem_id}'")
@@ -178,6 +185,9 @@ def _write_user_problem_to_file(f_name, p: Problem):
         f.write("\n")
 
 def add_problem_to_known_problems(p: Problem, ignore_warning=False):
+    """
+    Adds problem to the ids dict and the prefixes dict that problems uses to retrieve problems, and also adds it to the file of user problems. If the problem ID already exists, if ignore warning is on, will refuse to add the problem and will return None, otherwise will return the problem.
+    """
     if(p.identity in ID_TO_PROBLEM_DICT):
         if(not ignore_warning):
             print(f"Could not add {p.identity} to known problems because a problem with that ID already exists.")
@@ -231,6 +241,11 @@ def print_all_problems():
     console.print(table, justify="center")
 
 def get_mode_from_user(user_mode_str):
+    """
+    Given a mode string that is one of '0', '1', '2', or 'S', 'E', or 'N', (or the lowercase letters of those) return an integer 0, 1, or 2.
+    Return None if the mode is not one of those things.
+    If the mode is not one of those things and it's also not None, print an error message.
+    """
     if(user_mode_str is None):
         return(None)
     mode_int_strs = ['0', '1', '2']
@@ -241,8 +256,12 @@ def get_mode_from_user(user_mode_str):
     print(f"'{user_mode_str}' cannot be interpreted as a mode.")
     return(None)
 
-
 def pre_process_p_id(p_id: str):
+    """
+    Given a problem ID string, process it by removing a leading # if present, capitalizing all letters, and removing whitespace. Return None if given None.
+    """
+    if(p_id is None):
+        return None
     if(p_id[0] == '#'):
         p_id = p_id[1:]
     p_id = p_id.upper()

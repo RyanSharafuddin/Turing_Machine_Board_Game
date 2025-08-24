@@ -1,5 +1,6 @@
-import pickle, os, sys, platform, gc, argparse, git, random
+import pickle, os, platform, gc, argparse, git
 from rich import print as rprint
+# from rich.text import Text
 from core.definitions import *
 from core.config import *
 from core.problems import get_problem_by_id as get_local_problem
@@ -122,6 +123,7 @@ def make_solver(problem: Problem):
     sd = display.Solver_Displayer(s)
     if(DISPLAY):
         sd.print_problem(s.rcs_list, s.problem, active=True)
+    exit() # WARN TEMP: DELETE
     if(not(s.full_cwas_list)):
         rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py.")
         console.print("Reminder that any rule combination must obey two rules:\n  1. There is exactly one proposal that satisfies them all.\n  2. Each rule eliminates at least one possibility that is not eliminated by any other rule.", highlight=False)
@@ -150,7 +152,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
         return
     s = make_solver(problem)
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
-    print(f"\nPickling {f_name} . . .")
+    console.print(f"\nPickling {f_name} . . .", justify="center")
     if(not(pickle_entire)):
         new_evaluations_cache = get_relevant_parts_cache(s)
         s.evaluations_cache = new_evaluations_cache
@@ -160,7 +162,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     s.git_message = git_message
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
-    print("Done")
+    console.print("Done", justify="center")
     core.problems.update_pickled_time_dict_if_necessary(s)
     return(s)
 
@@ -182,28 +184,36 @@ def get_or_make_solver(
         print()
         core.problems.print_all_problems()
         exit()
-    f = out if (DISPLAY) else null
-    print(f"\nReturning solver for problem: {problem.identity}.", file=f)
+    display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
     if(DISABLE_GC):
         gc.disable()
         gc.collect()
     if(no_pickles):
-        print("No pickles. Making solver from scratch.", file=f)
+        display.cprint_if_active(DISPLAY, "No pickles. Making solver from scratch.")
         s = make_solver(problem)
         made_from_scratch = True
     else:
         f_name = f_name_from_id(problem.identity)
         if(os.path.exists(f_name)):
             if(not force_overwrite):
-                print(f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . .", file=f)
+                display.cprint_if_active(
+                    DISPLAY,
+                    f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . ."
+                )
                 s = unpickle_solver(problem.identity)
                 made_from_scratch = False
             else:
-                print("This problem has been solved, but will overwrite the solver file.", file=f)
+                display.cprint_if_active(
+                    DISPLAY,
+                    "This problem has been solved, but will overwrite the solver file."
+                )
                 s = pickle_solver(problem, pickle_entire=pickle_entire, force_overwrite=force_overwrite)
                 made_from_scratch = True
         else:
-            print(f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . .", file=f)
+            display.cprint_if_active(
+                DISPLAY,
+                f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . ."
+            )
             s = pickle_solver(problem, pickle_entire=pickle_entire)
             made_from_scratch = True
     if(DISABLE_GC):
@@ -227,6 +237,18 @@ def play(problem_id: str, pickle_entire=False, force_overwrite=False, no_pickles
     """
     (s, made_from_scatch) = get_or_make_solver(problem_id, pickle_entire, force_overwrite, no_pickles)
     play_from_solver(s, display_problem=not(made_from_scatch))
+
+def get_web_problem(p_id, raw_mode, level, num_verifiers):
+    """
+    A convenience function for getting a web problem. If p_id is not None, gets a problem from the web with that ID. If it is None, gets an arbitrary problem with given mode, level of difficulty, and num_verifiers. Those are randomly chosen if they are None. Returns the problem, or None if there was a problem getting the problem.
+    """
+    if(p_id is not None):
+        p = website.get_web_problem_from_id(p_id, print_action=True)
+    else:
+        mode = core.problems.get_mode_from_user(raw_mode)
+        p = website.get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
+    return(p)
+
 # For Testing purposes
 def unpickle_solver_from_f_name(f_name):
     print(f"\nUnpickling {f_name}.")
@@ -272,12 +294,9 @@ def play_from_file(f_name):
 # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initital_game_state)
 
 
-null = open('/dev/null', 'w')
-out = sys.stdout
-
 if(__name__ == "__main__"):
     console.print(" ", style="green")
-    print(f"Using {platform.python_implementation()}.")
+    console.print(f"Using {platform.python_implementation()}.", justify="center")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "prob_id",
@@ -308,7 +327,7 @@ if(__name__ == "__main__"):
     parser.add_argument(
         "--web", "-w",
         action="store_true",
-        help="Get a problem straight from turingmachine.info. If the positional argument prob_id is given, will get the problem with that ID; otherwise will get a problem from the optional -m (mode, S, E, or N, or 0, 1, or 2), -l (level, 0, 1, or 2), and -v (number verifiers: 4, 5, or 6). If any of the mode, difficulty, or number of verifiers are not chosen, the computer will choose them 'randomly'. Examples: python controller.py -d -w FWW23A. or python controller.py -d -w -m N -l 2 -v 4"
+        help="Get a problem straight from turingmachine.info. If the positional argument prob_id is given, will get the problem with that ID; otherwise will get a problem from the optional -m (mode, S, E, or N, or 0, 1, or 2), -l (level, 0, 1, or 2), and -v (number verifiers: 4, 5, or 6). If any of the mode, difficulty, or number of verifiers are not chosen, the computer will choose them 'randomly'. Examples: 'python controller.py -d -w FWW23A' or 'python controller.py -d -w -m N -l 2 -v 4'"
     )
     parser.add_argument(
         "--mode", "-m",
@@ -327,70 +346,58 @@ if(__name__ == "__main__"):
     args = parser.parse_args()
 
     if(args.web):
-        if(args.prob_id):
-            console.print(f"Getting problem [orange1]{args.prob_id}[/orange1] from turingmachine.info!")
-            p = website.get_web_problem_from_id(args.prob_id)
-            core.problems.add_problem_to_known_problems(p, ignore_warning=True)
-            args.prob_id = p.identity
-        else:
-            mode = core.problems.get_mode_from_user(args.mode)
-            if(mode is None):
-                mode = random.randrange(3) # select it randomly
-            level_of_difficulty = args.level
-            if(level_of_difficulty is None):
-                level_of_difficulty = random.randrange(3)
-            num_verifiers = args.verifiers
-            if(num_verifiers is None):
-                num_verifiers = 4 + random.randrange(3)
-            console.print(f"Getting a [hot_pink]{display.MODE_NAMES[mode]}[/hot_pink] mode problem with [turquoise2]{num_verifiers}[/turquoise2] verifiers and difficulty level {level_of_difficulty} from turingmachine.info.")
-            p = website.get_web_problem_from_mode_difficulty_num_vs(mode, level_of_difficulty, num_verifiers)
-            core.problems.add_problem_to_known_problems(p, ignore_warning=True)
-            args.prob_id = p.identity
-    if(args.new_problem): # if no -n, this is None
+        p = get_web_problem(args.prob_id, args.mode, args.level, args.verifiers)
+        if(p is None):
+            console.print(f"Error. Could not successfully retrieve the problem from the website. Exiting.")
+            exit()
+        core.problems.add_problem_to_known_problems(p, ignore_warning=True)
+        args.prob_id = p.identity
+    elif(args.new_problem): # if no -n, this is None
         p = core.problems.get_problem_from_user_string(' '.join(args.new_problem))
         if(p is None):
-            print("Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed.")
+            print(
+                "Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed. Exiting."
+            )
             exit()
         args.prob_id = p.identity
     if(args.prob_id is None):
         # no problem specified. Perhaps display all problems?
         core.problems.print_all_problems()
-    else:
-        if(args.capitulate):
-            args.no_pickles = True
-        if(args.from_file):
-            if(args.play):
-                play_from_file(args.prob_id)
-            if(args.display):
-                display_problem_solution_from_file(args.prob_id)
-        else:
-            if(args.display):
-                display_problem_solution(
-                    args.prob_id,
-                    no_pickles=args.no_pickles,
-                    force_overwrite=args.force_overwrite
-                )
-            if(args.play):
-                play(
-                    args.prob_id,
-                    no_pickles=args.no_pickles,
-                    force_overwrite=args.force_overwrite
-                )
-            if(not(args.play or args.display)):
-                s = get_or_make_solver(
-                    args.prob_id, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
-                )[0]
+        exit()
+    # now have a valid problem (or file) specified.
+    args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles
+    if(args.from_file):
+        if(args.play):
+            play_from_file(args.prob_id)
+        if(args.display):
+            display_problem_solution_from_file(args.prob_id)
+        exit()
+    if(args.display):
+        display_problem_solution(
+            args.prob_id,
+            no_pickles=args.no_pickles,
+            force_overwrite=args.force_overwrite
+        )
+    if(args.play):
+        play(
+            args.prob_id,
+            no_pickles=args.no_pickles,
+            force_overwrite=args.force_overwrite
+        )
+    if(not(args.play or args.display)):
+        s = get_or_make_solver(
+            args.prob_id, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
+        )[0]
 
-    null.close()
-
-# Use the below in REPL for testing/debugging purposes
-# sd = display.Solver_Displayer(s)
-# sd.print_useful_qs_dict_info(
-#     s.qs_dict,
-#     s.initial_game_state.cwa_set
-#     verifier_index=None,          # set to None for all verifiers
-#     proposals_to_examine=None,   # set to None for all proposals
-#     see_all_combos=True
-# )
-# console.rule()
-# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
+    # breakpoint here for debugging purposes.
+    # Use the below in REPL for testing/debugging purposes
+    # sd = display.Solver_Displayer(s)
+    # sd.print_useful_qs_dict_info(
+    #     s.qs_dict,
+    #     s.initial_game_state.cwa_set
+    #     verifier_index=None,          # set to None for all verifiers
+    #     proposals_to_examine=None,   # set to None for all proposals
+    #     see_all_combos=True
+    # )
+    # console.rule()
+    # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
