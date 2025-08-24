@@ -1,5 +1,5 @@
 import string
-from definitions import Rule, all_125_possibilities_set, int_to_tri_sq_ci_tuple, Problem, STANDARD, NIGHTMARE, EXTREME
+from .definitions import Rule, all_125_possibilities_set, int_to_tri_sq_ci_tuple, Problem, STANDARD, NIGHTMARE, EXTREME
 
 # rule 1
 def triangle_eq_1(triangle, square, circle):

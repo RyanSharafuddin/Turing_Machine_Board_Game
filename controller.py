@@ -1,13 +1,12 @@
 import pickle, os, sys, platform, gc, argparse, git
 from rich import print as rprint
-from definitions import *
-from config import *
-from problems import get_problem_by_id as get
-from problems import print_all_problems
-import problems
-import display, solver
-from solver_capitulate import Solver_Capitulate
-from solver_nightmare import Solver_Nightmare
+from core.definitions import *
+from core.config import *
+from core.problems import get_problem_by_id as get_local_problem
+import core.problems
+from core import display, solver
+from core.solver_capitulate import Solver_Capitulate
+from core.solver_nightmare import Solver_Nightmare
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -189,10 +188,10 @@ def get_or_make_solver(
     If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles. Precludes force_overwrite and pickle_entire.
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
-    problem = get(problem_id)
+    problem = get_local_problem(problem_id)
     if(problem is None):
         print()
-        problems.print_all_problems()
+        core.problems.print_all_problems()
         exit()
     f = out if (DISPLAY) else null
     print(f"\nReturning solver for problem: {problem.identity}.", file=f)
@@ -251,7 +250,7 @@ def unpickle_solver_from_f_name(f_name):
     if(hasattr(s, "git_hash")):
         console.print(f"This solver was created in git commit {s.git_hash}.")
         if(hasattr(s, "git_message")):
-            console.print(f"Commit message: {s.git_message}")
+            console.print(f"Commit message: {s.git_message}", end="")
         else:
             print("Commit message was not recorded.")
     else:
@@ -312,14 +311,14 @@ if(__name__ == "__main__"):
 
     args = parser.parse_args()
     if(args.new_problem): # if no -n, this is None
-        p = problems.front_facing_user_input(' '.join(args.new_problem))
+        p = core.problems.front_facing_user_input(' '.join(args.new_problem))
         if(p is None):
             print("Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed.")
             exit()
         args.prob_id = p.identity
     if(args.prob_id is None):
         # no problem specified. Perhaps display all problems?
-        print_all_problems()
+        core.problems.print_all_problems()
     else:
         if(args.capitulate):
             args.no_pickles = True

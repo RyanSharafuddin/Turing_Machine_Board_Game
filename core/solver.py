@@ -1,6 +1,6 @@
 import time, sys
-import rules, config, solver_utils
-from definitions import *
+from . import rules, config, solver_utils
+from .definitions import *
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
@@ -277,10 +277,11 @@ class Solver:
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
-        from display import Solver_Displayer
+        from .display import Solver_Displayer
         sd = Solver_Displayer(self)
         sd.print_eval_cache_size()
         if(config.PRINT_POST_SOLVE_DEBUG_INFO):
+            global asizeof
             from pympler.asizeof import asizeof # only import this if printing post solve debug info.
             # WARN: The line below itself uses up a lot of memory and time.
             # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.

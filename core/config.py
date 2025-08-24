@@ -44,7 +44,7 @@ COLORS = [
 
 # Displaying
 TREE_BACKGROUND_COLOR      = "#690969"
-TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
+# TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -67,7 +67,7 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 
 
 # Solver workings
-PICKLE_DIRECTORY = "Pickles/IsomorphicQueryFilter" # "Pickles"       # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
 DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
@@ -77,7 +77,7 @@ CACHE_END_STATES = False         # whether to cache the end states into the eval
 
 # Settings To Use For Debugging
 PRINT_ISOMORPHIC_LOL        = False
-PRINT_POST_SOLVE_DEBUG_INFO = False
+PRINT_POST_SOLVE_DEBUG_INFO = True
 
 # Miscellanea
-USER_PROBS_FILE_NAME = "user_problems.txt"
+USER_PROBS_FILE_NAME = "core/user_problems.txt"

@@ -1,7 +1,7 @@
 import math, itertools
 # from definitions import *
-from definitions import Query_Info, NIGHTMARE, console, all_125_possibilities_set
-import config
+from .definitions import Query_Info, NIGHTMARE, console, all_125_possibilities_set
+from . import config
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):

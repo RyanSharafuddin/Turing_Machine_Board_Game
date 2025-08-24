@@ -1,4 +1,4 @@
-from solver import *
+from .solver import *
 
 def fset_answers_from_cwa_set(cwa_set):
     # cwa_set representation_change TODO!!

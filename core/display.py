@@ -6,9 +6,9 @@ from rich.table import Table
 from rich.text import Text
 # from rich import box
 from rich.highlighter import ReprHighlighter
-import solver
-from definitions import *
-from config import *
+from . import solver
+from .definitions import *
+from .config import *
 
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 
