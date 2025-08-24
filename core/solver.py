@@ -202,7 +202,7 @@ class Solver:
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
     def calculate_best_move(self, qs_dict, game_state: Game_State):
         """
-        Returns a tuple (best move in this state, mov_cost_tup, gs_tup, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
+        Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
         """
         # self.called_calculate += 1

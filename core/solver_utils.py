@@ -250,6 +250,26 @@ def make_useful_qs_dict(full_cwas_list, flat_rule_list, n_mode):
         console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} proposals out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 
+def filter_useless_and_update_qs_dict(qs_dict: dict, current_cwa_set):
+    """
+    Given a qs dict and a current set of cwas, returns a new qs dict that has useless queries removed and where each q_info contains the minimum possible amount of cwas.
+    """
+    new_qs_dict = dict()
+    for (proposal, inner_dict) in qs_dict.items():
+        have_put_proposal_into_new_dict = False
+        for (v_index, q_info) in inner_dict:
+            (q_info_true, q_info_false) =  q_info
+            cwa_set_true = q_info_true & current_cwa_set
+            cwa_set_false = q_info_false & current_cwa_set
+            if(bool(cwa_set_false) and bool(cwa_set_true)):
+                new_q_info = Query_Info(cwa_set_true=cwa_set_true, cwa_set_false=cwa_set_false)
+                if not have_put_proposal_into_new_dict:
+                    new_qs_dict[proposal] = {v_index: new_q_info}
+                    have_put_proposal_into_new_dict = True
+                else:
+                    new_qs_dict[proposal][v_index] = new_q_info
+    return(new_qs_dict)
+
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
 def calculate_expected_cost(mcost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = mcost

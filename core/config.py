@@ -68,18 +68,16 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 
 
 # Solver workings
-PICKLE_DIRECTORY = "core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "Pickles/DreamCatcher" # "Pickles"       # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "Pickles/Nightmare" # "Pickles"       # Directory where all pickled solvers go.
-DISABLE_GC = False               # Whether to disable the garbage collector while solve()ing.
+DISABLE_GC = False              # Whether to disable the garbage collector while solve()ing.
                                 # Increases speed on many problems, but uses more memory, and some problems already get killed due to out of memory even without this.
-CACHE_END_STATES = False         # whether to cache the end states into the evaluations_cache
+CACHE_END_STATES = False        # whether to cache the end states into the evaluations_cache
 
 
 # Settings To Use For Debugging
 PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False
 
-# Miscellanea
+# Where things are
+PICKLE_DIRECTORY = "core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
 USER_PROBS_FILE_NAME = "core/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "core/Pickles/time_pickle_file.bin"

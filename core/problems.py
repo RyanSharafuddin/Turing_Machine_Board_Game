@@ -215,9 +215,9 @@ def print_all_problems():
         if((p.mode == 1) and STACK_EXTREME_RULE_CARDS):
             top_row = ''
             bottom_row = ''
-            for i in range(len(p.rc_nums_list) // 2):
-                top_row += f'{p.rc_nums_list[2 * i]:>2}' + ' '
-                bottom_row += f'{p.rc_nums_list[2 * i + 1]:>2}' + ' '
+            for rc_index in range(len(p.rc_nums_list) // 2):
+                top_row += f'{p.rc_nums_list[2 * rc_index]:>2}' + ' '
+                bottom_row += f'{p.rc_nums_list[2 * rc_index + 1]:>2}' + ' '
             rc_nums_str = top_row.rstrip() + '\n' + bottom_row.rstrip()
         else:
             rc_nums_str = ' '.join([f'{n:>2}' for n in p.rc_nums_list])
