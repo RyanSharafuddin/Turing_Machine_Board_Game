@@ -126,6 +126,7 @@ def get_relevant_parts_cache(s:solver.Solver):
     return(new_evaluations_cache)
 
 def make_solver(problem: Problem):
+    """ Makes a solver and solve()s the problem. """
     if(args.capitulate):
         s = Solver_Capitulate(problem)
     elif(problem.mode == NIGHTMARE):
@@ -174,6 +175,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     print("Done")
+    core.problems.update_pickled_time_dict_if_necessary(s)
     return(s)
 
 def get_or_make_solver(

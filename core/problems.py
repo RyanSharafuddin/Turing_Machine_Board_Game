@@ -1,3 +1,4 @@
+import pickle
 from rich.table import Table
 from rich.text import Text
 from .config import *
@@ -202,9 +203,15 @@ def print_all_problems():
     table.add_column("Rule Cards List", justify="left", style=RULE_CARD_NUMS_COLOR)
     table.add_column("Mode")
     table.add_column("Comments")
-    probs_list = list(ID_TO_PROBLEM_DICT.values()) # TODO: sort probs list first by mode, then ID alphabetical?
+    table.add_column("Time Taken", justify="right")
+    probs_list = list(ID_TO_PROBLEM_DICT.values())
     probs_list.sort(key=lambda p: (p.mode, p.identity))
     for (i, p) in enumerate(probs_list):
+        time_pickle_seconds = PICKLED_TIME_DICT.get(p.identity, None)
+        if(time_pickle_seconds is not None):
+            time_pickle_str = f"{time_pickle_seconds:,}"
+        else:
+            time_pickle_str = ''
         if((p.mode == 1) and STACK_EXTREME_RULE_CARDS):
             top_row = ''
             bottom_row = ''
@@ -218,7 +225,8 @@ def print_all_problems():
             p.identity,
             rc_nums_str,
             Text(MODE_NAMES[p.mode], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
-            IDS_TO_COMMENTS_DICT.get(p.identity, "")
+            IDS_TO_COMMENTS_DICT.get(p.identity, ""),
+            Text(time_pickle_str, style=""),
         )
         if(p.mode < 2) and (probs_list[i +1].mode != p.mode):
             table.add_section()
@@ -251,7 +259,29 @@ IDS_TO_COMMENTS_DICT = {
     "F52LUJG" : "Excellent tree",
     "F435FE"  : "~3,500s -> ~500s",
     "I4BYJK"  : "Killed 9",
-    "INVALID" : "Example test"
+    "INVALID" : "Example test",
+    "I48ZCX"  : "Somehow harder than 2_N",
 }
+
+f = open(TIME_PICKLE_FILE_NAME, 'rb')
+PICKLED_TIME_DICT: dict = pickle.load(f)
+f.close()
+
+def update_pickled_time_dict_if_necessary(s: solver):
+    previous_best = PICKLED_TIME_DICT.get(s.problem.identity, float("inf"))
+    if(s.seconds_to_solve < previous_best):
+        if(previous_best != float("inf")):
+            console.print(
+                f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
+            )
+        for identity in PICKLED_TIME_DICT:
+            if not(identity in ID_TO_PROBLEM_DICT):
+                del(PICKLED_TIME_DICT[identity])
+        print(f"Pickling time dict . . .")
+        PICKLED_TIME_DICT[s.problem.identity] = s.seconds_to_solve
+        f = open(TIME_PICKLE_FILE_NAME, "wb")
+        pickle.dump(PICKLED_TIME_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
+        f.close()
+        print("Done pickling the time dict.")
 
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.

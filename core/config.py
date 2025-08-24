@@ -82,3 +82,4 @@ PRINT_POST_SOLVE_DEBUG_INFO = False
 
 # Miscellanea
 USER_PROBS_FILE_NAME = "core/user_problems.txt"
+TIME_PICKLE_FILE_NAME = "core/Pickles/time_pickle_file.bin"
