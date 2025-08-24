@@ -272,8 +272,8 @@ class Solver_Displayer:
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
         if(active):
-            title = f"\nProblem: {problem.identity}. Mode: {MODE_NAMES[problem.mode]}"
-            self.print_rcs_list(rcs_list, title, justify=justify)
+            title = f"\nProblem: {problem.identity} Mode: {MODE_NAMES[problem.mode]}"
+            self.print_rcs_list(rcs_list, title, justify=justify, show_rc_nums=SHOW_RC_NUMS_IN_PROBLEM)
 
     def print_rcs_list(
         self,
@@ -283,6 +283,7 @@ class Solver_Displayer:
         justify="center",
         indent=0,
         active=True,
+        show_rc_nums=False,
         **kwargs
     ):
         if not(active):
@@ -290,9 +291,16 @@ class Solver_Displayer:
         table = Table(title=title, header_style="deep_sky_blue3", border_style=border_style, title_style='', **kwargs)
         table.add_column("Rule Index", justify="right")
         for c_index in range(len(rcs_list)):
-            rc_text = f'Rule Card {letters[c_index]}'
+            if(self.solver.problem.mode == EXTREME):
+                rule_card_num_text = Text(f"({self.solver.problem.rc_nums_list[c_index * 2]}, {self.solver.problem.rc_nums_list[c_index * 2 + 1]})")
+            else:
+                rule_card_num_text = Text(f"({self.solver.problem.rc_nums_list[c_index]})")
+            rule_card_num_text.style = "purple"
+            if not(show_rc_nums):
+                rule_card_num_text = Text("")
+            rc_text = f'Rule Card {letters[c_index]}' + (' ' if show_rc_nums else '')
             min_width = max(self.max_rule_name_length, len(rc_text))
-            table.add_column(Text(rc_text, justify="center"), min_width=min_width)
+            table.add_column(Text(rc_text, justify="center").append(rule_card_num_text), min_width=min_width)
         zipped_rule_texts = zip_longest(*[[Text(r.name, style=self._rule_to_color_dict.get(r.unique_id, 'dim')) for r in rc] for rc in rcs_list], fillvalue='')
         for (i, zipped_rules) in enumerate(zipped_rule_texts):
             table.add_row(str(i), *zipped_rules)

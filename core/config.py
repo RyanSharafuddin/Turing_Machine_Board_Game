@@ -45,6 +45,7 @@ COLORS = [
 # Displaying
 TREE_BACKGROUND_COLOR      = "#690969"
 # TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
+SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -77,7 +78,7 @@ CACHE_END_STATES = False         # whether to cache the end states into the eval
 
 # Settings To Use For Debugging
 PRINT_ISOMORPHIC_LOL        = False
-PRINT_POST_SOLVE_DEBUG_INFO = True
+PRINT_POST_SOLVE_DEBUG_INFO = False
 
 # Miscellanea
 USER_PROBS_FILE_NAME = "core/user_problems.txt"

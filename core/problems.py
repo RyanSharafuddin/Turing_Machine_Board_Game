@@ -122,7 +122,6 @@ def _user_input_to_triplet(s:str):
 
 def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
     """ Makes a problem out of user input from stdin, adds it to the problem dicts and the text file of user problems, and returns it. """
-    # console.print("Enter problem ID", end="")
     problem_id = p_id.upper()
     if(problem_id in ID_TO_PROBLEM_DICT):
         console.print(f"Error: There already exists a problem with ID '{problem_id}'")
@@ -132,8 +131,6 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
     if(problem_id.endswith("_S") or problem_id.endswith("_N")):
         print("Error: Don't end problem IDs with '_S' or '_N'.")
         return(None)
-    # console.print("Enter rule card numbers", end="")
-    # rc_nums_str = input(": ")
     rcs_nums_strs_list = rc_nums_str.split()
     rc_nums = []
     for rc_num_str in rcs_nums_strs_list:
@@ -149,12 +146,10 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
     if len(set(rc_nums)) != len(rc_nums):
         print(f"Error: Each rule card can only appear once in a problem.")
         return(None)
-    # console.print("Enter problem mode.\n1: Standard\n2: Extreme\n3: Nightmare")
-    # mode = input(": ")
-    if(mode_str.upper() not in ACCEPTABLE_MODES):
+    mode = get_mode_from_user(mode_str)
+    if(mode is None):
         print(f"Error: {mode_str} could not be interpreted as a mode.")
         return(None)
-    mode = ACCEPTABLE_MODES.index(mode_str.upper())
     if((mode == 1) and ((len(rc_nums) % 2) != 0)):
         print("Error: In Extreme mode, there should be an even number of rule cards.")
         return(None)
@@ -166,7 +161,7 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
         console.print(f"Error. This is an invalid problem with no solutions.")
         return(None)
     _add_problem_to_both_dicts(p)
-    write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
+    _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
     if((p.mode == STANDARD) or (p.mode == NIGHTMARE)):
         other_version_mode = NIGHTMARE if (p.mode == STANDARD) else STANDARD
         other_version_suffix = "_S" if other_version_mode == STANDARD else "_N"
@@ -174,17 +169,26 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
             f"{p.identity}{other_version_suffix}", p.rc_nums_list, other_version_mode
         )
         _add_problem_to_both_dicts(other_version_problem)
-        write_user_problem_to_file(USER_PROBS_FILE_NAME, other_version_problem)
+        _write_user_problem_to_file(USER_PROBS_FILE_NAME, other_version_problem)
     return(p)
 
-# p = get_problem_input_from_user()
-# console.print(p)
-
-# TODO: write the user problems to a text file so that they persist between uses.
-def write_user_problem_to_file(f_name, p: Problem):
-    with open(f_name, "a") as f:
+def _write_user_problem_to_file(f_name, p: Problem):
+    with open(f_name, "a+") as f:
         f.write(repr(p))
         f.write("\n")
+
+def add_problem_to_known_problems(p: Problem, ignore_warning=False):
+    if(p.identity in ID_TO_PROBLEM_DICT):
+        if(not ignore_warning):
+            print(f"Could not add {p.identity} to known problems because a problem with that ID already exists.")
+            return(None)
+        else:
+            return(p)
+    else:
+        _add_problem_to_both_dicts(p)
+        _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
+        return(p)
+
 
 def print_all_problems():
     table = Table(
@@ -220,6 +224,25 @@ def print_all_problems():
             table.add_section()
     console.print(table, justify="center")
 
+def get_mode_from_user(user_mode_str):
+    if(user_mode_str is None):
+        return(None)
+    mode_int_strs = ['0', '1', '2']
+    if(user_mode_str in mode_int_strs):
+        return(mode_int_strs.index(user_mode_str))
+    if(user_mode_str.upper() in ACCEPTABLE_MODES):
+        return(ACCEPTABLE_MODES.index(user_mode_str.upper()))
+    print(f"'{user_mode_str}' cannot be interpreted as a mode.")
+    return(None)
+
+
+def pre_process_p_id(p_id: str):
+    if(p_id[0] == '#'):
+        p_id = p_id[1:]
+    p_id = p_id.upper()
+    p_id = ''.join(p_id.split())
+    return(p_id)
+
 IDS_TO_COMMENTS_DICT = {
     "B63YRW4" : "Zero query",
     "C630YVB" : "Mult. combos",
@@ -230,3 +253,5 @@ IDS_TO_COMMENTS_DICT = {
     "I4BYJK"  : "Killed 9",
     "INVALID" : "Example test"
 }
+
+# TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.

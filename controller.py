@@ -1,4 +1,4 @@
-import pickle, os, sys, platform, gc, argparse, git
+import pickle, os, sys, platform, gc, argparse, git, random
 from rich import print as rprint
 from core.definitions import *
 from core.config import *
@@ -7,6 +7,7 @@ import core.problems
 from core import display, solver
 from core.solver_capitulate import Solver_Capitulate
 from core.solver_nightmare import Solver_Nightmare
+import website
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
@@ -286,10 +287,11 @@ def play_from_file(f_name):
 null = open('/dev/null', 'w')
 out = sys.stdout
 
-print(f"Using {platform.python_implementation()}.")
 
 
 if(__name__ == "__main__"):
+    console.print(" ", style="green")
+    print(f"Using {platform.python_implementation()}.")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "prob_id", type=str, help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Example usage: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Run without any arguments to see a list of available problems.",
@@ -308,8 +310,32 @@ if(__name__ == "__main__"):
         help="Give up on being perfect. Choosing this turns on --no_pickles."
     )
     parser.add_argument("--new_problem", "-n", nargs="*", help="Create a problem from user input, rather than specifying an already-existing problem. Syntax: p_id rc_num rc_num ... mode, which is one of S, E, or N. If no mode, S will be assumed. Here's an example of a valid problem input: 'python controller.py -n Fire 4 9 11 12 N -d'")
+    parser.add_argument("--web", "-w", action="store_true", help="Get a problem straight from turingmachine.info. If the positional argument prob_id is given, will get the problem with that ID; otherwise will get a problem from the optional -m (mode, S, E, or N, or 0, 1, or 2), -l (level, 0, 1, or 2), and -v (number verifiers: 4, 5, or 6). If any of the mode, difficulty, or number of verifiers are not chosen, the computer will choose them 'randomly'. Examples: python controller.py -d -w FWW23A. or python controller.py -d -w -m N -l 2 -v 4")
+    parser.add_argument("--mode", "-m", help="Only has an effect when used with -w to get a problem from the web. Specify the mode of problems (S, E, or N. Or 0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
+    parser.add_argument("--level", "-l", type=int, help="Only has an effect when used with -w to get a problem from the web. Specify the level of difficulty of problems (0, 1, or 2) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
+    parser.add_argument("--verifiers", "-v", type=int, help="Only has an effect when used with -w to get a problem from the web. Specify the number of verifiers (4, 5, or 6) obtained from turingmachine.info. If unspecified, will be chosen randomly.")
 
     args = parser.parse_args()
+    if(args.web):
+        if(args.prob_id):
+            console.print(f"Getting problem [orange1]{args.prob_id}[/orange1] from turingmachine.info!")
+            p = website.get_web_problem_from_id(args.prob_id)
+            core.problems.add_problem_to_known_problems(p, ignore_warning=True)
+            args.prob_id = p.identity
+        else:
+            mode = core.problems.get_mode_from_user(args.mode)
+            if(mode is None):
+                mode = random.randrange(3) # select it randomly
+            level_of_difficulty = args.level
+            if(level_of_difficulty is None):
+                level_of_difficulty = random.randrange(3)
+            num_verifiers = args.verifiers
+            if(num_verifiers is None):
+                num_verifiers = 4 + random.randrange(3)
+            console.print(f"Getting a [hot_pink]{display.MODE_NAMES[mode]}[/hot_pink] mode problem with [turquoise2]{num_verifiers}[/turquoise2] verifiers and difficulty level {level_of_difficulty} from turingmachine.info.")
+            p = website.get_web_problem_from_mode_difficulty_num_vs(mode, level_of_difficulty, num_verifiers)
+            core.problems.add_problem_to_known_problems(p, ignore_warning=True)
+            args.prob_id = p.identity
     if(args.new_problem): # if no -n, this is None
         p = core.problems.front_facing_user_input(' '.join(args.new_problem))
         if(p is None):
@@ -341,10 +367,9 @@ if(__name__ == "__main__"):
                     force_overwrite=args.force_overwrite
                 )
             if(not(args.play or args.display)):
-                if(args.force_overwrite):
-                    s = get_or_make_solver(args.prob_id, force_overwrite=args.force_overwrite)
-                else:
-                    s = get_or_make_solver(args.prob_id, no_pickles=True)[0]
+                s = get_or_make_solver(
+                    args.prob_id, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
+                )[0]
 
     null.close()
 
