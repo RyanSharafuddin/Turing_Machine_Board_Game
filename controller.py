@@ -121,18 +121,16 @@ def make_solver(problem: Problem):
     else:
         s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
-    if(DISPLAY):
-        sd.print_problem(s.rcs_list, s.problem, active=True)
-    exit() # WARN TEMP: DELETE
+    sd.print_problem(s.rcs_list, s.problem, active=DISPLAY)
     if(not(s.full_cwas_list)):
-        rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that you specified the problem correctly in problems.py, and the rules correctly in rules.py.")
+        rprint(f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that the problem is specified correctly, and check the relevant rule cards in rules.py.")
         console.print("Reminder that any rule combination must obey two rules:\n  1. There is exactly one proposal that satisfies them all.\n  2. Each rule eliminates at least one possibility that is not eliminated by any other rule.", highlight=False)
         rprint("\nRule card numbers list: ", s.problem.rc_nums_list, end='')
         print("Exiting.")
         exit()
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    if(DISPLAY):
-        sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
+    title = "\nAll Possible Answers"
+    sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()
@@ -182,7 +180,7 @@ def get_or_make_solver(
     problem = get_local_problem(problem_id)
     if(problem is None):
         print()
-        core.problems.print_all_problems()
+        core.problems.print_all_local_problems()
         exit()
     display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
     if(DISABLE_GC):
@@ -352,7 +350,7 @@ if(__name__ == "__main__"):
             exit()
         core.problems.add_problem_to_known_problems(p, ignore_warning=True)
         args.prob_id = p.identity
-    elif(args.new_problem): # if no -n, this is None
+    elif(args.new_problem): # if no -n, this is None. If -n but no args, this is an empty list.
         p = core.problems.get_problem_from_user_string(' '.join(args.new_problem))
         if(p is None):
             print(
@@ -362,7 +360,7 @@ if(__name__ == "__main__"):
         args.prob_id = p.identity
     if(args.prob_id is None):
         # no problem specified. Perhaps display all problems?
-        core.problems.print_all_problems()
+        core.problems.print_all_local_problems()
         exit()
     # now have a valid problem (or file) specified.
     args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles

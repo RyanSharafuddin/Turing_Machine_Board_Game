@@ -324,19 +324,20 @@ for (rule_card_num, rule_card) in rcs_deck.items():
     rcs_deck[rule_card_num] = [_func_to_Rule(f, i) for (i, f) in enumerate(rule_card)]
     # now rcs_deck is a dict from rule_card_num to a list of Rules (see definitions.py)
 
-def rule_with_new_id(old_rule, new_id):
-    return(Rule(old_rule.name, old_rule.reject_set, old_rule.func, old_rule.card_index, new_id))
-
-def rc_with_new_ids(rc, new_id_start):
-    curr_new_id = new_id_start
+def _rule_with_new_unique_id(old_rule, new_unique_id):
+    """ Return a new Rule that is equivalent to old_rule, except it has a new unique_id"""
+    return(Rule(old_rule.name, old_rule.reject_set, old_rule.func, old_rule.card_index, new_unique_id))
+def _rc_with_new_unique_ids(rc: list[Rule], new_unique_id_start):
+    """ Modify the passed in Rule list (rule card) to contain rules with a contiguous block of unique IDs. """
+    curr_new_id = new_unique_id_start
     for rule_index in range(len(rc)):
-        rc[rule_index] = rule_with_new_id(rc[rule_index], curr_new_id)
+        rc[rule_index] = _rule_with_new_unique_id(rc[rule_index], curr_new_id)
         curr_new_id += 1
-
-def rcs_list_with_new_ids(rcs_list):
+def _rcs_list_with_new_unique_ids(rcs_list):
+    """ Modify the rule cards list to have rules with new unique ids that start at 0 and go up by 1. """
     curr_new_id = 0
     for rc_index in range(len(rcs_list)):
-        rc_with_new_ids(rcs_list[rc_index], curr_new_id)
+        _rc_with_new_unique_ids(rcs_list[rc_index], curr_new_id)
         curr_new_id += len(rcs_list[rc_index])
 
 def make_rcs_list(problem: Problem) -> list[list[Rule]]:
@@ -362,7 +363,7 @@ def make_rcs_list(problem: Problem) -> list[list[Rule]]:
             # changing the card_index of each rule for each rc in extreme mode, since cards are combined. Making new Rules b/c the fields of tuples aren't assignable.
             for (i, r) in enumerate(new_rc):
                 new_rc[i] = Rule(r.name, r.reject_set, r.func, i, r.unique_id)
-    rcs_list_with_new_ids(rcs_list)
+    _rcs_list_with_new_unique_ids(rcs_list)
     return(rcs_list)
 
 def make_flat_rule_list(rcs_list) -> list[Rule]:

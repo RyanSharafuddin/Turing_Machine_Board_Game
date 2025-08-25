@@ -173,7 +173,7 @@ class Solver:
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
-        self.full_cwas_list     = solver_utils.make_full_cwas_list(problem, self.rcs_list)
+        self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
         self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.qs_dict            = solver_utils.make_useful_qs_dict(
@@ -200,7 +200,7 @@ class Solver:
     # called_calculate = 0
     # cache_hits = 0
     # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
-    def calculate_best_move(self, qs_dict, game_state: Game_State):
+    def _calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
@@ -220,8 +220,8 @@ class Solver:
         for move_info in get_and_apply_moves(game_state, qs_dict):
             (move, mcost, gs_tup, p_tup) = move_info
             # console.print(f"Consider move {move}")
-            gs_false_node_cost = self.calculate_best_move(qs_dict, gs_tup[0])[1]
-            gs_true_node_cost = self.calculate_best_move(qs_dict, gs_tup[1])[1]
+            gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0])[1]
+            gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1])[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
@@ -244,7 +244,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
 
         # comment out else block above and uncomment this to try starting new rounds early as well.
         # if(game_state.num_queries_this_round != 0):
@@ -267,7 +267,7 @@ class Solver:
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
         start = time.time()
-        self.calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
 

@@ -10,6 +10,7 @@ def get_digit(n, index, base=10):
     return (n % base)
 
 def add_tups(*tups):
+    """ Adds tuple arguments element-wise. WARN: do not use for anything performance-critical. """
     result = tuple([sum([t[i] for t in tups]) for i in range(len(tups[0]))])
     return(result)
 

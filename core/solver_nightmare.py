@@ -1,6 +1,6 @@
 from .solver import *
 
-def calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]: 
+def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]:
     # TODO: print this out to make sure it works
     minimal_vs_list: list[set[int]] = []
     r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
@@ -20,7 +20,7 @@ def calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -
             minimal_vs_list.append(set([v_index]))
     return(minimal_vs_list)
 
-def nightmare_get_and_apply_moves(
+def _nightmare_get_and_apply_moves(
         game_state: Game_State,
         qs_dict: dict[int:dict[int:Query_Info]],
         minimal_vs_list: list[set[int]]
@@ -89,7 +89,7 @@ class Solver_Nightmare(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
 
-    def calculate_best_move(
+    def _calculate_best_move(
         self,
         qs_dict,
         game_state: Game_State,
@@ -106,21 +106,21 @@ class Solver_Nightmare(Solver):
             return(Solver.null_answer)
         best_node_cost = Solver.initial_best_cost
         if(game_state.proposal_used_this_round is None):
-            minimal_vs_list = calculate_minimal_vs_list(
+            minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
 
         found_moves = False
         # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
         # For testing purposes, make the entire moves_list before examining any moves.
-        for move_info in nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
+        for move_info in _nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
             (move, mcost, gs_tup, p_tup) = move_info
-            gs_false_node_cost = self.calculate_best_move(
+            gs_false_node_cost = self._calculate_best_move(
                 qs_dict,
                 gs_tup[0],
                 minimal_vs_list
             )[1]
-            gs_true_node_cost = self.calculate_best_move(
+            gs_true_node_cost = self._calculate_best_move(
                 qs_dict,
                 gs_tup[1],
                 minimal_vs_list
@@ -146,6 +146,6 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
         self.evaluations_cache[game_state] = answer
         return(answer)

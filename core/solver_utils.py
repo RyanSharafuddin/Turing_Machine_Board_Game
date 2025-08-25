@@ -1,11 +1,13 @@
 import math, itertools
 # from definitions import *
-from .definitions import Query_Info, NIGHTMARE, console, all_125_possibilities_set
+from .definitions import Query_Info, console, all_125_possibilities_set, Rule
 from . import config
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
-    """ Returns all combinations of rules from the rules cards, whether possible or not. """
+    """
+    Returns all combinations of rules from the rules cards, whether possible or not. Does not depend on card_index or any rule ID.
+    """
     num_rules_cards = len(rcs_list)
     rcs_lengths = [len(rules_card) for rules_card in rcs_list]
     total_num_combinations = math.prod(rcs_lengths)
@@ -22,7 +24,7 @@ def _get_all_rules_combinations(rcs_list):
     #     print(f'{combo_num}: {[rule.name for rule in combo]}')
     return(rules_combos)
 
-def _is_combo_possible(combo):
+def _is_combo_possible(combo: list[Rule]):
     """
     WARN: can return None.
     In Turing Machine, there are 2 requirements that any valid combination of verifiers/rules must satisfy:
@@ -210,9 +212,13 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
             corresponding_set.add(possible_rule.unique_id)
     return(possible_rule_ids_by_verifier)
 
-def make_full_cwas_list(problem, rcs_list):
+def make_full_cwas_list(n_mode: bool, rcs_list):
+    """
+    Make a full list of cwas given a boolean of n_mode and the rule cards list.
+    NOTE: This does not depend on any property of the problem other than these, so you can use this function to get a full cwas list if the rcs_list contains only a proper subset of rule cards/rules.
+    """
     possible_combos_with_answers = _get_possible_rules_combos_with_answers(rcs_list)
-    if(problem.mode == NIGHTMARE):
+    if(n_mode):
         nightmare_possible_combos_with_answers = []
         vs = list(range(len(rcs_list))) # vs = [0, 1, 2, . . . for number of verifiers]
         verifier_permutations = tuple(itertools.permutations(vs))

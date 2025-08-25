@@ -268,6 +268,7 @@ class Solver_Displayer:
         )
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
+        """ if active is True, print a table representing the problem's rule cards, otherwise do nothing. """
         if(active):
             title = f"\nProblem: {problem.identity} Mode: {MODE_NAMES[problem.mode]}"
             self.print_rcs_list(rcs_list, title, justify=justify, show_rc_nums=SHOW_RC_NUMS_IN_PROBLEM)
