@@ -185,12 +185,14 @@ class Solver:
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         # self.cost_calulator     = solver_utils.calculate_worst_case_cost
-        # self.testing_stuff() # WARN TODO: delete
+        self.testing_stuff() # WARN TODO: delete
 
     def testing_stuff(self):
-        import display
+        global display
+        from . import display
         global sd
         sd = display.Solver_Displayer(self)
+        # sd.print_useful_qs_dict_info(self.qs_dict, self.initial_game_state.cwa_set, None, None, False)
         # sd.print_problem(self.rcs_list, self.problem)
         # sd.print_all_possible_answers(
         #     self.full_cwas_list,
@@ -213,13 +215,21 @@ class Solver:
             if(config.CACHE_END_STATES):
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
+        if(game_state.proposal_used_this_round is None):
+            qs_dict = solver_utils.filter_update_iso_remove(qs_dict, game_state.cwa_set, self.num_rcs)
+            # len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()])
+            # qs_dict = solver_utils.filter_useless_and_update_qs_dict(qs_dict, game_state.cwa_set)
+            # len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()])
+            # if( len_now < len_before):
+            #     print(f"Some queries have been eliminated. Printing remaining queries:")
+            #     print(f'{len_before} -> {len_now} queries')
+            #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set, None, None, True, True)
+            #     sd.print_game_state(game_state)
+                # print(repr(game_state))
         best_node_cost = Solver.initial_best_cost
         found_moves = False
-        # console.print("Calculating best move on gs:")
-        # sd.print_game_state(game_state)
         for move_info in get_and_apply_moves(game_state, qs_dict):
             (move, mcost, gs_tup, p_tup) = move_info
-            # console.print(f"Consider move {move}")
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0])[1]
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1])[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)

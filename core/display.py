@@ -95,18 +95,18 @@ def _get_col_widths(table):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
 
-def rich_obj_to_list_lines(rich_obj) -> list[str]:
+def _rich_obj_to_list_lines(rich_obj) -> list[str]:
     with console.capture() as capture:
         console.print(rich_obj)
     lines = capture.get().split("\n")
     return lines
 
-def print_indented_table(table, indent_amount):
+def _print_indented_table(table, indent_amount):
     """
     table is the Rich python object.
     """
     # for some reason, returning the table as a string with indents inserted and printing that doesn't seem to work.
-    table_lines = rich_obj_to_list_lines(table)
+    table_lines = _rich_obj_to_list_lines(table)
     for line in table_lines:
         print(f'{" " * indent_amount}{line}')
 
@@ -303,7 +303,7 @@ class Solver_Displayer:
         for (i, zipped_rules) in enumerate(zipped_rule_texts):
             table.add_row(str(i), *zipped_rules)
         if(indent != 0):
-            print_indented_table(table, indent)
+            _print_indented_table(table, indent)
         else:
             console.print(table, justify=justify)
 
@@ -342,7 +342,7 @@ class Solver_Displayer:
         if(custom_indent == 0):
             console.print(table, justify=justify)
         else:
-            print_indented_table(table, custom_indent)
+            _print_indented_table(table, custom_indent)
 
     def print_evaluations_cache_info(
             self,
@@ -495,7 +495,8 @@ class Solver_Displayer:
         cwa_set_when_q_dict_made,
         verifier_index=None,
         proposals_to_examine=None,
-        see_all_combos=True
+        see_all_combos=True,
+        short=False,
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/proposal.
@@ -508,7 +509,12 @@ class Solver_Displayer:
         for possible_v_index in range(len(self.solver.rcs_list)):
             if((verifier_index is None) or (possible_v_index == verifier_index)):
                 self._print_useful_qs_dict_info_helper(
-                    useful_qs_dict, cwa_set_when_q_dict_made, possible_v_index, proposals_to_examine, see_all_combos
+                    useful_qs_dict,
+                    cwa_set_when_q_dict_made,
+                    possible_v_index,
+                    proposals_to_examine,
+                    see_all_combos,
+                    short
                 )
 
     def print_eval_cache_size(self):
@@ -589,7 +595,8 @@ class Solver_Displayer:
         cwa_set_when_q_dict_made,
         v_index,
         proposals_to_examine=None,
-        see_all_combos=True
+        see_all_combos=True,
+        short=False,
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/list of proposals.
@@ -602,7 +609,15 @@ class Solver_Displayer:
             if(v_index in inner_dict):
                 q_info: Query_Info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
-
+        if(short):
+            printed_line = False
+            for (p_index, p) in enumerate(sorted(q_dict_this_card.keys()), start=1):
+                if((proposals_to_examine is None) or (p in proposals_to_examine)):
+                    if not printed_line:
+                        print()
+                        printed_line = True
+                    console.print(f"{p_index:>3}: {mov_to_str((p, v_index))}")
+            return
         possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
         # NOTE print table
         self.print_possible_rules_by_verifier_from_cwas(
@@ -828,6 +843,7 @@ class Solver_Displayer:
 
 
 def mov_to_str(move: tuple):
+    """ Return a move string like 123 A"""
     return(f"{move[0]} {letters[move[1]]}")
 
 class Tree:
@@ -875,12 +891,12 @@ def _get_max_string_height_by_depth(tree: Tree):
                 answer.append(num_combinations)
             else:
                 answer[curr_node.depth] = max(answer[curr_node.depth], num_combinations)
-            children = get_children(curr_node)
+            children = _get_children(curr_node)
             for child in children:
                 q.append(child)
     return(answer)
 
-def get_children_multi_move(tree):
+def _get_children_multi_move(tree):
     raise Exception("Unimplemented")
     if(tree.type == 'move'):
         pass
@@ -906,7 +922,7 @@ def get_children_multi_move(tree):
         # finished game; no children. This is an answer node
         return([])
 
-def node_to_str_multi_move(tree):
+def _node_to_str_multi_move(tree):
     if(tree.type == 'gs'):
         # I think I can just call my regular node_to_str(tree) function below.
         # Ah, but I'll have to pass in a new parameter that tells it not to print the best move beneath all the gs info in the node, since the best move will now be its own node. Well, pass in or set. Maybe make it a class field in tree, and have print_multi_move_tree and print_best_move_tree set it when you first call them. Should also stop the regular node_to_str function from printing the probability of reaching a game state in the game state nodes when using it from here.
@@ -915,7 +931,7 @@ def node_to_str_multi_move(tree):
         pass
     raise Exception("Unimplemented")
 
-def get_children(tree: Tree):
+def _get_children(tree: Tree):
     if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
         result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         if(result is not None):
@@ -940,7 +956,7 @@ def get_children(tree: Tree):
             return(children)
     return([])
 
-def node_to_str_table(tree: Tree):
+def _node_to_str_table(tree: Tree):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
     if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
@@ -985,7 +1001,7 @@ def node_to_str_table(tree: Tree):
             node_table.title = f'{title}{cost_of_node_str}'
             node_table.caption = move_str
             rich_obj_to_print = node_table
-        node_list_lines = rich_obj_to_list_lines(rich_obj_to_print)
+        node_list_lines = _rich_obj_to_list_lines(rich_obj_to_print)
         node_str = '\n'.join(node_list_lines).strip()
         return(node_str)
     else: # leaf node
@@ -999,7 +1015,7 @@ def node_to_str_table(tree: Tree):
         leaf_style = f"{leaf_foreground_color} on {TREE_BACKGROUND_COLOR}"
         answer_text = Text(f" {str(answer)} ", style=leaf_style)
         t.add_row(answer_text)
-        t_str = ''.join(rich_obj_to_list_lines(answer_text))
+        t_str = ''.join(_rich_obj_to_list_lines(answer_text))
         return(t_str)
 
 def print_best_move_tree(gs, show_combos, solver):
@@ -1007,13 +1023,13 @@ def print_best_move_tree(gs, show_combos, solver):
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs=gs, solver=solver)
     Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)
-    table_tree = PrettyPrintTree(get_children, node_to_str_table, color='')
+    table_tree = PrettyPrintTree(_get_children, _node_to_str_table, color='')
     table_tree(tree)
 
-def print_multi_move_tree(gs, show_combos, solver):
+def _print_multi_move_tree(gs, show_combos, solver):
     raise Exception("Unimplemented")
     print()
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs)
-    pt = PrettyPrintTree(get_children_multi_move, node_to_str_multi_move)
+    pt = PrettyPrintTree(_get_children_multi_move, _node_to_str_multi_move)
     pt(tree)

@@ -43,8 +43,8 @@ COLORS = [
 ]
 
 # Displaying
-TREE_BACKGROUND_COLOR      = "#690969"
-# TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
+# TREE_BACKGROUND_COLOR      = "#690969"
+TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 
 # Colors for the problems table
@@ -57,7 +57,7 @@ STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', '#FFFF00', "#FF0000"]
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
-SHOW_COMBOS_IN_TREE                = True       # Print combos in trees in display_problem_solution()
+SHOW_COMBOS_IN_TREE                = False       # Print combos in trees in display_problem_solution()
 P_ORDER                            = True       # Whether to display tables in permutation order for 
                                                 # nightmare mode (no effect in other modes)
 # whether to print a line b/t every unique answer in the tables

@@ -1,7 +1,8 @@
 import math, itertools
 # from definitions import *
-from .definitions import Query_Info, console, all_125_possibilities_set, Rule
+from .definitions import Query_Info, console, all_125_possibilities_set, Rule, console # TODO: delete console
 from . import config
+from . import display # TODO: delete once tested.
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
@@ -261,9 +262,10 @@ def filter_useless_and_update_qs_dict(qs_dict: dict, current_cwa_set):
     Given a qs dict and a current set of cwas, returns a new qs dict that has useless queries removed and where each q_info contains the minimum possible amount of cwas.
     """
     new_qs_dict = dict()
+    # useless_moves = [] # TODO: delete after done testing
     for (proposal, inner_dict) in qs_dict.items():
         have_put_proposal_into_new_dict = False
-        for (v_index, q_info) in inner_dict:
+        for (v_index, q_info) in inner_dict.items():
             (q_info_true, q_info_false) =  q_info
             cwa_set_true = q_info_true & current_cwa_set
             cwa_set_false = q_info_false & current_cwa_set
@@ -274,6 +276,16 @@ def filter_useless_and_update_qs_dict(qs_dict: dict, current_cwa_set):
                     have_put_proposal_into_new_dict = True
                 else:
                     new_qs_dict[proposal][v_index] = new_q_info
+            # else: # not a useful query. TODO: delete the else block once tested
+            #     useless_moves.append((proposal, v_index))
+    # useless_moves.sort(key= lambda move: (move[1], move[0]))
+    # for (m_index, useless_move) in enumerate(useless_moves, start=1):
+    #     console.print(f'{m_index:>3}: {display.mov_to_str(useless_move)} is now useless.')
+    return(new_qs_dict)
+
+def filter_update_iso_remove(qs_dict: dict, current_cwa_set, num_verifiers):
+    filtered_qs_dict = filter_useless_and_update_qs_dict(qs_dict, current_cwa_set)
+    new_qs_dict = get_dict_filtered_of_isomorphic_proposals(filtered_qs_dict, num_verifiers)
     return(new_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
