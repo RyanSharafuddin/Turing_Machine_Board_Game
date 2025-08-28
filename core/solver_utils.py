@@ -166,12 +166,13 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
                 break
             elif(comparison_result is _EXCLUDE_FIRST):
                 # debug mode print out a proposal got eliminated
-                # console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.")
+                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3}.") # TODO: comment out
                 break
             elif(comparison_result is _EXCLUDE_SECOND):
                 # debug mode print out a proposal list is about to get eliminated
                 # if you're in debug mode, can print out something here to show which proposals are about to be eliminated. Consider looking into if __debug__ and see if there's a way to optimize it away when running for real without changing code.
-                # console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.")
+                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}.") # TODO: comment out
+                console.print(f"List that just got eliminated:", isomorphic_proposals_lol[list_index]) # TODO: comment out.
                 isomorphic_proposals_lol[list_index] = None
                 # NOTE: should NOT break out of loop early here, b/c even though this proposal is guaranteed to not be isomorphic to any of the other proposals in any isomorphic proposals list, it could still eliminate more future isomorphic proposals lists from the LOL, and if you broke out of this loop right now, those future isomorphic proposals lists that should have been eliminated will not be eliminated.
             # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.

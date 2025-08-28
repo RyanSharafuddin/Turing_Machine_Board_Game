@@ -216,15 +216,14 @@ class Solver:
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
         if(game_state.proposal_used_this_round is None):
+            len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: delete
             qs_dict = solver_utils.filter_update_iso_remove(qs_dict, game_state.cwa_set, self.num_rcs)
-            # len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()])
-            # qs_dict = solver_utils.filter_useless_and_update_qs_dict(qs_dict, game_state.cwa_set)
-            # len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()])
-            # if( len_now < len_before):
-            #     print(f"Some queries have been eliminated. Printing remaining queries:")
-            #     print(f'{len_before} -> {len_now} queries')
-            #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set, None, None, True, True)
-            #     sd.print_game_state(game_state)
+            len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: delete
+            if( len_now < len_before): # TODO: delete this if block
+                print(f"Some queries have been eliminated. Printing remaining queries:")
+                print(f'{len_before} -> {len_now} queries')
+                sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set, None, None, True, True)
+                sd.print_game_state(game_state)
                 # print(repr(game_state))
         best_node_cost = Solver.initial_best_cost
         found_moves = False
