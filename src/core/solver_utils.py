@@ -258,6 +258,7 @@ def make_useful_qs_dict(full_cwas_list, flat_rule_list, n_mode):
         console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} proposals out of {len(base_qs_dict)}!")
     return(useful_qs_dict)
 
+# TODO: make the below a 'private' function
 def filter_useless_and_update_qs_dict(qs_dict: dict, current_cwa_set):
     """
     Given a qs dict and a current set of cwas, returns a new qs dict that has useless queries removed and where each q_info contains the minimum possible amount of cwas.

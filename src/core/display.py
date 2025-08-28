@@ -4,8 +4,8 @@ from collections import deque
 from PrettyPrint import PrettyPrintTree
 from rich.table import Table
 from rich.text import Text
-# from rich import box
 from rich.highlighter import ReprHighlighter
+# My imports
 from . import solver
 from .definitions import *
 from .config import *

@@ -79,7 +79,7 @@ CACHE_END_STATES = False        # whether to cache the end states into the evalu
 PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False
 
-# Where things are
-PICKLE_DIRECTORY = "core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
-USER_PROBS_FILE_NAME = "core/user_problems.txt"
-TIME_PICKLE_FILE_NAME = "core/Pickles/time_pickle_file.bin"
+# Where things are, from perspective of controller.py.
+PICKLE_DIRECTORY = "src/core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
+USER_PROBS_FILE_NAME = "src/core/user_problems.txt"
+TIME_PICKLE_FILE_NAME = "src/core/Pickles/time_pickle_file.bin"

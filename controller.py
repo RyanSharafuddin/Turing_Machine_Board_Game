@@ -1,13 +1,13 @@
 import pickle, os, platform, gc, argparse, git
 from rich import print as rprint
 # from rich.text import Text
-from core.definitions import *
-from core.config import *
-from core.problems import get_problem_by_id as get_local_problem
-import core.problems
-from core import display, solver
-from core.solver_capitulate import Solver_Capitulate
-from core.solver_nightmare import Solver_Nightmare
+from src.core.definitions import *
+from src.core.config import *
+from src.core.problems import get_problem_by_id as get_local_problem
+import src.core.problems as problems
+from src.core import display, solver
+from src.core.solver_capitulate import Solver_Capitulate
+from src.core.solver_nightmare import Solver_Nightmare
 import website
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
@@ -161,7 +161,7 @@ def pickle_solver(problem, pickle_entire=False, force_overwrite=False):
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     console.print("Done", justify="center")
-    core.problems.update_pickled_time_dict_if_necessary(s)
+    problems.update_pickled_time_dict_if_necessary(s)
     return(s)
 
 def get_or_make_solver(
@@ -180,7 +180,7 @@ def get_or_make_solver(
     problem = get_local_problem(problem_id)
     if(problem is None):
         print()
-        core.problems.print_all_local_problems()
+        problems.print_all_local_problems()
         exit()
     display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
     if(DISABLE_GC):
@@ -243,7 +243,7 @@ def get_web_problem(p_id, raw_mode, level, num_verifiers):
     if(p_id is not None):
         p = website.get_web_problem_from_id(p_id, print_action=True)
     else:
-        mode = core.problems.get_mode_from_user(raw_mode)
+        mode = problems.get_mode_from_user(raw_mode)
         p = website.get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
     return(p)
 
@@ -348,10 +348,10 @@ if(__name__ == "__main__"):
         if(p is None):
             console.print(f"Error. Could not successfully retrieve the problem from the website. Exiting.")
             exit()
-        core.problems.add_problem_to_known_problems(p, ignore_warning=True)
+        problems.add_problem_to_known_problems(p, ignore_warning=True)
         args.prob_id = p.identity
     elif(args.new_problem): # if no -n, this is None. If -n but no args, this is an empty list.
-        p = core.problems.get_problem_from_user_string(' '.join(args.new_problem))
+        p = problems.get_problem_from_user_string(' '.join(args.new_problem))
         if(p is None):
             print(
                 "Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed. Exiting."
@@ -360,7 +360,7 @@ if(__name__ == "__main__"):
         args.prob_id = p.identity
     if(args.prob_id is None):
         # no problem specified. Perhaps display all problems?
-        core.problems.print_all_local_problems()
+        problems.print_all_local_problems()
         exit()
     # now have a valid problem (or file) specified.
     args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles

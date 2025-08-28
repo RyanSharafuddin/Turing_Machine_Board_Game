@@ -1,10 +1,11 @@
 import pickle
 from rich.table import Table
 from rich.text import Text
+# My imports
 from .config import *
 from .definitions import *
 from .display import MODE_NAMES, Solver_Displayer
-from . import rules # WARN: side effects?
+from .rules import rcs_deck
 from . import solver
 
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
@@ -95,7 +96,7 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
         try:
             rc = int(rc_num_str)
             rc_nums.append(rc)
-            if(not rc in rules.rcs_deck):
+            if(not rc in rcs_deck):
                 console.print(f"Error: rule card {rc} is not defined in the rule card deck.")
                 return(None)
         except ValueError:
@@ -310,3 +311,4 @@ _PICKLED_TIME_DICT: dict = pickle.load(_f)
 _f.close()
 
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
+# TODO: use a trie instead of the wildly inefficient prefix dict
