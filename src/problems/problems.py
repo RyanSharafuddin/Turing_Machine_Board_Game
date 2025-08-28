@@ -2,11 +2,11 @@ import pickle
 from rich.table import Table
 from rich.text import Text
 # My imports
-from .config import *
-from .definitions import *
-from .display import MODE_NAMES, Solver_Displayer
-from .rules import rcs_deck
-from . import solver
+from ..core.config import *
+from ..core.definitions import *
+from ..core.display import MODE_NAMES, Solver_Displayer
+from ..core.rules import rcs_deck
+from ..core import solver
 
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
 _STANDARD_PROB_TUPS = [
@@ -43,7 +43,7 @@ _IDS_TO_COMMENTS_DICT = {
 _ACCEPTABLE_MODES = ["S", "E", "N"]
 def _add_problem_to_both_dicts(problem: Problem):
     """
-    Adds problem to ID_TO_PROBLEM_DICT and also PREFIX_ID_TO_PROBLEM_LIST_DICT, which is a pre-requisite for getting the problem with get_problem_by_id.
+    Adds problem to ID_TO_PROBLEM_DICT and also PREFIX_ID_TO_PROBLEM_LIST_DICT, which is a pre-requisite for getting the problem with get_local_problem_by_id.
     """
     _ID_TO_PROBLEM_DICT[problem.identity] = problem
     _add_problem_to_prefix_id_dict(problem)
@@ -136,7 +136,7 @@ def _write_user_problem_to_file(f_name, p: Problem):
         f.write("\n")
 
 
-def get_problem_by_id(problem_id: str):
+def get_local_problem_by_id(problem_id: str):
     """
     Get a local problem (one currently in ID_TO_PROBLEM_DICT and PREFIX_ID_TO_PROBLEM_LIST_DICT) and return it. Note that the way the prefix id dict works, you can get a problem with just its prefix. For example, you can get problem F435FE by asking for problem f43. It even handles the _S and _N suffixes, so you can get F435FE_N by asking for f43_N, or f_434_N, or etc. If there are multiple problems that share a prefix, this function will display a list of them and ask for user input to disambiguate.
     """
@@ -255,19 +255,20 @@ def pre_process_p_id(p_id: str):
     p_id = p_id.upper()
     p_id = ''.join(p_id.split())
     return(p_id)
-def update_pickled_time_dict_if_necessary(s: solver):
+def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
     """
     previous_best = _PICKLED_TIME_DICT.get(s.problem.identity, float("inf"))
+    p_ids_to_delete = [p_id for p_id in _PICKLED_TIME_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
+    for p_id in p_ids_to_delete:
+        del(_PICKLED_TIME_DICT[p_id])
     if(s.seconds_to_solve < previous_best):
         if(previous_best != float("inf")):
             console.print(
                 f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
             )
-        for identity in _PICKLED_TIME_DICT:
-            if not(identity in _ID_TO_PROBLEM_DICT):
-                del(_PICKLED_TIME_DICT[identity])
+    if(bool(p_ids_to_delete) or (s.seconds_to_solve < previous_best)):
         print(f"Pickling time dict . . .")
         _PICKLED_TIME_DICT[s.problem.identity] = s.seconds_to_solve
         f = open(TIME_PICKLE_FILE_NAME, "wb")
@@ -306,9 +307,8 @@ _PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
 for _problem in _ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(_problem)
 
-_f = open(TIME_PICKLE_FILE_NAME, 'rb')
-_PICKLED_TIME_DICT: dict = pickle.load(_f)
-_f.close()
+with open(TIME_PICKLE_FILE_NAME, 'rb') as _f:
+    _PICKLED_TIME_DICT: dict = pickle.load(_f)
 
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
 # TODO: use a trie instead of the wildly inefficient prefix dict

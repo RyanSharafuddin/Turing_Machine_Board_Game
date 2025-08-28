@@ -1,15 +1,14 @@
 import pickle, os, platform, gc, argparse, git
 from rich import print as rprint
 # from rich.text import Text
+# My imports
 from src.core.definitions import *
 from src.core.config import *
-from src.core.problems import get_problem_by_id as get_local_problem
-import src.core.problems as problems
+import src.problems.website as website
+import src.problems.problems as problems
 from src.core import display, solver
 from src.core.solver_capitulate import Solver_Capitulate
 from src.core.solver_nightmare import Solver_Nightmare
-import website
-# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script
 
 def update_query_history(q_history, move, new_round: bool, result: bool):
     if(new_round):
@@ -177,7 +176,7 @@ def get_or_make_solver(
     If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles. Precludes force_overwrite and pickle_entire.
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
-    problem = get_local_problem(problem_id)
+    problem = problems.get_local_problem_by_id(problem_id)
     if(problem is None):
         print()
         problems.print_all_local_problems()

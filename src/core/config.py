@@ -55,7 +55,7 @@ RULE_CARD_NUMS_COLOR       = "#FFAFFF"
 PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
 STACK_EXTREME_RULE_CARDS   = True # print out a problems table with this true or false to see what this does.
-STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', '#FFFF00', "#FF0000"]
+STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
@@ -80,6 +80,6 @@ PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False
 
 # Where things are, from perspective of controller.py.
-PICKLE_DIRECTORY = "src/core/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
-USER_PROBS_FILE_NAME = "src/core/user_problems.txt"
-TIME_PICKLE_FILE_NAME = "src/core/Pickles/time_pickle_file.bin"
+PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
+USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
+TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

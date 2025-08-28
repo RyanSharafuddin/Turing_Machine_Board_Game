@@ -9,10 +9,10 @@ get_web_problem_from_mode_difficulty_num_vs : get a web problem with given param
 import requests, json, random
 from rich.text import Text
 # My imports
-from src.core.definitions import Problem, console, EXTREME
-import src.core.display as display
-from src.core.problems import pre_process_p_id
-import src.core.config as config
+from ..core.definitions import Problem, console, EXTREME
+from ..core import display
+from ..problems.problems import pre_process_p_id
+from ..core import config
 
 def _get_response_by_problem_id(p_id: str):
     """ Given a problem ID, get the raw response for the problem with that ID from turingmachine.info """
