@@ -7,10 +7,11 @@ get_web_problem_from_mode_difficulty_num_vs : get a web problem with given param
 """
 # See https://www.scrapingbee.com/curl-converter/python/
 import requests, json, random
+from rich.text import Text
 from core.definitions import Problem, console, EXTREME
 import core.display as display
 from core.problems import pre_process_p_id
-from rich.text import Text
+import core.config as config
 
 def _get_response_by_problem_id(p_id: str):
     """ Given a problem ID, get the raw response for the problem with that ID from turingmachine.info """
@@ -54,7 +55,6 @@ def _get_response_by_mode_difficulty_num_vs(mode: int, difficulty: int, num_veri
     Get the raw response for an arbitrary problem from turingmachine.info with the given mode, difficulty, and number of verifiers.
 
     mode = 0, 1, or 2 for standard, extreme, nightmare.
-
 
     difficulty is 0, 1, or 2.
 
@@ -137,7 +137,7 @@ def _error_if_no_match(actual, expected, attribute_name):
     Given an actual object, an expected object, and the name of the object, if the expected object is not None and the objects don't match up, prints an error message.
     """
     if((expected is not None) and (actual != expected)):
-        console.print(f"[b red]Error[/b red]: for {attribute_name}, expected {expected}, but got {actual}.")
+        console.print(f"[b red]Warn[/b red]: for {attribute_name}, expected {expected}, but got {actual}.")
 def _get_problem_from_raw_response(
         raw_response,
         expected_id = None,
@@ -182,7 +182,7 @@ def get_web_problem_from_id(p_id: str, print_action=False):
     if(print_action):
         text = Text.assemble(
             ("Getting problem "),
-            (f"{p_id} ", "orange1"),
+            (f"{p_id} ", config.PROBLEM_TITLE_COLOR),
             "from ",
             ("turingmachine.info", "link https://turingmachine.info/"),
             ".",
@@ -205,11 +205,11 @@ def get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers,
     if(print_action):
         text = Text.assemble(
             f"Getting a ",
-            (f"{display.MODE_NAMES[mode].lower()}", "hot_pink"),
+            (f"{display.MODE_NAMES[mode].lower()}", "#FF5FD7"),
             " mode problem with ",
-            (f"{num_verifiers}", "turquoise2"),
+            (f"{num_verifiers}", "#00D7FF"),
             " verifiers and difficulty level ",
-            (f"{difficulty}", "blue"),
+            (f"{difficulty}", "#0000FF"),
             " from ",
             ("turingmachine.info", "link https://turingmachine.info/"),
             "."

@@ -46,10 +46,12 @@ COLORS = [
 # TREE_BACKGROUND_COLOR      = "#690969"
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
+PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
+
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
-RULE_CARD_NUMS_COLOR       = "#ffafff"
+RULE_CARD_NUMS_COLOR       = "#FFAFFF"
 PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
 STACK_EXTREME_RULE_CARDS   = True # print out a problems table with this true or false to see what this does.
