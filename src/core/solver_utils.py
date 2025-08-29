@@ -233,6 +233,7 @@ def make_full_cwas_list(n_mode: bool, rcs_list):
     possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
+# TODO: make the below a 'private' function
 def get_dict_filtered_of_isomorphic_proposals(base_qs_dict, num_verifiers):
     """ Given a queries dict, returns a NEW queries dict with the isomorphic queries filtered out. """
     isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)

@@ -135,10 +135,9 @@ def _write_user_problem_to_file(f_name, p: Problem):
         f.write(repr(p))
         f.write("\n")
 
-
 def get_local_problem_by_id(problem_id: str):
     """
-    Get a local problem (one currently in ID_TO_PROBLEM_DICT and PREFIX_ID_TO_PROBLEM_LIST_DICT) and return it. Note that the way the prefix id dict works, you can get a problem with just its prefix. For example, you can get problem F435FE by asking for problem f43. It even handles the _S and _N suffixes, so you can get F435FE_N by asking for f43_N, or f_434_N, or etc. If there are multiple problems that share a prefix, this function will display a list of them and ask for user input to disambiguate.
+    Get a local problem (one currently in ID_TO_PROBLEM_DICT and PREFIX_ID_TO_PROBLEM_LIST_DICT) and return it. Note that the way the prefix id dict works, you can get a problem with just its prefix. For example, you can get problem F435FE by asking for problem f43. It even handles the _S and _N suffixes, so you can get F435FE_N by asking for f43_N, or f4345_N, or etc. If there are multiple problems that share a prefix, this function will display a list of them and ask for user input to disambiguate.
     """
     problem_id = problem_id.upper()
     problem_list = _PREFIX_ID_TO_PROBLEM_LIST_DICT.get(problem_id, [])
@@ -276,7 +275,6 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
         f.close()
         print("Done pickling the time dict.")
 
-
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
 _NIGHTMARE_PROB_TUPS += _derived_nightmare_prob_tups
@@ -309,6 +307,6 @@ for _problem in _ID_TO_PROBLEM_DICT.values():
 
 with open(TIME_PICKLE_FILE_NAME, 'rb') as _f:
     _PICKLED_TIME_DICT: dict = pickle.load(_f)
-
-# TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
+# TODO: You really should first check to see whether a file at TIME_PICKLE_FILENAME exists, and if it doesn't, create it, so this doesn't crash on other people's computers if you send it to them.
 # TODO: use a trie instead of the wildly inefficient prefix dict
+# TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
