@@ -85,7 +85,7 @@ def _get_col_widths(table):
     """
     Note: table is not a Rich table; it's just a 2d array of objects that will later be converted into strings and right adjusted.
     """
-    num_cols = len(table[0])
+    num_cols = max(len(table[i]) for i in range(len(table)))
     max_length_by_column = [0] * num_cols
     new_table = [[str(elem) for elem in row] for row in table]
     for row in new_table:
@@ -246,6 +246,15 @@ def center_print(*args, **kwargs):
 def mov_to_str(move: tuple):
     """ Return a move string like 123 A"""
     return(f"{move[0]} {letters[move[1]]}")
+def get_move_text(move: tuple):
+    pass
+    return(
+        Text.assemble(
+            (f'{move[0]}', PROPOSAL_COLOR),
+            " ",
+            (letters[move[1]], VERIFIER_COLORS[move[1] % len(VERIFIER_COLORS)])
+        )
+    )
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -314,6 +323,7 @@ class Solver_Displayer:
         proposals_to_examine=None,
         see_all_combos=True,
         short=False,
+        show_partitions=False,
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/list of proposals.
@@ -326,25 +336,19 @@ class Solver_Displayer:
             if(v_index in inner_dict):
                 q_info: Query_Info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
-        if(short):
-            printed_line = False
-            for (p_index, p) in enumerate(sorted(q_dict_this_card.keys()), start=1):
-                if((proposals_to_examine is None) or (p in proposals_to_examine)):
-                    if not printed_line:
-                        print()
-                        printed_line = True
-                    console.print(f"{p_index:>3}: {mov_to_str((p, v_index))}")
-            return
-        possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
-        # NOTE print table
-        self.print_possible_rules_by_verifier_from_cwas(
-            full_cwas,
-            v_index,
-            title=possible_rules_title,
-            caption=f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}",
-            caption_style=""
-        )
-        # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
+
+        if not short:
+            possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
+            # NOTE print table
+            self.print_possible_rules_by_verifier_from_cwas(
+                full_cwas,
+                v_index,
+                title=possible_rules_title,
+                caption=f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}",
+                caption_style=""
+            )
+            # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
+        printed_line = False # only used if short is True
         for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
             if not ((proposals_to_examine is None) or (proposal in proposals_to_examine)):
                 continue
@@ -354,6 +358,51 @@ class Solver_Displayer:
                     ) for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
             ]
 
+            if(short):
+                # TODO: what order does print game state print the cwas in? Find out so your partition corresponds to that.
+                if not printed_line:
+                    print()
+                    printed_line = True
+                end = "\n" if (not show_partitions) else ":  "
+                console.print(
+                    Text(f"{prop_index:>3}: ", style='b cyan').append(get_move_text((proposal, v_index))),
+                    end=end
+                )
+                # console.print(f"{prop_index:>3}: {mov_to_str((proposal, v_index))}", end=end)
+                if(show_partitions):
+                    full_cwa_false_len = len(full_cwa_false)
+                    full_cwa_true_len = len(full_cwa_true)
+                    if(full_cwa_false_len < full_cwa_true_len):
+                        smaller_cwa = full_cwa_false
+                    elif (full_cwa_false_len > full_cwa_true_len):
+                        smaller_cwa = full_cwa_true
+                    else:
+                        # they are of equal length
+                        unique_id_tup_zeroth_cwa_true = [ru.unique_id for ru in full_cwa_true[0][0]]
+                        unique_id_tup_zeroth_cwa_false = [ru.unique_id for ru in full_cwa_false[0][0]]
+                        assert(unique_id_tup_zeroth_cwa_false != unique_id_tup_zeroth_cwa_true)
+                        if(unique_id_tup_zeroth_cwa_false < unique_id_tup_zeroth_cwa_true):
+                            smaller_cwa = full_cwa_false
+                        else:
+                            smaller_cwa = full_cwa_true
+                    first_cwa_indexes = []
+                    second_cwa_indexes = []
+                    for (original_cwa_index, original_cwa) in enumerate(full_cwas, start=1):
+                        if(original_cwa in smaller_cwa):
+                            first_cwa_indexes.append(original_cwa_index)
+                        else:
+                            second_cwa_indexes.append(original_cwa_index)
+                    for num in first_cwa_indexes:
+                        num_color = self._answer_to_color_dict[full_cwas[num - 1][-1]]
+                        console.print(Text(f'{num}', style=num_color), end=" ")
+                    console.print("|", end=" ")
+                    for num in second_cwa_indexes:
+                        num_color = self._answer_to_color_dict[full_cwas[num - 1][-1]]
+                        console.print(Text(f'{num}', style=num_color), end=" ")
+                    print()
+                continue
+
+            # only in long form version
             possible_rules_false_title = Text.assemble(
                 f"\n{prop_index}",
                 f": Verifier ",
@@ -368,7 +417,6 @@ class Solver_Displayer:
                 _highlight(f" Rules if {proposal} True")
             )
 
-            possible_rules_false_title
             # NOTE table possible verifier rules for ❌ result
             self.print_possible_rules_by_verifier_from_cwas(
                 full_cwa_false,
@@ -556,6 +604,100 @@ class Solver_Displayer:
         for v_index in range(num_empty_rows):
             table.add_row(*['' * num_row_args])
         return(table)
+    @staticmethod
+    def _full_cwa_sort_key_partition_table(full_cwas):
+        l = len(full_cwas)
+        len_tup = (l,)
+        zeroth_cwa_unique_rules_tup = tuple([rule.unique_id for rule in full_cwas[0][0]])
+        return(len_tup + zeroth_cwa_unique_rules_tup)
+
+    def _cwa_indexes_to_text(self, cwa_indexes, cwas_when_dict_made, col_widths):
+        assembly_list = [(f'{cwa_index:>{col_widths[n]}}{" " if (n != (len(cwa_indexes) -1)) else ""}', self._answer_to_color_dict[cwas_when_dict_made[cwa_index - 1][-1]]) for (n, cwa_index) in enumerate(cwa_indexes)]
+        text = Text.assemble(*assembly_list)
+        return(text)
+
+    def _raw_partition_table_item_to_row_arg(self, table_item, full_cwas_dict_made, first_cwa_indexes_col_widths, second_cwa_indexes_col_widths):
+        (proposal, verifier_index, first_cwa_indexes, second_cwa_indexes) = table_item
+        row_arg = []
+        row_arg.append(Text(f'{proposal}', PROPOSAL_COLOR))
+        row_arg.append(
+            Text(f'{letters[verifier_index]}', VERIFIER_COLORS[verifier_index % len(VERIFIER_COLORS)])
+        )
+        # TODO: make a function to convert a cwa indexes into a Text
+        row_arg.append(self._cwa_indexes_to_text(first_cwa_indexes, full_cwas_dict_made, first_cwa_indexes_col_widths))
+        # row_arg.append(Text('|'))
+        row_arg.append(self._cwa_indexes_to_text(second_cwa_indexes, full_cwas_dict_made, second_cwa_indexes_col_widths))
+        return(row_arg)
+
+    def _short_q_info_printer_helper(
+        self,
+        qs_dict,
+        cwa_set_when_dict_made,
+        verifier_indexes_to_examine,
+        proposals_to_examine,
+        group_by_verifier: bool
+    ):
+        table_data = []
+        full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_dict_made)
+        for (proposal, inner_dict) in qs_dict.items():
+            if not((proposals_to_examine is None) or (proposal in proposals_to_examine)):
+                continue
+            for(verifier_index, q_info) in inner_dict.items():
+                if not(
+                    (verifier_indexes_to_examine is None) or
+                    (verifier_index in verifier_indexes_to_examine)
+                ):
+                    continue
+                full_cwas_after_query_tup = [ # (cwas_false, cwas_true)
+                    self.solver.full_cwa_list_from_cwa_set(
+                        self.solver.intersect_cwa_sets(cwa_set_when_dict_made, q_info_cwa_set)
+                    )
+                        for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
+                ]
+                (partition_first_cwas, partition_second_cwas) = sorted(
+                    full_cwas_after_query_tup,
+                    key=Solver_Displayer._full_cwa_sort_key_partition_table
+                )
+                first_cwa_indexes = []
+                second_cwa_indexes = []
+                for (original_cwa_index, original_cwa) in enumerate(full_cwas, start=1):
+                    list_to_append_to = first_cwa_indexes if(original_cwa in partition_first_cwas) else second_cwa_indexes
+                    list_to_append_to.append(original_cwa_index)
+                table_item = [proposal, verifier_index, first_cwa_indexes, second_cwa_indexes]
+                table_data.append(table_item)
+        first_cwa_indexes_table = [
+            table_item[2] for table_item in table_data
+        ]
+        second_cwa_indexes_table = [
+            table_item[3] for table_item in table_data
+        ]
+        first_cwa_indexes_col_widths = _get_col_widths(first_cwa_indexes_table)
+        second_cwa_indexes_col_widths = _get_col_widths(second_cwa_indexes_table)
+        table = Table(show_header=False)
+        table_data.sort(key=lambda datum: (datum[0]))
+        row_args = [
+            self._raw_partition_table_item_to_row_arg(table_datum, full_cwas, first_cwa_indexes_col_widths, second_cwa_indexes_col_widths) for table_datum in table_data
+        ]
+        for row_arg in row_args:
+            table.add_row(*row_arg)
+        console.print(table, justify="center")
+        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
         """ if active is True, print a table representing the problem's rule cards, otherwise do nothing. """
@@ -796,12 +938,26 @@ class Solver_Displayer:
         proposals_to_examine=None,
         see_all_combos=True,
         short=False,
+        show_partitions=False,
     ):
         """
-        Displays all information in the useful_queries_dict about a specific verifier card/proposal.
-        If either verifier_index or proposals_to_examine is none, will print info about all verifiers or all useful proposals, respectively. Note that if a proposal is not a useful proposal for the given verifier_index (or any verifier_index, if it's None), will print no information about it.
-        Note: will need the cwa_set of the cwas that were possible when this useful_queries_dict was made.
-        proposals_to_examine can be either a single proposal or an iterable of proposals. If `short` is True, instead of printing all the information mentioned above, will only print out the queries that are in the query dict.
+        Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True.
+
+
+        Parameters
+        ----------
+        useful_qs_dict
+            The query dict to print information about.
+        cwa_set_when_q_dict_made: set of cwa
+            The set of all cwas that were possible when the `useful_qs_dict` was created.
+        verifier_index: int | None
+            The verifier for which this will print queries. If None, will print queries about all verifiers.
+        proposals_to_examine: list[proposals] | proposal | None
+            A list of proposals to print queries for, or a single proposal to print queries for, or None to print queries for all proposals.Note that if a proposal is not a useful proposal for the given `verifier_index` (or any `verifier_index`, if it's None), will print no information about it.
+        short: bool
+            If this is True, instead of printing all the information mentioned above, will only print out the queries that are in the query dict.
+        show_partitions: bool
+            Only has an effect when `short` is True. Will show how each query partitions the set of cwas, by printing out small set, big set. If the sets are equal size, will print out the one that contains the CWA with smallest index first.
         """
         if(type(proposals_to_examine) == int):
             proposals_to_examine = [proposals_to_examine]
@@ -813,8 +969,12 @@ class Solver_Displayer:
                     possible_v_index,
                     proposals_to_examine,
                     see_all_combos,
-                    short
+                    short,
+                    show_partitions
                 )
+        if(short):
+            # TODO: transform verifier index in the same way as proposals to examine above
+            self._short_q_info_printer_helper(useful_qs_dict, cwa_set_when_q_dict_made, verifier_index, proposals_to_examine, False)
 
     def print_eval_cache_size(self):
         """

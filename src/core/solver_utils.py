@@ -149,6 +149,8 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
     # TODO: instead of making the full list of list, just directly make the flat list of proposals you need right here. i.e. if you find that a proposal is isomorphic to something before it, don't append it to that list; just don't include it at all. Have this function return a flat list of all the proposals you need to include. Maybe make a debug mode function that does make the full lol.
     isomorphic_proposals_lol = []
     representative_info_list = [] # same type as what is used to compare in compare_two_proposals
+    global iso_filter_list_to_print # TODO: comment out when done testing
+    iso_filter_list_to_print = [] # TODO: comment out when done testing
     for (proposal, inner_dict) in base_qs_dict.items():
         for (list_index, (isomorphic_list, representative_info)) in enumerate(
             zip(isomorphic_proposals_lol, representative_info_list)
@@ -166,13 +168,16 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
                 break
             elif(comparison_result is _EXCLUDE_FIRST):
                 # debug mode print out a proposal got eliminated
-                console.print(f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3} {isomorphic_proposals_lol[list_index][0]}.") # TODO: comment out
+                iso_filter_list_to_print.append(
+                    f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3} {isomorphic_proposals_lol[list_index][0]}."
+                ) # TODO: comment out
                 break
             elif(comparison_result is _EXCLUDE_SECOND):
                 # debug mode print out a proposal list is about to get eliminated
                 # if you're in debug mode, can print out something here to show which proposals are about to be eliminated. Consider looking into if __debug__ and see if there's a way to optimize it away when running for real without changing code.
-                console.print(f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3}", end=" ") # TODO: comment out
-                console.print(isomorphic_proposals_lol[list_index], end=" ") # TODO: comment out.
+                iso_filter_list_to_print.append(
+                    f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3} {isomorphic_proposals_lol[list_index]}",
+                ) # TODO: comment out
                 isomorphic_proposals_lol[list_index] = None
                 # NOTE: should NOT break out of loop early here, b/c even though this proposal is guaranteed to not be isomorphic to any of the other proposals in any isomorphic proposals list, it could still eliminate more future isomorphic proposals lists from the LOL, and if you broke out of this loop right now, those future isomorphic proposals lists that should have been eliminated will not be eliminated.
             # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.

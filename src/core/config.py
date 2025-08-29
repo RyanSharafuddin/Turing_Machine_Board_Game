@@ -48,6 +48,8 @@ TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 
+PROPOSAL_COLOR = "#00FFAA"
+VERIFIER_COLORS = ["#FF00EA", "#CC00FF", "#8C00FF", "#4C00FF", "#0091FF", "#00FFE5"]
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"

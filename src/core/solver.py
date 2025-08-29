@@ -220,10 +220,19 @@ class Solver:
             qs_dict = solver_utils.filter_update_iso_remove(qs_dict, game_state.cwa_set, self.num_rcs)
             len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: delete
             if( len_now < len_before): # TODO: delete this if block
-                print(f"Some queries have been eliminated. Printing remaining queries:")
-                print(f'{len_before} -> {len_now} queries')
-                sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set, None, None, True, True)
                 sd.print_game_state(game_state)
+                # for s_to_print in solver_utils.iso_filter_list_to_print: # TODO: delete this block
+                #     console.print(s_to_print)
+                print(f"Some queries have been eliminated.")
+                print(f'{len_before} -> {len_now} queries')
+                sd.print_useful_qs_dict_info(
+                    qs_dict,
+                    game_state.cwa_set,
+                    verifier_index=None,
+                    proposals_to_examine=None,
+                    short=True,
+                    show_partitions=True
+                )
                 # print(repr(game_state))
         best_node_cost = Solver.initial_best_cost
         found_moves = False
@@ -347,10 +356,22 @@ class Solver:
         # if num_queries_this_round is 3, then gs.proposal_used.. should be None
         return(gs.proposal_used_this_round != proposal)
 
+    @staticmethod
+    def default_cwa_sort(full_cwa):
+        """
+        Sort by answer, then by the unique_ids of the combo.
+        """
+        (c, a) = (full_cwa[0], full_cwa[-1])
+        return( (a, tuple([r.unique_id for r in c])) )
     def full_cwa_list_from_cwa_set(self, cwa_set):
         # cwa_set representation_change
-        """ Given a cwa_set, return a list of the complete cwas in it. """
-        return([self.full_cwas_list[cwa_index] for cwa_index in cwa_set])
+        """
+        Given a cwa_set, return a list of the complete cwas in it. They are sorted in a consistent order.
+        """
+        full_cwa_list = [self.full_cwas_list[cwa_index] for cwa_index in cwa_set]
+        # sort the list in a consistent way so that printouts when debugging are consistent.
+        full_cwa_list.sort(key=Solver.default_cwa_sort)
+        return(full_cwa_list)
 
     def full_cwa_list_from_game_state(self, gs: Game_State):
         """ A convenience function for getting the full cwa list directly from a game state """
