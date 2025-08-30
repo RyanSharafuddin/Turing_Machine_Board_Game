@@ -5,6 +5,7 @@ from PrettyPrint import PrettyPrintTree
 from rich.table import Table
 from rich.text import Text
 from rich.highlighter import ReprHighlighter
+from rich import box
 # My imports
 from . import solver
 from .definitions import *
@@ -270,6 +271,18 @@ class Solver_Displayer:
         self.solver = solver
         self.n_mode = (self.solver.n_mode)
 
+    @staticmethod
+    def _get_width_at_left_idx_col_small_p(left_index, max_elts_partition, partition: list):
+        zeroth_partition_elt_index = max_elts_partition - len(partition)
+        if(left_index < zeroth_partition_elt_index):
+            return(0)
+        correct_index = left_index - zeroth_partition_elt_index
+        return(len(f'{partition[correct_index]}'))
+    @staticmethod
+    def _get_width_at_left_idx_col_second_p(left_index, partition: list):
+        if(left_index < len(partition)):
+            return(len(f'{partition[left_index]}'))
+        return(0)
     def _get_card_indexes_text(self, card_index_col_widths, c):
         card_indexes_list = [r.card_index for r in c]
         card_indexes_strings_list = [
@@ -322,8 +335,6 @@ class Solver_Displayer:
         v_index,
         proposals_to_examine=None,
         see_all_combos=True,
-        short=False,
-        show_partitions=False,
     ):
         """
         Displays all information in the useful_queries_dict about a specific verifier card/list of proposals.
@@ -337,18 +348,16 @@ class Solver_Displayer:
                 q_info: Query_Info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
 
-        if not short:
-            possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
-            # NOTE print table
-            self.print_possible_rules_by_verifier_from_cwas(
-                full_cwas,
-                v_index,
-                title=possible_rules_title,
-                caption=f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}",
-                caption_style=""
-            )
+        possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
+        # NOTE print table
+        self.print_possible_rules_by_verifier_from_cwas(
+            full_cwas,
+            v_index,
+            title=possible_rules_title,
+            caption=f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}",
+            caption_style=""
+        )
             # console.print(f"# useful queries for Verifier {letters[v_index]}: {len(q_dict_this_card)}", highlight=False, justify="center")
-        printed_line = False # only used if short is True
         for (prop_index, (proposal, q_info)) in enumerate(sorted(q_dict_this_card.items()), start=1):
             if not ((proposals_to_examine is None) or (proposal in proposals_to_examine)):
                 continue
@@ -357,50 +366,6 @@ class Solver_Displayer:
                         self.solver.intersect_cwa_sets(cwa_set_when_q_dict_made, q_info_cwa_set)
                     ) for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
             ]
-
-            if(short):
-                # TODO: what order does print game state print the cwas in? Find out so your partition corresponds to that.
-                if not printed_line:
-                    print()
-                    printed_line = True
-                end = "\n" if (not show_partitions) else ":  "
-                console.print(
-                    Text(f"{prop_index:>3}: ", style='b cyan').append(get_move_text((proposal, v_index))),
-                    end=end
-                )
-                # console.print(f"{prop_index:>3}: {mov_to_str((proposal, v_index))}", end=end)
-                if(show_partitions):
-                    full_cwa_false_len = len(full_cwa_false)
-                    full_cwa_true_len = len(full_cwa_true)
-                    if(full_cwa_false_len < full_cwa_true_len):
-                        smaller_cwa = full_cwa_false
-                    elif (full_cwa_false_len > full_cwa_true_len):
-                        smaller_cwa = full_cwa_true
-                    else:
-                        # they are of equal length
-                        unique_id_tup_zeroth_cwa_true = [ru.unique_id for ru in full_cwa_true[0][0]]
-                        unique_id_tup_zeroth_cwa_false = [ru.unique_id for ru in full_cwa_false[0][0]]
-                        assert(unique_id_tup_zeroth_cwa_false != unique_id_tup_zeroth_cwa_true)
-                        if(unique_id_tup_zeroth_cwa_false < unique_id_tup_zeroth_cwa_true):
-                            smaller_cwa = full_cwa_false
-                        else:
-                            smaller_cwa = full_cwa_true
-                    first_cwa_indexes = []
-                    second_cwa_indexes = []
-                    for (original_cwa_index, original_cwa) in enumerate(full_cwas, start=1):
-                        if(original_cwa in smaller_cwa):
-                            first_cwa_indexes.append(original_cwa_index)
-                        else:
-                            second_cwa_indexes.append(original_cwa_index)
-                    for num in first_cwa_indexes:
-                        num_color = self._answer_to_color_dict[full_cwas[num - 1][-1]]
-                        console.print(Text(f'{num}', style=num_color), end=" ")
-                    console.print("|", end=" ")
-                    for num in second_cwa_indexes:
-                        num_color = self._answer_to_color_dict[full_cwas[num - 1][-1]]
-                        console.print(Text(f'{num}', style=num_color), end=" ")
-                    print()
-                continue
 
             # only in long form version
             possible_rules_false_title = Text.assemble(
@@ -604,39 +569,225 @@ class Solver_Displayer:
         for v_index in range(num_empty_rows):
             table.add_row(*['' * num_row_args])
         return(table)
-    @staticmethod
-    def _full_cwa_sort_key_partition_table(full_cwas):
-        l = len(full_cwas)
-        len_tup = (l,)
-        zeroth_cwa_unique_rules_tup = tuple([rule.unique_id for rule in full_cwas[0][0]])
-        return(len_tup + zeroth_cwa_unique_rules_tup)
-
-    def _cwa_indexes_to_text(self, cwa_indexes, cwas_when_dict_made, col_widths):
-        assembly_list = [(f'{cwa_index:>{col_widths[n]}}{" " if (n != (len(cwa_indexes) -1)) else ""}', self._answer_to_color_dict[cwas_when_dict_made[cwa_index - 1][-1]]) for (n, cwa_index) in enumerate(cwa_indexes)]
-        text = Text.assemble(*assembly_list)
+    def _small_partition_to_text(self, small_partition, col_widths, full_cwas=None):
+        """
+        If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
+        """
+        full_cwas = self.solver.full_cwas_list if(full_cwas is None) else full_cwas
+        cwas_idx_subtract = 0 if(full_cwas is None) else 1
+        texts = [' ' * (n + 1) for n in col_widths]
+        for (p1_idx, p1_val) in enumerate(small_partition[::-1]):
+            style = self._answer_to_color_dict[full_cwas[p1_val - cwas_idx_subtract][-1]]
+            texts[-1 - p1_idx] = (f'{p1_val:>{col_widths[-1 - p1_idx]}} ', style)
+        text = Text.assemble(*texts)
         return(text)
-
-    def _raw_partition_table_item_to_row_arg(self, table_item, full_cwas_dict_made, first_cwa_indexes_col_widths, second_cwa_indexes_col_widths):
-        (proposal, verifier_index, first_cwa_indexes, second_cwa_indexes) = table_item
+    def _large_partition_to_text(self, large_partition, col_widths, full_cwas=None):
+        """
+        If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
+        """
+        full_cwas = self.solver.full_cwas_list if(full_cwas is None) else full_cwas
+        cwas_idx_subtract = 0 if(full_cwas is None) else 1
+        texts = [' ' * (n + 1) for n in col_widths]
+        for(p2_idx, p2_val) in enumerate(large_partition):
+            style = self._answer_to_color_dict[full_cwas[p2_val - cwas_idx_subtract][-1]]
+            texts[p2_idx] = (f'{p2_val:>{col_widths[p2_idx]}} ', style)
+        text = Text.assemble(*texts)
+        return(text)
+    def _combine_small_large_partition_texts(self, small_partition_text: Text, large_partition_text):
+        sp_str = small_partition_text.plain
+        if((len(sp_str) == 0) or sp_str.isspace()):
+            return('')
+        return(Text.assemble(small_partition_text, f'{PARTITION_DIVIDER} ' if(small_partition_text.plain) else '', large_partition_text))
+    def _p_table_2_cwa_indexes_to_text(
+        self,
+        col_widths_info,
+        full_cwas_dict_made,
+        small_partition=None,
+        large_partition=None,
+    ):
+        (col_widths_p1, col_widths_p2) = col_widths_info
+        p1_text = self._small_partition_to_text(small_partition, col_widths_p1, full_cwas_dict_made)
+        p2_text = self._large_partition_to_text(large_partition, col_widths_p2, full_cwas_dict_made)
+        full_text = self._combine_small_large_partition_texts(p1_text, p2_text)
+        return(full_text)
+    def _raw_row_arg_to_row_arg(self, raw_row_arg, full_cwas_dict_made, col_widths_by_verifier_info):
+        # FULL PARTITION TABLE
         row_arg = []
+        (prop_index, proposal) = (raw_row_arg[0], raw_row_arg[1])
+        row_arg.append(Text(f'{prop_index}', style=""))
         row_arg.append(Text(f'{proposal}', PROPOSAL_COLOR))
-        row_arg.append(
-            Text(f'{letters[verifier_index]}', VERIFIER_COLORS[verifier_index % len(VERIFIER_COLORS)])
-        )
-        # TODO: make a function to convert a cwa indexes into a Text
-        row_arg.append(self._cwa_indexes_to_text(first_cwa_indexes, full_cwas_dict_made, first_cwa_indexes_col_widths))
-        # row_arg.append(Text('|'))
-        row_arg.append(self._cwa_indexes_to_text(second_cwa_indexes, full_cwas_dict_made, second_cwa_indexes_col_widths))
+        for (v_index, verifier_partition) in enumerate(raw_row_arg[2:]):
+            if(verifier_partition[0]): # if this verifier has any partitions
+                (partition_1, partition_2) = verifier_partition
+                row_arg.append(
+                    self._p_table_2_cwa_indexes_to_text(
+                        col_widths_info=col_widths_by_verifier_info[v_index],
+                        full_cwas_dict_made=full_cwas_dict_made,
+                        small_partition=partition_1,
+                        large_partition=partition_2,
+                    )
+                )
+            else: # if this verifier does not have partitions
+                row_arg.append('')
         return(row_arg)
+    def _get_small_partitions_texts_helper(self, small_partitions, col_widths, full_cwas):
+        small_partitions_texts = [
+            (
+                self._small_partition_to_text(
+                    sp,
+                    col_widths,
+                    full_cwas,
+                ) 
+                if len(sp) > 0
+                else ''
+            )
+            for sp in small_partitions
+        ]
+        return(small_partitions_texts)
+    def _get_large_partitions_texts_helper(self, large_partitions, col_widths, full_cwas):
+        large_partitions_texts = [
+            self._large_partition_to_text(
+                lp,
+                col_widths,
+                full_cwas,
+            )
+            for lp in large_partitions
+        ]
+        return(large_partitions_texts)
+    def _get_col_widths_small_partition(self, small_partitions):
+        """
+        Given a list of `small_partitions`, return a list representing the width of every column necessary to display them properly, from left to right.
+        """
+        max_elements_small_partition = max([len(sp) for sp in small_partitions])
+        widths_by_col_small_partition = [0] * max_elements_small_partition
+        for left_idx_col in range(max_elements_small_partition):
+            widths_by_col_small_partition[left_idx_col] = max(
+                [
+                    Solver_Displayer._get_width_at_left_idx_col_small_p(
+                        left_idx_col,
+                        max_elements_small_partition,
+                        sp
+                    )
+                    for sp in small_partitions
+                ]
+            )
+        return(widths_by_col_small_partition)
+    def _get_col_widths_large_partition(self, large_partitions):
+        max_elements_large_partition = max([len(lp) for lp in large_partitions])
+        widths_by_col_large_partition = [0] * max_elements_large_partition
+        for left_idx_col in range(max_elements_large_partition):
+            widths_by_col_large_partition[left_idx_col] = max(
+                [
+                    Solver_Displayer._get_width_at_left_idx_col_second_p(
+                        left_idx_col,
+                        lp
+                    )
+                    for lp in large_partitions
+                ]
+            )
+        return(widths_by_col_large_partition)
+    def _table_data_to_raw_row_args(self, table_data):
+        """
+        Returns
+        -------
+        raw_row_args : list[raw_row_arg]
 
-    def _short_q_info_printer_helper(
+            raw_row_arg: [index (1-based), proposal, [[small_partition_ints A], [large_partition_ints A]], [B], [C]...]
+
+            Where each verifier list is: [[small_partition_ints], [large_partition_ints]].
+        """
+        raw_row_args = []
+        curr_raw_row_arg = None
+        previous_proposal = None
+        proposal_index = 0
+        for datum in table_data:
+            (proposal, verifier_index, first_cwa_indexes, second_cwa_indexes) = datum
+            if(proposal != previous_proposal):
+                if(curr_raw_row_arg):
+                    raw_row_args.append(curr_raw_row_arg)
+                proposal_index += 1
+                curr_raw_row_arg = [proposal_index, proposal]
+                for verifier in range(self.solver.num_rcs):
+                    v_lists = [[], []]
+                    curr_raw_row_arg.append(v_lists)
+                previous_proposal = proposal
+            curr_raw_row_arg[2 + verifier_index][0] = first_cwa_indexes
+            curr_raw_row_arg[2 + verifier_index][1] = second_cwa_indexes
+        raw_row_args.append(curr_raw_row_arg)
+        # console.print(raw_row_args)
+        return(raw_row_args)
+    def _get_partition_row_sort_key(self, verifier_to_sort_by=None):
+        if(verifier_to_sort_by is None):
+            return(lambda raw_row_arg: raw_row_arg[1]) # sort by proposal
+        def sort_key(raw_row_arg):
+            # first sort by length of the small partition assigned to this verifier
+            # then the smallest cwa index in the small partition (if the partition is non-empty)
+            # then the proposal
+            small_partition = raw_row_arg[2 + verifier_to_sort_by][0]
+            first_criterion = len(small_partition)
+            second_criterion = small_partition[0] if (first_criterion > 0) else raw_row_arg[1]
+            third_criterion = raw_row_arg[1]
+            return((first_criterion, second_criterion, third_criterion))
+        return sort_key
+    def _print_partition_table(self, table_data, cwas_when_dict_made, verifier_to_sort_by):
+        # FULL PARTITION TABLE
+        raw_row_args = self._table_data_to_raw_row_args(table_data)
+        raw_row_args.sort(key=self._get_partition_row_sort_key(verifier_to_sort_by))
+        full_partition_texts_by_verifier = [None] * self.solver.num_rcs
+        for verifier_index in range(self.solver.num_rcs):
+            partitions = [raw_row_arg[2 + verifier_index] for raw_row_arg in raw_row_args]
+            (small_partitions, large_partitions) = list(zip(*partitions))
+            full_partition_texts_by_verifier[verifier_index] = self.get_full_partitions_texts(
+                small_partitions,
+                large_partitions,
+                cwas_when_dict_made
+            )
+
+        proposals = [x[1] for x in raw_row_args]
+        table = Table(
+            box=box.HORIZONTALS,
+            title="Partition Table 2",
+            title_style="",
+            collapse_padding=True,
+            row_styles=PARTITION_TABLE_ROW_STYLES,
+        )
+        table.add_column("", justify="right")         # proposal index
+        table.add_column("")                          # proposal
+        for v_index in range(self.solver.num_rcs):  # consider not making columns for verifiers with no data
+            table.add_column(Text(f"{letters[v_index]}", justify="center"), )
+        previous_small_partition = None
+        for z_idx in range(len(proposals)):
+            cooked_row_arg = [
+                Text(f'{z_idx + 1}', style=''),
+                Text(f'{proposals[z_idx]}', style=PROPOSAL_COLOR),
+            ]
+            for v_index in range(self.solver.num_rcs):
+                cooked_row_arg.append(full_partition_texts_by_verifier[v_index][z_idx])
+            current_small_partition = full_partition_texts_by_verifier[verifier_to_sort_by][z_idx] if(verifier_to_sort_by is not None) else None
+            if(current_small_partition != previous_small_partition):
+                table.add_section()
+                previous_small_partition = current_small_partition
+            table.add_row(*cooked_row_arg)
+        console.print(table, justify="center")
+    def _get_partition_table_data(
         self,
         qs_dict,
         cwa_set_when_dict_made,
-        verifier_indexes_to_examine,
         proposals_to_examine,
-        group_by_verifier: bool
+        verifier_indexes_to_examine,
     ):
+        """
+        Returns
+        -------
+        table_data : list[table_datum]
+
+            table_datum: [proposal, verifier_index, [small_partition_ints], [large_partition_ints]]
+
+                An example table_datum for proposal 512 on verifier E, which partitions
+                the 5 CWAs into [2, 4] and [1, 3, 5] :
+
+                    [512, 4, [2, 4], [1, 3, 5]]
+        """
         table_data = []
         full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_dict_made)
         for (proposal, inner_dict) in qs_dict.items():
@@ -648,56 +799,72 @@ class Solver_Displayer:
                     (verifier_index in verifier_indexes_to_examine)
                 ):
                     continue
-                full_cwas_after_query_tup = [ # (cwas_false, cwas_true)
+                (full_cwas_false, full_cwas_true) = [ # (cwas_false, cwas_true)
                     self.solver.full_cwa_list_from_cwa_set(
                         self.solver.intersect_cwa_sets(cwa_set_when_dict_made, q_info_cwa_set)
                     )
-                        for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
+                    for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
                 ]
-                (partition_first_cwas, partition_second_cwas) = sorted(
-                    full_cwas_after_query_tup,
-                    key=Solver_Displayer._full_cwa_sort_key_partition_table
-                )
-                first_cwa_indexes = []
-                second_cwa_indexes = []
+                (false_cwas_indexes, true_cwas_indexes) = ([], [])
                 for (original_cwa_index, original_cwa) in enumerate(full_cwas, start=1):
-                    list_to_append_to = first_cwa_indexes if(original_cwa in partition_first_cwas) else second_cwa_indexes
+                    list_to_append_to = (
+                        false_cwas_indexes if(original_cwa in full_cwas_false) else true_cwas_indexes
+                    )
                     list_to_append_to.append(original_cwa_index)
-                table_item = [proposal, verifier_index, first_cwa_indexes, second_cwa_indexes]
-                table_data.append(table_item)
-        first_cwa_indexes_table = [
-            table_item[2] for table_item in table_data
+                # first compare lengths, then iff lengths are equal, compare the zeroeth CWA index
+                min_max_key = lambda cwas_indexes: (len(cwas_indexes), cwas_indexes[0])
+                false_true_cwas_indexes_tup = (false_cwas_indexes, true_cwas_indexes)
+                first_cwas_indexes = min(false_true_cwas_indexes_tup, key=min_max_key)
+                second_cwas_indexes = max(false_true_cwas_indexes_tup, key=min_max_key)
+                assert (first_cwas_indexes != second_cwas_indexes)
+                table_datum = [proposal, verifier_index, first_cwas_indexes, second_cwas_indexes]
+                table_data.append(table_datum)
+                # console.print(table_datum)
+        return(table_data)
+    def _short_q_info_printer_helper(
+        self,
+        qs_dict,
+        cwa_set_when_dict_made,
+        verifier_indexes_to_examine,
+        proposals_to_examine,
+        verifier_to_sort_by = None,
+    ):
+        full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_dict_made)
+        table_data = self._get_partition_table_data(
+            qs_dict,
+            cwa_set_when_dict_made,
+            proposals_to_examine,
+            verifier_indexes_to_examine,
+        )
+        self._print_partition_table(table_data, full_cwas, verifier_to_sort_by)
+        return
+
+
+    def get_small_partitions_texts(self, small_partitions, full_cwas=None):
+        """
+        If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
+        """
+        col_widths = self._get_col_widths_small_partition(small_partitions)
+        return(self._get_small_partitions_texts_helper(small_partitions, col_widths, full_cwas))
+
+    def get_large_partitions_texts(self, large_partitions, full_cwas=None):
+        """
+        If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
+        """
+        col_widths = self._get_col_widths_large_partition(large_partitions)
+        return(self._get_large_partitions_texts_helper(large_partitions, col_widths, full_cwas))
+
+    def get_full_partitions_texts(self, small_partitions, large_partitions, full_cwas=None):
+        """
+        If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
+        """
+        sp_texts = self.get_small_partitions_texts(small_partitions, full_cwas)
+        lp_texts = self.get_large_partitions_texts(large_partitions, full_cwas)
+        combined_texts = [
+            (self._combine_small_large_partition_texts(sp_text, lp_text) if(len(sp) > 0) else '')
+            for (sp_text, lp_text, sp) in zip(sp_texts, lp_texts, small_partitions)
         ]
-        second_cwa_indexes_table = [
-            table_item[3] for table_item in table_data
-        ]
-        first_cwa_indexes_col_widths = _get_col_widths(first_cwa_indexes_table)
-        second_cwa_indexes_col_widths = _get_col_widths(second_cwa_indexes_table)
-        table = Table(show_header=False)
-        table_data.sort(key=lambda datum: (datum[0]))
-        row_args = [
-            self._raw_partition_table_item_to_row_arg(table_datum, full_cwas, first_cwa_indexes_col_widths, second_cwa_indexes_col_widths) for table_datum in table_data
-        ]
-        for row_arg in row_args:
-            table.add_row(*row_arg)
-        console.print(table, justify="center")
-        pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return(combined_texts)
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
         """ if active is True, print a table representing the problem's rule cards, otherwise do nothing. """
@@ -934,15 +1101,14 @@ class Solver_Displayer:
         self,
         useful_qs_dict,
         cwa_set_when_q_dict_made,
-        verifier_index=None,
+        verifier_indexes=None,
         proposals_to_examine=None,
         see_all_combos=True,
         short=False,
-        show_partitions=False,
+        verifier_to_sort_by : int = None,
     ):
         """
         Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True.
-
 
         Parameters
         ----------
@@ -950,31 +1116,38 @@ class Solver_Displayer:
             The query dict to print information about.
         cwa_set_when_q_dict_made: set of cwa
             The set of all cwas that were possible when the `useful_qs_dict` was created.
-        verifier_index: int | None
-            The verifier for which this will print queries. If None, will print queries about all verifiers.
+        verifier_indexes: list[int] | int | None
+            The verifiers, or single verifier, for which this will print queries. If None, will print queries about all verifiers.
         proposals_to_examine: list[proposals] | proposal | None
             A list of proposals to print queries for, or a single proposal to print queries for, or None to print queries for all proposals.Note that if a proposal is not a useful proposal for the given `verifier_index` (or any `verifier_index`, if it's None), will print no information about it.
         short: bool
-            If this is True, instead of printing all the information mentioned above, will only print out the queries that are in the query dict.
-        show_partitions: bool
-            Only has an effect when `short` is True. Will show how each query partitions the set of cwas, by printing out small set, big set. If the sets are equal size, will print out the one that contains the CWA with smallest index first.
+            If this is True, instead of printing all the information mentioned above, will only print out the partition info.
+        verifier_to_sort_by: int, optional
+            Only affects the short (partitions) table. If this is set, will sort by the partition on this verifier index and divide the table into sections (try it). If not set, will sort by proposal, and will not section the table.
         """
         if(type(proposals_to_examine) == int):
             proposals_to_examine = [proposals_to_examine]
-        for possible_v_index in range(len(self.solver.rcs_list)):
-            if((verifier_index is None) or (possible_v_index == verifier_index)):
-                self._print_useful_qs_dict_info_helper(
-                    useful_qs_dict,
-                    cwa_set_when_q_dict_made,
-                    possible_v_index,
-                    proposals_to_examine,
-                    see_all_combos,
-                    short,
-                    show_partitions
-                )
+        if(type(verifier_indexes) == int):
+            verifier_indexes = [verifier_indexes]
         if(short):
             # TODO: transform verifier index in the same way as proposals to examine above
-            self._short_q_info_printer_helper(useful_qs_dict, cwa_set_when_q_dict_made, verifier_index, proposals_to_examine, False)
+            self._short_q_info_printer_helper(
+                useful_qs_dict,
+                cwa_set_when_q_dict_made,
+                verifier_indexes,
+                proposals_to_examine,
+                verifier_to_sort_by=verifier_to_sort_by,
+            )
+        else:
+            for possible_v_index in range(len(self.solver.rcs_list)):
+                if((verifier_indexes is None) or (possible_v_index in verifier_indexes)):
+                    self._print_useful_qs_dict_info_helper(
+                        useful_qs_dict,
+                        cwa_set_when_q_dict_made,
+                        possible_v_index,
+                        proposals_to_examine,
+                        see_all_combos,
+                    )
 
     def print_eval_cache_size(self):
         """
