@@ -458,7 +458,7 @@ class Solver_Displayer:
             kwargs["header_style"] = "magenta"
         if not("title_style" in kwargs):
             kwargs["title_style"] = ""
-        table = Table(title=title, **kwargs)
+        table = Table(title=title, **kwargs, row_styles=[''] if (tree_version) else ANSWER_TABLE_ROW_STYLES)
         self._make_answer_table_cols(
             table,
             permutation_order,
@@ -716,23 +716,26 @@ class Solver_Displayer:
         raw_row_args.append(curr_raw_row_arg)
         # console.print(raw_row_args)
         return(raw_row_args)
-    def _get_partition_row_sort_key(self, verifier_to_sort_by=None):
-        if(verifier_to_sort_by is None):
+    def _get_partition_row_sort_key(self, verifiers_to_sort_by=None):
+        if(verifiers_to_sort_by is None):
             return(lambda raw_row_arg: raw_row_arg[1]) # sort by proposal
         def sort_key(raw_row_arg):
-            # first sort by length of the small partition assigned to this verifier
-            # then the smallest cwa index in the small partition (if the partition is non-empty)
+            # first sort by length/alpa order of the small partition assigned to verifiers in order of verifiers_to_sort_by
+            # then the length/alphabetical order of all the other small partititions, in verifier order.
             # then the proposal
-            small_partition = raw_row_arg[2 + verifier_to_sort_by][0]
-            first_criterion = len(small_partition)
-            second_criterion = small_partition[0] if (first_criterion > 0) else raw_row_arg[1]
-            third_criterion = raw_row_arg[1]
-            return((first_criterion, second_criterion, third_criterion))
+            remaining_verifiers = [v for v in range(self.solver.num_rcs) if (v not in verifiers_to_sort_by)]
+            vs_in_sort_order = verifiers_to_sort_by + remaining_verifiers
+            proposal = raw_row_arg[1]
+            criteria = []
+            for v_index in vs_in_sort_order:
+                small_partition_this_verifier = raw_row_arg[2 + v_index][0]
+                criteria += Solver_Displayer.get_partition_sort_criteria(small_partition_this_verifier)
+            criteria.append(proposal)
+            return(criteria)
         return sort_key
-    def _print_partition_table(self, table_data, cwas_when_dict_made, verifier_to_sort_by):
-        # FULL PARTITION TABLE
+    def _print_partition_table(self, table_data, cwas_when_dict_made, verifiers_to_sort_by):
         raw_row_args = self._table_data_to_raw_row_args(table_data)
-        raw_row_args.sort(key=self._get_partition_row_sort_key(verifier_to_sort_by))
+        raw_row_args.sort(key=self._get_partition_row_sort_key(verifiers_to_sort_by))
         full_partition_texts_by_verifier = [None] * self.solver.num_rcs
         for verifier_index in range(self.solver.num_rcs):
             partitions = [raw_row_arg[2 + verifier_index] for raw_row_arg in raw_row_args]
@@ -742,11 +745,14 @@ class Solver_Displayer:
                 large_partitions,
                 cwas_when_dict_made
             )
-
+        sorted_by_line_title = (
+            '' if(verifiers_to_sort_by is None)
+            else f' sorted by {" ".join([letters[v] for v in verifiers_to_sort_by])}'
+        )
         proposals = [x[1] for x in raw_row_args]
         table = Table(
             box=box.HORIZONTALS,
-            title="Partition Table 2",
+            title=f"Partition Table{sorted_by_line_title}",
             title_style="",
             collapse_padding=True,
             row_styles=PARTITION_TABLE_ROW_STYLES,
@@ -763,7 +769,11 @@ class Solver_Displayer:
             ]
             for v_index in range(self.solver.num_rcs):
                 cooked_row_arg.append(full_partition_texts_by_verifier[v_index][z_idx])
-            current_small_partition = full_partition_texts_by_verifier[verifier_to_sort_by][z_idx] if(verifier_to_sort_by is not None) else None
+            current_small_partition = (
+                full_partition_texts_by_verifier[verifiers_to_sort_by[0]][z_idx]
+                if(verifiers_to_sort_by is not None)
+                else None
+            )
             if(current_small_partition != previous_small_partition):
                 table.add_section()
                 previous_small_partition = current_small_partition
@@ -827,7 +837,7 @@ class Solver_Displayer:
         cwa_set_when_dict_made,
         verifier_indexes_to_examine,
         proposals_to_examine,
-        verifier_to_sort_by = None,
+        verifiers_to_sort_by = None,
     ):
         full_cwas = self.solver.full_cwa_list_from_cwa_set(cwa_set_when_dict_made)
         table_data = self._get_partition_table_data(
@@ -836,9 +846,13 @@ class Solver_Displayer:
             proposals_to_examine,
             verifier_indexes_to_examine,
         )
-        self._print_partition_table(table_data, full_cwas, verifier_to_sort_by)
+        self._print_partition_table(table_data, full_cwas, verifiers_to_sort_by)
         return
 
+
+    @staticmethod
+    def get_partition_sort_criteria(partition):
+        return([len(partition), partition])
 
     def get_small_partitions_texts(self, small_partitions, full_cwas=None):
         """
@@ -1101,11 +1115,11 @@ class Solver_Displayer:
         self,
         useful_qs_dict,
         cwa_set_when_q_dict_made,
-        verifier_indexes=None,
-        proposals_to_examine=None,
+        verifier_indexes: list[int] | int | None = None,
+        proposals_to_examine : list[int] | int | None = None,
         see_all_combos=True,
         short=False,
-        verifier_to_sort_by : int = None,
+        verifiers_to_sort_by : list[int] | int = None,
     ):
         """
         Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True.
@@ -1122,13 +1136,15 @@ class Solver_Displayer:
             A list of proposals to print queries for, or a single proposal to print queries for, or None to print queries for all proposals.Note that if a proposal is not a useful proposal for the given `verifier_index` (or any `verifier_index`, if it's None), will print no information about it.
         short: bool
             If this is True, instead of printing all the information mentioned above, will only print out the partition info.
-        verifier_to_sort_by: int, optional
-            Only affects the short (partitions) table. If this is set, will sort by the partition on this verifier index and divide the table into sections (try it). If not set, will sort by proposal, and will not section the table.
+        verifiers_to_sort_by: list[int] | int, optional
+            Only affects the short (partitions) table. The order of verifiers to use when sorting the partition table. Can be a single integer, or a list of integers. If this is not set, will order the table by proposal. If this is set, will order by the list, and section the table by the first verifier in the list.
         """
         if(type(proposals_to_examine) == int):
             proposals_to_examine = [proposals_to_examine]
         if(type(verifier_indexes) == int):
             verifier_indexes = [verifier_indexes]
+        if(type(verifiers_to_sort_by) == int):
+            verifiers_to_sort_by = [verifiers_to_sort_by]
         if(short):
             # TODO: transform verifier index in the same way as proposals to examine above
             self._short_q_info_printer_helper(
@@ -1136,7 +1152,7 @@ class Solver_Displayer:
                 cwa_set_when_q_dict_made,
                 verifier_indexes,
                 proposals_to_examine,
-                verifier_to_sort_by=verifier_to_sort_by,
+                verifiers_to_sort_by=verifiers_to_sort_by,
             )
         else:
             for possible_v_index in range(len(self.solver.rcs_list)):

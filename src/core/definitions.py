@@ -55,6 +55,13 @@ STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
 
+# For use anywhere a verifier index is required
+A = 0
+B = 1
+C = 2
+D = 3
+E = 4
+F = 5
 # By default, Rich strips color escape codes if it detects that it is not printing directly to a terminal (for example, if it is printing to a file or if it's being piped into another program like less). With force_terminal, we can make it print color codes regardless of whether it is directly printing to a terminal.
 
 

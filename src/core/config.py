@@ -48,7 +48,7 @@ TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 
-PROPOSAL_COLOR = "#00FFAA"
+PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
 # verifier colors currently not used for anything. But it does look pretti c:
 VERIFIER_COLORS = ["#FF00EA", "#CC00FF", "#8C00FF", "#4C00FF", "#0091FF", "#00FFE5"]
 
@@ -82,7 +82,8 @@ CACHE_END_STATES = False        # whether to cache the end states into the evalu
 PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time if you set it to true. See solver.py/post_solve_printing() for details.
 PARTITION_DIVIDER = '│' # options: '│' and '|'
-PARTITION_TABLE_ROW_STYLES = ["", "on #1c1c1c"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
+PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
+ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
 
 # Where things are, from perspective of controller.py.
 PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
