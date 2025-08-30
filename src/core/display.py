@@ -263,6 +263,8 @@ class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
         self._rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in solver.full_cwas_list])
         self._answer_to_color_dict = _make_objs_to_color_dict([cwa[-1] for cwa in solver.full_cwas_list])
+        if(PRINT_SD_COLOR_DICT):
+            console.print(self._answer_to_color_dict)
         self._max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in solver.rcs_list])
         self.max_possible_rule_length = max(
             [max([len(r.name) for r in cwa[0]]) for cwa in solver.full_cwas_list], default=0

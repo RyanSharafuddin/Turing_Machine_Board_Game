@@ -37,7 +37,7 @@ COLORS = [
     "#38B5A9",
     "#BE7437",
     "#72D080",
-    "#FFBF00",
+    "#659653",
     "#00FFFF",
     "#D7AF00"
 ]
@@ -84,6 +84,7 @@ PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use 
 PARTITION_DIVIDER = '│' # options: '│' and '|'
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
 ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
+PRINT_SD_COLOR_DICT = False
 
 # Where things are, from perspective of controller.py.
 PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
