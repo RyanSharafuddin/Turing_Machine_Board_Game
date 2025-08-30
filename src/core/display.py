@@ -144,48 +144,7 @@ def _highlight(*items):
     h = ReprHighlighter()
     l = [h(item) for item in items]
     return(l if(len(l) > 1) else l[0])
-
-def display_new_round(current_round_num, query_this_round, query_tup):
-    """ This function checks if it is a new round, and displays it. If it's not a new round, does nothing. """
-    proposal = query_tup[0]
-    if(query_this_round == 1):
-        title = Text(f"Round {current_round_num} Proposal {proposal}")
-        console.rule(title=title)
-def conduct_query(query_tup, expected_total_score, query_this_round, total_query):
-    """
-    Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
-    """
-    # can include the q_round_this_line in the grid, if you want to align it with the other things.
-    # currently fine as is.
-    (expected_winning_round, expected_total_queries) = expected_total_score
-    q_this_round_line = f"\nQuery: {query_this_round}. Total Query: {total_query}."
-    console.print(q_this_round_line, justify="center", highlight=False)
-    (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
-    round_display_str = f"Rounds: {expected_winning_round:.3f}"
-    query_display_str = f"Queries: {expected_total_queries:.3f}"
-    longest_line = f"Expected Final Score: {round_display_str}. {query_display_str}."
-
-    g = Table.grid()
-    # g.add_row(q_this_round_line)
-    g.add_row(longest_line)
-    g.add_row(f"Result of query (T/F)")
-    console.print(g, justify="center")
-
-    # below several lines is a hack to get input() where I want it
-    color = "#00B7EB"
-    proposal_text = Text(f'{proposal} ', style=f'u b {color}')         # add styles if desired
-    verifier_text = Text(f'{verifier_to_query}') # add styles here
-    term_width = os.get_terminal_size()[0]
-    start_index = (term_width // 2) - (len(longest_line)//2)
-    full_query_text = Text(" " * start_index).append(proposal_text.append(verifier_text))
-    console.print(full_query_text, end="")
-
-    result_raw = input(': ')
-    if(result_raw == 'q'):
-        exit()
-    result = (result_raw in ['T', 't', '1'])
-    return(result)
-def get_query_history_table(query_history, num_rcs, use_table=True):
+def _get_query_history_table(query_history, num_rcs, use_table=True):
     """
     WARN: will be None if there is no query history.
     If use_table is True, will print query history as a table; otherwise will just use text with spacing.
@@ -234,6 +193,47 @@ def get_query_history_table(query_history, num_rcs, use_table=True):
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
             return(result_table)
+
+def display_new_round(current_round_num, query_this_round, query_tup):
+    """ This function checks if it is a new round, and displays it. If it's not a new round, does nothing. """
+    proposal = query_tup[0]
+    if(query_this_round == 1):
+        title = Text(f"Round {current_round_num} Proposal {proposal}")
+        console.rule(title=title)
+def conduct_query(query_tup, expected_total_score, query_this_round, total_query):
+    """
+    Asks user to conduct a query and input result, and returns result. Exits if user enters 'q'.
+    """
+    # can include the q_round_this_line in the grid, if you want to align it with the other things.
+    # currently fine as is.
+    (expected_winning_round, expected_total_queries) = expected_total_score
+    q_this_round_line = f"\nQuery: {query_this_round}. Total Query: {total_query}."
+    console.print(q_this_round_line, justify="center", highlight=False)
+    (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
+    round_display_str = f"Rounds: {expected_winning_round:.3f}"
+    query_display_str = f"Queries: {expected_total_queries:.3f}"
+    longest_line = f"Expected Final Score: {round_display_str}. {query_display_str}."
+
+    g = Table.grid()
+    # g.add_row(q_this_round_line)
+    g.add_row(longest_line)
+    g.add_row(f"Result of query (T/F)")
+    console.print(g, justify="center")
+
+    # below several lines is a hack to get input() where I want it
+    color = "#00B7EB"
+    proposal_text = Text(f'{proposal} ', style=f'u b {color}')         # add styles if desired
+    verifier_text = Text(f'{verifier_to_query}') # add styles here
+    term_width = os.get_terminal_size()[0]
+    start_index = (term_width // 2) - (len(longest_line)//2)
+    full_query_text = Text(" " * start_index).append(proposal_text.append(verifier_text))
+    console.print(full_query_text, end="")
+
+    result_raw = input(': ')
+    if(result_raw == 'q'):
+        exit()
+    result = (result_raw in ['T', 't', '1'])
+    return(result)
 def cprint_if_active(active, *args, **kwargs):
     """
     If active is True, does console.print with all args/kwargs. If there is no justify in kwargs, sets it to center.
@@ -248,7 +248,9 @@ def mov_to_str(move: tuple):
     """ Return a move string like 123 A"""
     return(f"{move[0]} {letters[move[1]]}")
 def get_move_text(move: tuple):
-    pass
+    """
+    Return a move Text object like 152 A, where the proposal and verifier are colored with colors set in config.py.
+    """
     return(
         Text.assemble(
             (f'{move[0]}', PROPOSAL_COLOR),
@@ -737,9 +739,17 @@ class Solver_Displayer:
         raw_row_args = self._table_data_to_raw_row_args(table_data)
         raw_row_args.sort(key=self._get_partition_row_sort_key(verifiers_to_sort_by))
         full_partition_texts_by_verifier = [None] * self.solver.num_rcs
+        verifier_title_justify_lengths = [None] * self.solver.num_rcs
         for verifier_index in range(self.solver.num_rcs):
             partitions = [raw_row_arg[2 + verifier_index] for raw_row_arg in raw_row_args]
             (small_partitions, large_partitions) = list(zip(*partitions))
+            # next 5 physical lines are solely to align the verifier name with the partition bar when displaying table (consider making this its own function)
+            small_partitions_col_widths = self._get_col_widths_small_partition(small_partitions)
+            num_elts_small_partition = len(small_partitions_col_widths)
+            verifier_title_justify_lengths[verifier_index] = (
+                sum(small_partitions_col_widths) + num_elts_small_partition + 1
+            )
+
             full_partition_texts_by_verifier[verifier_index] = self.get_full_partitions_texts(
                 small_partitions,
                 large_partitions,
@@ -760,7 +770,9 @@ class Solver_Displayer:
         table.add_column("", justify="right")         # proposal index
         table.add_column("")                          # proposal
         for v_index in range(self.solver.num_rcs):  # consider not making columns for verifiers with no data
-            table.add_column(Text(f"{letters[v_index]}", justify="center"), )
+            table.add_column(
+                Text(f"{letters[v_index]:>{verifier_title_justify_lengths[v_index]}}", justify="left")
+            )
         previous_small_partition = None
         for z_idx in range(len(proposals)):
             cooked_row_arg = [
@@ -894,7 +906,7 @@ class Solver_Displayer:
 
     def print_rcs_list(
         self,
-        rcs_list,
+        rcs_list: list[list[Rule]],
         title,
         border_style="blue",
         justify="center",
@@ -942,7 +954,7 @@ class Solver_Displayer:
             **kwargs
     ):
         """
-        Pretty prints a table of all the combos_with_answers (cwas) given.
+        Pretty prints a table of all the full combos_with_answers (cwas) given.
         title is the title of the table. Blank by default.
         permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
 
@@ -1122,7 +1134,7 @@ class Solver_Displayer:
         verifiers_to_sort_by : list[int] | int = None,
     ):
         """
-        Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True.
+        Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True. See _print_partition_table to understand how the partition table is made.
 
         Parameters
         ----------
@@ -1138,6 +1150,17 @@ class Solver_Displayer:
             If this is True, instead of printing all the information mentioned above, will only print out the partition info.
         verifiers_to_sort_by: list[int] | int, optional
             Only affects the short (partitions) table. The order of verifiers to use when sorting the partition table. Can be a single integer, or a list of integers. If this is not set, will order the table by proposal. If this is set, will order by the list, and section the table by the first verifier in the list.
+
+        Examples
+        --------
+        sd.print_useful_qs_dict_info(
+            qs_dict,
+            game_state.cwa_set,
+            verifier_indexes=None,
+            proposals_to_examine=None,
+            short=True,
+            verifiers_to_sort_by=[E, C]
+        )
         """
         if(type(proposals_to_examine) == int):
             proposals_to_examine = [proposals_to_examine]
@@ -1189,7 +1212,7 @@ class Solver_Displayer:
             full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
         )
         answer = full_cwa[0][-1]
-        q_history_table = get_query_history_table(query_history, self.solver.num_rcs)
+        q_history_table = _get_query_history_table(query_history, self.solver.num_rcs)
         ans_num_style = f'b {self._answer_to_color_dict[answer]}'
         ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
         score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."

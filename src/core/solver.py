@@ -232,7 +232,7 @@ class Solver:
                     verifier_indexes=None,
                     proposals_to_examine=None,
                     short=True,
-                    verifiers_to_sort_by=[E, C]
+                    verifiers_to_sort_by=[A, D]
                 )
                 console.rule()
                 # print(repr(game_state))
