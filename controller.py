@@ -343,7 +343,7 @@ def do_two_funcs(do_func_1: bool, func_1: callable, do_func_2: bool, func_2: cal
 
 # For Testing purposes
 def unpickle_solver_from_f_name(f_name):
-    print(f"\nUnpickling {f_name}.")
+    console.print(f"\nUnpickling '{f_name}'.")
     f = open(f_name, 'rb')
     s: solver.Solver = pickle.load(f)
     f.close()
@@ -390,6 +390,8 @@ if(__name__ == "__main__"):
             play_from_file,
             f_name=args.prob_id
         )
+        if not(args.play or args.display):
+            s = unpickle_solver_from_f_name(args.prob_id)
         exit()
     problem = get_requested_problem(
         args.prob_id,

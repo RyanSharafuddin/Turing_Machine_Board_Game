@@ -77,6 +77,9 @@ def create_move_info(
     """
     # cwa_set representation_change
     # will need the function to intersect two sets as well as to see if a set is nonempty.
+    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's type will match the type of the first operand. 
+    # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
+    # Therefore, all of the game states' cwa_sets created below are frozensets.
     cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
     cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
     if(bool(cwa_set_if_false) and bool(cwa_set_if_true)):
@@ -215,27 +218,48 @@ class Solver:
             if(config.CACHE_END_STATES):
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
-        if(game_state.proposal_used_this_round is None):
-            len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: delete
-            qs_dict = solver_utils.filter_update_iso_remove(qs_dict, game_state.cwa_set, self.num_rcs)
-            len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: delete
-            if( len_now < len_before): # TODO: delete this if block
+        if(game_state.proposal_used_this_round is None): # FILTER
+            # len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set, self.num_rcs) # FILTER
+            actual_newly_filtered_moves = [
+                m for m in solver_utils.newly_filtered_moves
+                if(
+                    (m[0] in qs_dict)  and (m[1] in qs_dict[m[0]])
+                )
+            ]
+            if(actual_newly_filtered_moves):
+                actual_newly_filtered_moves.sort()
                 sd.print_game_state(game_state)
                 # console.print(repr(game_state))
-                # for s_to_print in solver_utils.iso_filter_list_to_print: # TODO: delete this block
-                #     console.print(s_to_print)
-                print(f"Some queries have been eliminated.")
-                print(f'{len_before} -> {len_now} queries')
                 sd.print_useful_qs_dict_info(
                     qs_dict,
                     game_state.cwa_set,
                     verifier_indexes=None,
                     proposals_to_examine=None,
                     short=True,
-                    verifiers_to_sort_by=[A, D]
+                    # verifiers_to_sort_by=[A]
                 )
+                console.print("Newly filtered moves: ", justify="center")
+                for m in actual_newly_filtered_moves:
+                    console.print(display.get_move_text(m), justify="center", end="")
                 console.rule()
-                # print(repr(game_state))
+            # len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
+            # if( len_now < len_before): # TODO: comment_out testing block
+            #     sd.print_game_state(game_state)
+            #     # console.print(repr(game_state))
+            #     # for s_to_print in solver_utils.iso_filter_list_to_print: # TODO: comment_out testing block
+            #     #     console.print(s_to_print)
+            #     print(f"Some queries have been eliminated.")
+            #     print(f'{len_before} -> {len_now} queries')
+            #     sd.print_useful_qs_dict_info(
+            #         qs_dict,
+            #         game_state.cwa_set,
+            #         verifier_indexes=None,
+            #         proposals_to_examine=None,
+            #         short=True,
+            #         verifiers_to_sort_by=[A]
+            #     )
+            #     console.rule()
         best_node_cost = Solver.initial_best_cost
         found_moves = False
         for move_info in get_and_apply_moves(game_state, qs_dict):

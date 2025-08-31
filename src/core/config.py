@@ -88,5 +88,6 @@ PRINT_SD_COLOR_DICT = False
 
 # Where things are, from perspective of controller.py.
 PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "src/problems/Pickles/NoIsomorphicQueryFilter"
 USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

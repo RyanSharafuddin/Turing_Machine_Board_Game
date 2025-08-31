@@ -109,6 +109,8 @@ class Solver_Nightmare(Solver):
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
+            # WARN: line below is new and not fully tested/stepped through/debugged in nightmare mode.
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set, self.num_rcs) # FILTER
 
         found_moves = False
         # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
