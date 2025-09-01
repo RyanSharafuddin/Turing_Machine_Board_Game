@@ -1,6 +1,6 @@
 import pickle, os, platform, gc, argparse, git
 from rich import print as rprint
-# from rich.text import Text
+from rich.text import Text
 # My imports
 from src.core.definitions import *
 from src.core.config import *
@@ -149,7 +149,7 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
         return
     s = make_solver(problem)
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
-    console.print(f"\nPickling {f_name} . . .", justify="center")
+    console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
     if(not(pickle_entire)):
         new_evaluations_cache = get_relevant_parts_cache(s)
         s.evaluations_cache = new_evaluations_cache
@@ -159,7 +159,7 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     s.git_message = git_message
     pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
-    console.print("Done", justify="center")
+    console.print("Done.")
     problems.update_pickled_time_dict_if_necessary(s)
     return(s)
 
@@ -176,7 +176,7 @@ def get_or_make_solver(
     If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles. Precludes force_overwrite and pickle_entire.
     Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
     """
-    display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
+    # display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
     if(DISABLE_GC):
         gc.disable()
         gc.collect()
@@ -190,21 +190,21 @@ def get_or_make_solver(
             if(not force_overwrite):
                 display.cprint_if_active(
                     DISPLAY,
-                    f"Problem ID: {problem.identity} has been solved; retrieving solver from file. . ."
+                    f"Problem has been solved; retrieving solver from file. . ."
                 )
                 s = unpickle_solver(problem.identity)
                 made_from_scratch = False
             else:
                 display.cprint_if_active(
                     DISPLAY,
-                    "This problem has been solved, but will overwrite the solver file."
+                    "Problem has been solved, but will overwrite the solver file."
                 )
                 s = pickle_solver(problem, pickle_entire=pickle_entire, force_overwrite=force_overwrite)
                 made_from_scratch = True
         else:
             display.cprint_if_active(
                 DISPLAY,
-                f"Problem ID: {problem.identity} has not been solved. Solving. If this problem has 20+ unique answers, this may take some time . . ."
+                f"Problem has not been solved. Solving. If this problem has 20+ answers, this may take some time . . ."
             )
             s = pickle_solver(problem, pickle_entire=pickle_entire)
             made_from_scratch = True
@@ -343,23 +343,24 @@ def do_two_funcs(do_func_1: bool, func_1: callable, do_func_2: bool, func_2: cal
 
 # For Testing purposes
 def unpickle_solver_from_f_name(f_name):
-    console.print(f"\nUnpickling '{f_name}'.")
+    console.print(Text.assemble("\nUnpickling ", display.get_filename_text(f_name), ". . ."))
     f = open(f_name, 'rb')
     s: solver.Solver = pickle.load(f)
     f.close()
     print("Done.")
     sd = display.Solver_Displayer(s)
-    console.print(f"This solver originally took {s.seconds_to_solve:,} seconds to solve.")
-    if(hasattr(s, "git_hash")):
-        console.print(f"This solver was created in git commit {s.git_hash}.")
-        if(hasattr(s, "git_message")):
-            console.print(f"Commit message: {s.git_message}", end="")
-        else:
-            print("Commit message was not recorded.")
-    else:
-        print("This solver did not record the git commit it was created in.")
+    # if(hasattr(s, "git_hash")):
+    #     console.print(f"This solver was created in git commit {s.git_hash}.")
+    #     if(hasattr(s, "git_message")):
+    #         console.print(f"Commit message: {s.git_message}", end="")
+    #     else:
+    #         print("Commit message was not recorded.")
+    # else:
+    #     print("This solver did not record the git commit it was created in.")
+    console.print(Text.assemble(f"Seconds to solve: ", (f"{s.seconds_to_solve:,}", COLOR_OF_TIME)))
     sd.print_eval_cache_size()
     return(s)
+
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
     display_solution_from_solver(s)
@@ -377,8 +378,8 @@ def play_from_file(f_name):
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 if(__name__ == "__main__"):
-    console.print(" ", style="green")
-    console.print(f"Using {platform.python_implementation()}.", justify="center")
+    console.print("", style="green", end="")
+    # console.print(f"Using {platform.python_implementation()}.", justify="center")
     parser = make_parser()
     args = parser.parse_args()
 

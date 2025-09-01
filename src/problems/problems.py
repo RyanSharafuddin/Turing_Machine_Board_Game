@@ -1,4 +1,4 @@
-import pickle
+import pickle, os
 from rich.table import Table
 from rich.text import Text
 # My imports
@@ -279,7 +279,7 @@ _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _S
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
 _NIGHTMARE_PROB_TUPS += _derived_nightmare_prob_tups
 _STANDARD_PROB_TUPS += _derived_standard_prob_tups
-# TODO: only the problems defined in this file now have _S and _N versions. Should change it so that all problems, including those in the user problem file, have _S and _N versions.
+# TODO: only the problems defined in this file now have _S and _N versions. Should change it so that all problems, including those in the user problem file, have _S and _N versions. Can do this by updating the function add_problem_to_known_problems to check if it's a nightmare/standard mode problem it's adding, and then automatically also add the standard/nightmare (respectively) version of it.
 # NOTE: Any standard mode problem is now also a nightmare mode problem if just add "_N" to its problem id.
 #       Also, any nightmare mode problem is a standard mode problem by adding "_S".
 
@@ -305,8 +305,11 @@ _PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
 for _problem in _ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(_problem)
 
+if not os.path.isfile(TIME_PICKLE_FILE_NAME):
+    _PICKLED_TIME_DICT = dict()
+    with open(TIME_PICKLE_FILE_NAME, 'wb') as _f:
+        pickle.dump(_PICKLED_TIME_DICT, _f, protocol=pickle.HIGHEST_PROTOCOL)
 with open(TIME_PICKLE_FILE_NAME, 'rb') as _f:
     _PICKLED_TIME_DICT: dict = pickle.load(_f)
-# TODO: You really should first check to see whether a file at TIME_PICKLE_FILENAME exists, and if it doesn't, create it, so this doesn't crash on other people's computers if you send it to them.
 # TODO: use a trie instead of the wildly inefficient prefix dict
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.

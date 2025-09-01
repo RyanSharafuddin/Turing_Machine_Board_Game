@@ -110,7 +110,7 @@ class Solver_Nightmare(Solver):
                 self.num_rcs, game_state, self.full_cwas_list
             )
             # WARN: line below is new and not fully tested/stepped through/debugged in nightmare mode.
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set, self.num_rcs) # FILTER
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
 
         found_moves = False
         # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
@@ -128,7 +128,7 @@ class Solver_Nightmare(Solver):
                 minimal_vs_list
             )[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
+            node_cost_tup = self.cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup

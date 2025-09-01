@@ -77,7 +77,7 @@ def create_move_info(
     """
     # cwa_set representation_change
     # will need the function to intersect two sets as well as to see if a set is nonempty.
-    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's type will match the type of the first operand. 
+    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's type will match the type of the first operand.
     # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
     # Therefore, all of the game states' cwa_sets created below are frozensets.
     cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
@@ -125,11 +125,6 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
         cost = (1, 1)
         next_num_queries = 1
         for (proposal, inner_dict) in qs_dict.items():
-            # 2 possibilites:
-                # 1 whenever start a new round early, give this function a proposal_already_explored parameter, so it doesn't explore that proposal again.
-                # 2 make a new qs_dict every round, so you won't waste time on useless proposals at all. Try 2 first, and only do 1 if 2 does not save you time.
-            # if(proposal == game_state.proposal_used_this_round):
-                # continue # no sense starting a new round when you could have remained on same round.
             for (verifier_to_query, q_info) in inner_dict.items():
                 move = (proposal, verifier_to_query)
                 move_info = create_move_info(
@@ -177,17 +172,17 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
-        self.cost_calulator     = solver_utils.calculate_expected_cost # can also be calculate_worst_case_cost
+        self.cost_calculator    = solver_utils.calculate_expected_cost # can also be worst_case_cost
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.qs_dict            = solver_utils.make_useful_qs_dict(
             self.full_cwas_list,
+            self.initial_game_state.cwa_set,
             self.flat_rule_list,
             self.n_mode,
         )
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
-        # self.cost_calulator     = solver_utils.calculate_worst_case_cost
         self.testing_stuff() # WARN TODO: delete
 
     def testing_stuff(self):
@@ -204,7 +199,7 @@ class Solver:
 
     # called_calculate = 0
     # cache_hits = 0
-    # NOTE: don't use the class's qs_dict just yet. Keep passing it down, in case you want to make new ones in the future. See todo.txt.
+    # printed_table_num = 0       # TODO: comment_out testing
     def _calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
@@ -220,37 +215,23 @@ class Solver:
             return(Solver.null_answer)
         if(game_state.proposal_used_this_round is None): # FILTER
             # len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set, self.num_rcs) # FILTER
-            actual_newly_filtered_moves = [
-                m for m in solver_utils.newly_filtered_moves
-                if(
-                    (m[0] in qs_dict)  and (m[1] in qs_dict[m[0]])
-                )
-            ]
-            if(actual_newly_filtered_moves):
-                actual_newly_filtered_moves.sort()
-                sd.print_game_state(game_state)
-                # console.print(repr(game_state))
-                sd.print_useful_qs_dict_info(
-                    qs_dict,
-                    game_state.cwa_set,
-                    verifier_indexes=None,
-                    proposals_to_examine=None,
-                    short=True,
-                    # verifiers_to_sort_by=[A]
-                )
-                console.print("Newly filtered moves: ", justify="center")
-                for m in actual_newly_filtered_moves:
-                    console.print(display.get_move_text(m), justify="center", end="")
-                console.rule()
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
             # len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
             # if( len_now < len_before): # TODO: comment_out testing block
-            #     sd.print_game_state(game_state)
+            #     # Print out an id for each game state so you can easily find it again while scrolling.
+            #     game_state_name = display.Text.assemble(
+            #         f' Printed Game State # ',
+            #         sd.get_problem_id_text(),
+            #         (f' {Solver.printed_table_num:,}', "#FF69D7"),
+            #         ".",
+            #     )
+            #     Solver.printed_table_num += 1
+            #     sd.print_game_state(game_state, name=game_state_name)
             #     # console.print(repr(game_state))
             #     # for s_to_print in solver_utils.iso_filter_list_to_print: # TODO: comment_out testing block
             #     #     console.print(s_to_print)
             #     print(f"Some queries have been eliminated.")
-            #     print(f'{len_before} -> {len_now} queries')
+            #     console.print(f'{len_before} -> {len_now} queries')
             #     sd.print_useful_qs_dict_info(
             #         qs_dict,
             #         game_state.cwa_set,
@@ -267,7 +248,7 @@ class Solver:
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0])[1]
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1])[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = self.cost_calulator(mcost, p_tup, gss_costs)
+            node_cost_tup = self.cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
@@ -279,8 +260,6 @@ class Solver:
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
         if(found_moves):
-            # uncomment below line for use with worst_case_cost with tiebreaker
-            # best_node_cost = (best_node_cost[0], best_node_cost[1])
             answer = (best_move, best_node_cost)
         else:
             new_gs = Game_State(

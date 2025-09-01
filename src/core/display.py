@@ -258,6 +258,11 @@ def get_move_text(move: tuple):
             (letters[move[1]], VERIFIER_COLORS[move[1] % len(VERIFIER_COLORS)])
         )
     )
+def get_filename_text(filename: str):
+    """
+    Return a Text object of the filename with formatting applied as per config.
+    """
+    return(Text(filename, style=FILENAME_COLOR))
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -1059,7 +1064,7 @@ class Solver_Displayer:
     def print_game_state(
             self,
             gs,
-            name="game_state",
+            name="Game State",
             verifier_to_sort_by=None,
             permutation_order=True,
             active=True,
@@ -1067,13 +1072,11 @@ class Solver_Displayer:
         ):
         if(not active):
             return
-        # print(f'\n{name}')
-        q_str = f'queries_this_round: {gs.num_queries_this_round} '
-        prop_str = f'proposal_this_round: {gs.proposal_used_this_round}'
-        center_print("\n" + q_str + prop_str)
+        q_str = _highlight(f' Queries this round: {gs.num_queries_this_round}.')
+        prop_str = _highlight(f' Proposal this round: {gs.proposal_used_this_round}.')
         self.print_all_possible_answers(
             cwas=self.solver.full_cwa_list_from_game_state(gs),
-            title=Text("CWA ").append(name),
+            title=Text.assemble(name, q_str, prop_str),
             permutation_order=permutation_order,
             verifier_to_sort_by=verifier_to_sort_by,
             **kwargs
@@ -1198,12 +1201,14 @@ class Solver_Displayer:
             console.print("This solver did not record the size of its evaluations cache.")
             return
         size = self.solver.size_of_evaluations_cache_in_bytes
+        table = Table.grid(padding=(0, 1))
         if(size > 0):
             if(size >= (2 ** 30)):
-                console.print(f"Size of evaluations cache in gigabytes: {size /(2 ** 30):,.2f}.")
+                table.add_row("       Gigabytes:", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE))
             if(size >= (2 ** 20)):
-                console.print(f"Size of evaluations cache in megabytes: {size /(2 ** 20):,.2f}.")
-            console.print(f"Size of evaluations cache in     bytes: {size:,}.")
+                table.add_row("       Megabytes:", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE))
+            table.add_row(Text("     Bytes:", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE))
+            console.print(table)
 
     def end_play_display(self, current_gs, v_to_sort_by, query_history, current_score):
         """
@@ -1219,6 +1224,8 @@ class Solver_Displayer:
         ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
         score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."
         console.print(_combine(answers_table, q_history_table, ans_line, score_line), justify="center")
+    def get_problem_id_text(self):
+        return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer

@@ -49,7 +49,7 @@ SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also sho
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 
 PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
-# verifier colors currently not used for anything. But it does look pretti c:
+# verifier colors currently not used for anything. But it does look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#CC00FF", "#8C00FF", "#4C00FF", "#0091FF", "#00FFE5"]
 
 # Colors for the problems table
@@ -59,6 +59,11 @@ PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
 STACK_EXTREME_RULE_CARDS   = True # print out a problems table with this true or false to see what this does.
 STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
+
+# Used for printing out info related to where pickles are stored and how much time and space solvers used.
+FILENAME_COLOR = "#00FF00"
+COLOR_OF_TIME  = "#FF00B7"
+COLOR_OF_SPACE = "#00FFFF"
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
@@ -74,12 +79,11 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 
 # Solver workings
 DISABLE_GC = False              # Whether to disable the garbage collector while solve()ing.
-                                # Increases speed on many problems, but uses more memory, and some problems already get killed due to out of memory even without this.
+# Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
 CACHE_END_STATES = False        # whether to cache the end states into the evaluations_cache
 
 
 # Settings To Use For Debugging/Displaying Debugging Information
-PRINT_ISOMORPHIC_LOL        = False
 PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time if you set it to true. See solver.py/post_solve_printing() for details.
 PARTITION_DIVIDER = '│' # options: '│' and '|'
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
@@ -87,7 +91,8 @@ ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
 PRINT_SD_COLOR_DICT = False
 
 # Where things are, from perspective of controller.py.
-PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "src/problems/Pickles/Partition_Set_Filter" # "Pickles" # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
 # PICKLE_DIRECTORY = "src/problems/Pickles/NoIsomorphicQueryFilter"
 USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

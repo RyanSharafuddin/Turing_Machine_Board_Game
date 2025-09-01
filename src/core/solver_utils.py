@@ -1,9 +1,6 @@
 import math, itertools
 # from definitions import *
-from .definitions import Query_Info, console, all_125_possibilities_set, Rule, console # TODO: delete console
-from . import config
-from . import display # TODO: delete once tested.
-from rich.text import Text # TODO: delete
+from .definitions import Query_Info, all_125_possibilities_set, Rule, console # TODO: delete console
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
@@ -54,7 +51,7 @@ _ISOMORPHIC    = 0
 _NOT_ISOMOPHIC = 1
 _EXCLUDE_FIRST = 2
 _EXCLUDE_SECOND = 3
-def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, num_verifiers):
+def _compare_two_proposals_small_partition_sets(sp_1: frozenset, sp_2: frozenset):
     """
     Returns one of 4 values:
     _ISOMORPHIC     if the 2 proposals are isomorphic.
@@ -62,45 +59,20 @@ def _compare_two_proposals_inner_dicts(inner_dict_1: dict, inner_dict_2: dict, n
     _EXCLUDE_FIRST  if the first is strictly less useful than the second and should not be in any list.
     _EXCLUDE_SECOND if the second is strictly less useful than the first and should not be in any list.
     """
-    first_useful_on_something_second_isnt = False
-    second_useful_on_something_first_isnt = False
-    for v_index in range(num_verifiers):
-        q_info1 = inner_dict_1.get(v_index, None)
-        q_info2 = inner_dict_2.get(v_index, None)
-        if(q_info1 is None):
-            if(q_info2 is None):
-                # both are None
-                continue
-            # 1 is None; q_info_2 is not None
-            second_useful_on_something_first_isnt = True
-            continue
-        else:
-            if(q_info2 is None):
-                # 1 is not None; 2 is None
-                first_useful_on_something_second_isnt = True
-                continue
-
-        # neither are None
-        if not (
-            # cwa_set representation_change (if numpy arrays for example, will have to change how they compare equal, by using == .all(), or something like that.)
-            ((q_info1[0] == q_info2[0]) and (q_info1[1] == q_info2[1])) or
-            ((q_info1[0] == q_info2[1]) and (q_info1[1] == q_info2[0]))
-        ):
-            return(_NOT_ISOMOPHIC)
-    if(first_useful_on_something_second_isnt):
-        if(second_useful_on_something_first_isnt):
-            # They both cover verifiers the other doesn't.
-            return(_NOT_ISOMOPHIC)
-        else:
-            # first is strictly more useful than second.
-            return(_EXCLUDE_SECOND)
-    else:
-        if(second_useful_on_something_first_isnt):
-            # second is strictly more useful than first
-            return(_EXCLUDE_FIRST)
-        else:
-            # Neither covers a verifier the other doesn't
-            return(_ISOMORPHIC)
+    s1_len = len(sp_1)
+    s2_len = len(sp_2)
+    if(s1_len < s2_len):
+        if(sp_1.issubset(sp_2)):
+            return _EXCLUDE_FIRST
+        return _NOT_ISOMOPHIC
+    if(s1_len == s2_len):
+        if(sp_1.issubset(sp_2)):
+            return _ISOMORPHIC
+        return _NOT_ISOMOPHIC
+    if(s1_len > s2_len):
+        if(sp_1.issuperset(sp_2)):
+            return _EXCLUDE_SECOND
+        return _NOT_ISOMOPHIC
 
 def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
     base_queries_dict = dict()
@@ -143,7 +115,7 @@ def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
                     }
     return(base_queries_dict)
 
-def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
+def _get_isomorphic_proposals_lol(small_partition_set_dict: dict):
     """
     Get a list of lists of isomorphic queries. If one query is strictly less useful than another (isomorphic to it for all verifiers it can be used on, but the set of verifiers it can be used on is a strict subset of the verifiers the other query can be used on), then it won't appear in any output list.
     """
@@ -152,7 +124,7 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
     representative_info_list = [] # same type as what is used to compare in compare_two_proposals
     # global iso_filter_list_to_print # TODO: comment_out testing
     # iso_filter_list_to_print = [] # TODO: comment_out testing
-    for (proposal, inner_dict) in base_qs_dict.items():
+    for (proposal, small_partition_set) in small_partition_set_dict.items():
         for (list_index, (isomorphic_list, representative_info)) in enumerate(
             zip(isomorphic_proposals_lol, representative_info_list)
         ):
@@ -160,10 +132,9 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
             if(isomorphic_list is None):
                 # this list was found to be strictly less useful than a later list
                 continue
-            comparison_result = _compare_two_proposals_inner_dicts(
-                inner_dict,
+            comparison_result = _compare_two_proposals_small_partition_sets(
+                small_partition_set,
                 representative_info,
-                num_verifiers
             )
             if(comparison_result is _ISOMORPHIC):
                 isomorphic_list.append(proposal)
@@ -187,7 +158,7 @@ def _get_isomorphic_proposals_lol(base_qs_dict: dict, num_verifiers):
         else:
             # Found a new group of isomorphic queries
             isomorphic_proposals_lol.append([proposal])
-            representative_info_list.append(inner_dict)
+            representative_info_list.append(small_partition_set)
 
     isomorphic_proposals_lol = [lst for lst in isomorphic_proposals_lol if (lst is not None)]
     return(isomorphic_proposals_lol)
@@ -215,14 +186,20 @@ def _get_small_partition(cwa_set_1, cwa_set_2):
     s1_len = len(cwa_set_1)
     s2_len = len(cwa_set_2)
     if(s1_len == s2_len):
-        # TODO: consider if there are any less expensive ways (than taking min()) of disambiguating 
+        # TODO: consider if there are any less expensive ways (than taking min()) of disambiguating
         # b/t equally-sized cwa sets to be the 'small' partition
         return(cwa_set_1 if(min(cwa_set_1) < min(cwa_set_2)) else cwa_set_2)
     return(cwa_set_1 if(s1_len < s2_len) else cwa_set_2)
 
-def _get_updated_qs_dict(qs_dict: dict, current_cwa_set):
+def _get_updated_qs_dict_and_pset_dict(qs_dict: dict, current_cwa_set):
     """
-    Return a new qs dict that has useless queries removed and where each q_info contains the minimum possible amount of cwas.
+    Returns
+    -------
+    (updated_qs_dict, small_partition_set_dict) : tuple
+    `updated_qs_dict` : dict
+        A new qs_dict that has useless queries removed and where each q_info contains the minimum possible amount of cwas.
+    `small_partition_set_dict` : dict
+        A dictionary from {proposal to small partition set}
     """
     new_qs_dict = dict()
     small_partition_set_dict = dict() # dict from proposal : small_partition_set
@@ -249,13 +226,20 @@ def _get_updated_qs_dict(qs_dict: dict, current_cwa_set):
                     if(len(small_partition_set) != previous_small_partition_set_length):
                         # due to Python's stupid set API, calling add() on a set returns None
                         # and it does not tell you whether the add operation changed the set or not
-                        # so you have to either check if the item was in the set before wasting time on (doing 2 hashes and set lookups), or check the length of the set twice, wasting time
+                        # so you have to either check if the item was in the set before, wasting time on
+                        # doing 2 hashes and set lookups, or check the length of the set twice, wasting time
                         # on 2 len function calls and a compare.
                         # consider answer 2 in the link below and if you can use it here.
                         # https://stackoverflow.com/questions/27427067/how-to-check-if-an-item-was-freshly-added-to-a-set-without-doing-lookup-thus-ca
                         # only add this query if it adds something to this proposal's small_partition set.
                         new_inner_dict[v_index] = new_q_info
-    return(new_qs_dict)
+    return((new_qs_dict, small_partition_set_dict))
+
+def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set_dict):
+    """ TODO: update docstring. Given a queries dict, returns a NEW queries dict with the isomorphic queries filtered out. """
+    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(small_partition_set_dict)
+    filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
+    return(filtered_qs_dict)
 
 ############################## PUBLIC FUNCTIONS #################################################
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
@@ -263,7 +247,6 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.
     """
     num_vs = len(full_cwas[0][0])
-    # TODO: consider optimizing the 'sets' belows w/ bitarray or python int or numpy packed bits or something.
     possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
     for cwa in full_cwas:
         (c, p) = (cwa[0], cwa[1])
@@ -273,7 +256,7 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
             corresponding_set.add(possible_rule.unique_id)
     return(possible_rule_ids_by_verifier)
 
-def make_full_cwas_list(n_mode: bool, rcs_list):
+def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
     """
     Make a full list of cwas given a boolean of n_mode and the rule cards list.
     NOTE: This does not depend on any property of the problem other than these, so you can use this function to get a full cwas list if the rcs_list contains only a proper subset of rule cards/rules.
@@ -285,21 +268,19 @@ def make_full_cwas_list(n_mode: bool, rcs_list):
         verifier_permutations = tuple(itertools.permutations(vs))
         for original_cwa in possible_combos_with_answers:
             for v_permutation in verifier_permutations:
-                nightmare_possible_combos_with_answers.append((original_cwa[0], v_permutation, original_cwa[1]))
+                nightmare_possible_combos_with_answers.append(
+                    (original_cwa[0], v_permutation, original_cwa[1])
+                )
         possible_combos_with_answers = nightmare_possible_combos_with_answers
         # possible_combos_with_answers is now [(full rule combo, full permutation, answer), ...]
     # sort the possible cwas by answer. Will be helpful in calculating one_answer_left when switch to bitsets.
     possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
-# TODO: make the below a 'private' function
-def get_dict_filtered_of_isomorphic_proposals(base_qs_dict, num_verifiers):
-    """ Given a queries dict, returns a NEW queries dict with the isomorphic queries filtered out. """
-    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
-    filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
-    return(filtered_qs_dict)
-
-def make_useful_qs_dict(full_cwas_list, flat_rule_list, n_mode):
+def make_useful_qs_dict(full_cwas_list, cwa_set, flat_rule_list, n_mode):
+    """
+    Get the initial queries dictionary that the solver starts with.
+    """
     if not full_cwas_list: # only happens on invalid problems.
         return None
     base_qs_dict = _init_base_qs_dict(
@@ -307,34 +288,29 @@ def make_useful_qs_dict(full_cwas_list, flat_rule_list, n_mode):
         flat_rule_list,
         n_mode
     )
-    num_verifiers = len(full_cwas_list[0][0])
-    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(base_qs_dict, num_verifiers)
-    useful_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
-
-    if(config.PRINT_ISOMORPHIC_LOL):
-        print("Isomorphic lol printed from solver_utils.make_useful_qs_dict")
-        for (index, isomorphic_list) in enumerate(isomorphic_proposals_lol):
-            console.print(f'{index:>3,}', isomorphic_list, end=" ")
-        console.print(f"Saved {len(base_qs_dict) - len(isomorphic_proposals_lol)} proposals out of {len(base_qs_dict)}!")
+    useful_qs_dict = full_filter(base_qs_dict, cwa_set)
     return(useful_qs_dict)
 
-def full_filter(qs_dict: dict, current_cwa_set, num_verifiers):
-    updated_qs_dict = _get_updated_qs_dict(qs_dict, current_cwa_set)
-    new_qs_dict = get_dict_filtered_of_isomorphic_proposals(updated_qs_dict, num_verifiers)
+def full_filter(qs_dict: dict, current_cwa_set):
+    """
+    Given the current cwa_set for a game state and the qs dict, return a *new* qs_dict that is completely updated: all useless/isomorphic queries are filtered out.
+    """
+    (updated_qs_dict, small_partition_set_dict) = _get_updated_qs_dict_and_pset_dict(qs_dict, current_cwa_set)
+    new_qs_dict = _get_dict_filtered_of_isomorphic_proposals(updated_qs_dict, small_partition_set_dict)
     return(new_qs_dict)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
-def calculate_expected_cost(mcost, probs, gss_costs):
-    (mcost_rounds, mcost_queries) = mcost
+def calculate_expected_cost(move_cost, probs, gss_costs):
+    (mcost_rounds, mcost_queries) = move_cost
     (p_false, p_true) = probs
     ((gs_false_round_cost, gs_false_query_cost), (gs_true_round_cost, gs_true_query_cost)) = gss_costs
     expected_r_cost = mcost_rounds + (p_false * gs_false_round_cost) + (p_true * gs_true_round_cost)
     expected_q_cost = mcost_queries + (p_false * gs_false_query_cost) + (p_true * gs_true_query_cost)
     return((expected_r_cost, expected_q_cost))
-def calculate_worst_case_cost(mcost, probs, gss_costs):
+def calculate_worst_case_cost(move_cost, probs, gss_costs):
     bigger_cost_tup = max(gss_costs)
     # WARN: don't use the add_tups function from definitions.py here, b/c this is very time-sensitive and Python is very slow. On problem f5x, using add_tups here single-handedly causes it to take 94 seconds instead of 80.
     # tie_breaker = calculate_expected_cost(mcost, probs, gss_costs)
     # return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1, tie_breaker))
     # Using a tiebreaker to differentiate b/t nodes with the same worst case costs is pretty interesting, but rather expensive, as it adds +10% total time.
-    return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1))
+    return((bigger_cost_tup[0] + move_cost[0], bigger_cost_tup[1] + 1))
