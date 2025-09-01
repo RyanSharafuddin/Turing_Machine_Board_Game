@@ -299,6 +299,12 @@ def full_filter(qs_dict: dict, current_cwa_set):
     new_qs_dict = _get_dict_filtered_of_isomorphic_proposals(updated_qs_dict, small_partition_set_dict)
     return(new_qs_dict)
 
+def get_num_queries_in_qs_dict(qs_dict: dict):
+    """
+    Return the number of queries contained in a qs dict. For debugging/information displaying purposes.
+    """
+    return(sum([len(inner_dict) for inner_dict in qs_dict.values()]))
+
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
 def calculate_expected_cost(move_cost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = move_cost

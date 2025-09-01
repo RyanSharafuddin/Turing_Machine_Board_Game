@@ -186,17 +186,17 @@ def print_all_local_problems():
     Print the table that lists all locally available problems.
     """
     table = Table(
-        title="Available Problems",
+        title="Available Local Problems",
         title_style="bright_white",
         header_style=PROBLEM_TABLE_HEADER_COLOR,
         border_style=PROBLEM_TABLE_BORDER,
         row_styles=["", "on #1c1c1c"],
     )
-    table.add_column("ID", justify="right", style=PROBLEM_ID_COLOR)
-    table.add_column("Rule Cards List", justify="left", style=RULE_CARD_NUMS_COLOR)
-    table.add_column("Mode")
-    table.add_column("Comments")
-    table.add_column("Time Taken", justify="right")
+    table.add_column(Text("ID", justify="center"), justify="right", style=PROBLEM_ID_COLOR)
+    table.add_column(Text("Rule Cards List", justify="center"), justify="left", style=RULE_CARD_NUMS_COLOR)
+    table.add_column(Text("Mode", justify="center"))
+    table.add_column(Text("Comments", justify="center"))
+    table.add_column(Text("Time Taken", justify="center"), justify="right")
     probs_list = list(_ID_TO_PROBLEM_DICT.values())
     probs_list.sort(key=lambda p: (p.mode, p.identity))
     for (problem_index, p) in enumerate(probs_list):

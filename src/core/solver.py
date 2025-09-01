@@ -77,7 +77,8 @@ def create_move_info(
     """
     # cwa_set representation_change
     # will need the function to intersect two sets as well as to see if a set is nonempty.
-    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's type will match the type of the first operand.
+    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's 
+    # type will match the type of the first operand.
     # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
     # Therefore, all of the game states' cwa_sets created below are frozensets.
     cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
@@ -197,9 +198,64 @@ class Solver:
         # )
         # exit()
 
+    def _print_debug_info(
+            self,
+            condition: bool,
+            game_state: Game_State,
+            qs_dict_1: dict,
+            qs_dict_2=None
+        ):
+        """
+        Print out debug info (info about the queries dicts and game state) if `condition` is True.
+        """
+        if not condition:
+            return
+        global printed_table_num
+        if('printed_table_num' not in globals()):
+            printed_table_num = 1
+        else:
+            printed_table_num += 1
+        # Print out an id for each game state so you can easily find it again while scrolling.
+        game_state_name = display.Text.assemble(
+            f' Printed Game State # ',
+            sd.get_problem_id_text(),
+            (f' {printed_table_num:,}', "#FF69D7"),
+            ".",
+        )
+        sd.print_game_state(game_state, name=game_state_name)
+        # console.print(repr(game_state))
+        # for s_to_print in solver_utils.iso_filter_list_to_print:
+        #     console.print(s_to_print)
+        print(f"Some queries have been eliminated.")
+        console.print(
+            f'{solver_utils.get_num_queries_in_qs_dict(qs_dict_2)} -> {solver_utils.get_num_queries_in_qs_dict(qs_dict_1)} queries'
+        )
+        verifiers_to_sort_by=[A]
+        if(qs_dict_2 is not None):
+            sd.print_useful_qs_dict_info(
+                qs_dict_2,
+                game_state.cwa_set,
+                title=display.Text.assemble(("Original Qs", "bright_white"),),
+                verifier_indexes=None,
+                proposals_to_examine=None,
+                short=True,
+                verifiers_to_sort_by=verifiers_to_sort_by
+            )
+            print()
+        sd.print_useful_qs_dict_info(
+            qs_dict_1,
+            game_state.cwa_set,
+            title=display.Text.assemble(("Updated Qs", "bright_white"),),
+            verifier_indexes=None,
+            proposals_to_examine=None,
+            short=True,
+            verifiers_to_sort_by=verifiers_to_sort_by
+        )
+        console.rule()
+        return
+
     # called_calculate = 0
     # cache_hits = 0
-    # printed_table_num = 0       # TODO: comment_out testing
     def _calculate_best_move(self, qs_dict, game_state: Game_State):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
@@ -213,34 +269,19 @@ class Solver:
             if(config.CACHE_END_STATES):
                 self.evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
-        if(game_state.proposal_used_this_round is None): # FILTER
-            # len_before = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
-            # len_now = sum([len(inner_dict) for inner_dict in qs_dict.values()]) # TODO: comment_out testing
-            # if( len_now < len_before): # TODO: comment_out testing block
-            #     # Print out an id for each game state so you can easily find it again while scrolling.
-            #     game_state_name = display.Text.assemble(
-            #         f' Printed Game State # ',
-            #         sd.get_problem_id_text(),
-            #         (f' {Solver.printed_table_num:,}', "#FF69D7"),
-            #         ".",
-            #     )
-            #     Solver.printed_table_num += 1
-            #     sd.print_game_state(game_state, name=game_state_name)
-            #     # console.print(repr(game_state))
-            #     # for s_to_print in solver_utils.iso_filter_list_to_print: # TODO: comment_out testing block
-            #     #     console.print(s_to_print)
-            #     print(f"Some queries have been eliminated.")
-            #     console.print(f'{len_before} -> {len_now} queries')
-            #     sd.print_useful_qs_dict_info(
-            #         qs_dict,
-            #         game_state.cwa_set,
-            #         verifier_indexes=None,
-            #         proposals_to_examine=None,
-            #         short=True,
-            #         verifiers_to_sort_by=[A]
-            #     )
-            #     console.rule()
+        if(game_state.proposal_used_this_round is None):
+            # original_qs_dict = qs_dict                                      # TODO: comment_out testing
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
+            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
+            # len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
+            # len_now = solver_utils.get_num_queries_in_qs_dict(qs_dict)
+            # self._print_debug_info(
+            #     len_now < len_before,
+            #     game_state,
+            #     qs_dict_1=qs_dict,
+            #     qs_dict_2=original_qs_dict,
+            # )
+            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
         best_node_cost = Solver.initial_best_cost
         found_moves = False
         for move_info in get_and_apply_moves(game_state, qs_dict):

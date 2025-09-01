@@ -49,8 +49,8 @@ SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also sho
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 
 PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
-# verifier colors currently not used for anything. But it does look pretti in VSCode c:
-VERIFIER_COLORS = ["#FF00EA", "#CC00FF", "#8C00FF", "#4C00FF", "#0091FF", "#00FFE5"]
+# verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
+VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#00FFD5", "#88FF00", "#FFE600", "#FF7B00"]
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"

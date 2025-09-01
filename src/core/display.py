@@ -742,7 +742,7 @@ class Solver_Displayer:
             criteria.append(proposal)
             return(criteria)
         return sort_key
-    def _print_partition_table(self, table_data, cwas_when_dict_made, verifiers_to_sort_by):
+    def _print_partition_table(self, table_data, cwas_when_dict_made, title, verifiers_to_sort_by):
         raw_row_args = self._table_data_to_raw_row_args(table_data)
         raw_row_args.sort(key=self._get_partition_row_sort_key(verifiers_to_sort_by))
         full_partition_texts_by_verifier = [None] * self.solver.num_rcs
@@ -763,13 +763,18 @@ class Solver_Displayer:
                 cwas_when_dict_made
             )
         sorted_by_line_title = (
-            '' if(verifiers_to_sort_by is None)
-            else f' sorted by {" ".join([letters[v] for v in verifiers_to_sort_by])}'
+            '' if(verifiers_to_sort_by is None) else
+            Text.assemble(
+                " sorted by ",
+                Text.assemble(
+                    *([Text(letters[v], style=VERIFIER_COLORS[v]).append(' ') for v in verifiers_to_sort_by])
+                )
+            )
         )
         proposals = [x[1] for x in raw_row_args]
         table = Table(
             box=box.HORIZONTALS,
-            title=f"Partition Table{sorted_by_line_title}",
+            title=Text.assemble(title, sorted_by_line_title),
             title_style="",
             collapse_padding=True,
             row_styles=PARTITION_TABLE_ROW_STYLES,
@@ -778,7 +783,11 @@ class Solver_Displayer:
         table.add_column("")                          # proposal
         for v_index in range(self.solver.num_rcs):  # consider not making columns for verifiers with no data
             table.add_column(
-                Text(f"{letters[v_index]:>{verifier_title_justify_lengths[v_index]}}", justify="left")
+                Text(
+                    f"{letters[v_index]:>{verifier_title_justify_lengths[v_index]}}",
+                    justify="left",
+                    style=VERIFIER_COLORS[v_index],
+                )
             )
         previous_small_partition = None
         for z_idx in range(len(proposals)):
@@ -812,7 +821,7 @@ class Solver_Displayer:
 
             table_datum: [proposal, verifier_index, [small_partition_ints], [large_partition_ints]]
 
-                An example table_datum for proposal 512 on verifier E, which partitions
+                An example table_datum for proposal 512 on verifier E (index 4), which partitions
                 the 5 CWAs into [2, 4] and [1, 3, 5] :
 
                     [512, 4, [2, 4], [1, 3, 5]]
@@ -841,7 +850,9 @@ class Solver_Displayer:
                     )
                     list_to_append_to.append(original_cwa_index)
                 # first compare lengths, then iff lengths are equal, compare the zeroeth CWA index
-                min_max_key = lambda cwas_indexes: (len(cwas_indexes), cwas_indexes[0])
+                min_max_key = lambda cwas_indexes: (
+                    len(cwas_indexes), (cwas_indexes[0] if(len(cwas_indexes)) else -1)
+                )
                 false_true_cwas_indexes_tup = (false_cwas_indexes, true_cwas_indexes)
                 first_cwas_indexes = min(false_true_cwas_indexes_tup, key=min_max_key)
                 second_cwas_indexes = max(false_true_cwas_indexes_tup, key=min_max_key)
@@ -854,6 +865,7 @@ class Solver_Displayer:
         self,
         qs_dict,
         cwa_set_when_dict_made,
+        title,
         verifier_indexes_to_examine,
         proposals_to_examine,
         verifiers_to_sort_by = None,
@@ -865,16 +877,20 @@ class Solver_Displayer:
             proposals_to_examine,
             verifier_indexes_to_examine,
         )
-        self._print_partition_table(table_data, full_cwas, verifiers_to_sort_by)
+        self._print_partition_table(table_data, full_cwas, title, verifiers_to_sort_by)
         return
 
 
     @staticmethod
     def get_partition_sort_criteria(partition):
+        """
+        Given a partition, return the sort key for that partition.
+        """
         return([len(partition), partition])
 
     def get_small_partitions_texts(self, small_partitions, full_cwas=None):
         """
+        Given a list of `small_partitions`, return a list of Texts to print that represent them.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
         col_widths = self._get_col_widths_small_partition(small_partitions)
@@ -882,6 +898,7 @@ class Solver_Displayer:
 
     def get_large_partitions_texts(self, large_partitions, full_cwas=None):
         """
+        Given a list of `large_partitions`, return a list of Texts to print that represent them.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
         col_widths = self._get_col_widths_large_partition(large_partitions)
@@ -889,6 +906,7 @@ class Solver_Displayer:
 
     def get_full_partitions_texts(self, small_partitions, large_partitions, full_cwas=None):
         """
+        Given a list of `small_partitions` and a list of `large_partitions` in corresponding order, return a list of Texts to print that represent the full partitions.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
         sp_texts = self.get_small_partitions_texts(small_partitions, full_cwas)
@@ -1132,19 +1150,22 @@ class Solver_Displayer:
         self,
         useful_qs_dict,
         cwa_set_when_q_dict_made,
+        title : str | Text ="Queries Dictionary",
         verifier_indexes: list[int] | int | None = None,
         proposals_to_examine : list[int] | int | None = None,
         see_all_combos=True,
-        short=False,
+        short=True,
         verifiers_to_sort_by : list[int] | int = None,
     ):
         """
-        Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules its true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True. See _print_partition_table to understand how the partition table is made.
+        Displays all information about queries in the useful_queries_dict with a specific verifier card/proposal, such as the rules it's true for, the cwa sets that would result from it being true or false, etc. Can print out a less verbose printing with `short` set to True. See _print_partition_table to understand how the partition table is made.
 
         Parameters
         ----------
         useful_qs_dict
             The query dict to print information about.
+        title : str | Text
+            What to title the partition table when displaying in `short` form. Can be a string or a Text object.
         cwa_set_when_q_dict_made: set of cwa
             The set of all cwas that were possible when the `useful_qs_dict` was created.
         verifier_indexes: list[int] | int | None
@@ -1174,24 +1195,24 @@ class Solver_Displayer:
         if(type(verifiers_to_sort_by) == int):
             verifiers_to_sort_by = [verifiers_to_sort_by]
         if(short):
-            # TODO: transform verifier index in the same way as proposals to examine above
             self._short_q_info_printer_helper(
                 useful_qs_dict,
                 cwa_set_when_q_dict_made,
+                title,
                 verifier_indexes,
                 proposals_to_examine,
                 verifiers_to_sort_by=verifiers_to_sort_by,
             )
-        else:
-            for possible_v_index in range(len(self.solver.rcs_list)):
-                if((verifier_indexes is None) or (possible_v_index in verifier_indexes)):
-                    self._print_useful_qs_dict_info_helper(
-                        useful_qs_dict,
-                        cwa_set_when_q_dict_made,
-                        possible_v_index,
-                        proposals_to_examine,
-                        see_all_combos,
-                    )
+            return
+        for possible_v_index in range(len(self.solver.rcs_list)):
+            if((verifier_indexes is None) or (possible_v_index in verifier_indexes)):
+                self._print_useful_qs_dict_info_helper(
+                    useful_qs_dict,
+                    cwa_set_when_q_dict_made,
+                    possible_v_index,
+                    proposals_to_examine,
+                    see_all_combos,
+                )
 
     def print_eval_cache_size(self):
         """
@@ -1385,3 +1406,4 @@ def print_best_move_tree(gs, show_combos, solver):
     Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)
     table_tree = PrettyPrintTree(_get_children, _node_to_str_table, color='')
     table_tree(tree)
+
