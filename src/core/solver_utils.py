@@ -61,18 +61,25 @@ def _compare_two_proposals_small_partition_sets(sp_1: frozenset, sp_2: frozenset
     """
     s1_len = len(sp_1)
     s2_len = len(sp_2)
-    if(s1_len < s2_len):
+    # if(s1_len < s2_len):
+    #     if(sp_1.issubset(sp_2)):
+    #         return _EXCLUDE_FIRST
+    #     return _NOT_ISOMOPHIC
+    # if(s1_len == s2_len):
+    #     if(sp_1.issubset(sp_2)):
+    #         return _ISOMORPHIC
+    #     return _NOT_ISOMOPHIC
+    # if(s1_len > s2_len):
+    #     if(sp_1.issuperset(sp_2)):
+    #         return _EXCLUDE_SECOND
+    #     return _NOT_ISOMOPHIC
+    if(s1_len <= s2_len):
         if(sp_1.issubset(sp_2)):
             return _EXCLUDE_FIRST
         return _NOT_ISOMOPHIC
-    if(s1_len == s2_len):
-        if(sp_1.issubset(sp_2)):
-            return _ISOMORPHIC
-        return _NOT_ISOMOPHIC
-    if(s1_len > s2_len):
-        if(sp_1.issuperset(sp_2)):
-            return _EXCLUDE_SECOND
-        return _NOT_ISOMOPHIC
+    if(sp_1.issuperset(sp_2)):
+        return _EXCLUDE_SECOND
+    return _NOT_ISOMOPHIC
 
 def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
     base_queries_dict = dict()
@@ -115,31 +122,31 @@ def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
                     }
     return(base_queries_dict)
 
-def _get_isomorphic_proposals_lol(small_partition_set_dict: dict):
+def _get_proposals_to_include(small_partition_set_dict: dict):
     """
     Get a list of lists of isomorphic queries. If one query is strictly less useful than another (isomorphic to it for all verifiers it can be used on, but the set of verifiers it can be used on is a strict subset of the verifiers the other query can be used on), then it won't appear in any output list.
     """
     # TODO: instead of making the full list of list, just directly make the flat list of proposals you need right here. i.e. if you find that a proposal is isomorphic to something before it, don't append it to that list; just don't include it at all. Have this function return a flat list of all the proposals you need to include. Maybe make a debug mode function that does make the full lol.
-    isomorphic_proposals_lol = []
+    proposals_to_include = []
     representative_info_list = [] # same type as what is used to compare in compare_two_proposals
     # global iso_filter_list_to_print # TODO: comment_out testing
     # iso_filter_list_to_print = [] # TODO: comment_out testing
     for (proposal, small_partition_set) in small_partition_set_dict.items():
-        for (list_index, (isomorphic_list, representative_info)) in enumerate(
-            zip(isomorphic_proposals_lol, representative_info_list)
+        for (previous_proposal_index, (previous_proposal, representative_info)) in enumerate(
+            zip(proposals_to_include, representative_info_list)
         ):
             # TODO: when change this function to return a flat list, check if the representative_info is None, rather than the isomorphic_list.
-            if(isomorphic_list is None):
-                # this list was found to be strictly less useful than a later list
+            if(previous_proposal is None):
+                # this proposal was found to be strictly less useful than a later proposal
                 continue
             comparison_result = _compare_two_proposals_small_partition_sets(
                 small_partition_set,
                 representative_info,
             )
-            if(comparison_result is _ISOMORPHIC):
-                isomorphic_list.append(proposal)
-                break
-            elif(comparison_result is _EXCLUDE_FIRST):
+            # if(comparison_result is _ISOMORPHIC):
+            #     previous_proposal.append(proposal)
+            #     break
+            if(comparison_result is _EXCLUDE_FIRST):
                 # debug mode print out a proposal got eliminated
                 # iso_filter_list_to_print.append(
                 #     f"{proposal} is strictly [red]less[/red] useful than list {list_index:>3} {isomorphic_proposals_lol[list_index][0]}."
@@ -151,27 +158,26 @@ def _get_isomorphic_proposals_lol(small_partition_set_dict: dict):
                 # iso_filter_list_to_print.append(
                 #     f"{proposal} is strictly [green]more[/green] useful than list {list_index:>3} {isomorphic_proposals_lol[list_index]}",
                 # ) # TODO: comment_out testing
-                isomorphic_proposals_lol[list_index] = None
+                proposals_to_include[previous_proposal_index] = None
                 # TODO: when make this function return a flat list, do representative_info_list[list_index] = None in addition to setting isomorphic_proposals_lol[list_index] = None
                 # NOTE: should NOT break out of loop early here, b/c even though this proposal is guaranteed to not be isomorphic to any of the other proposals in any isomorphic proposals list, it could still eliminate more future isomorphic proposals lists from the LOL, and if you broke out of this loop right now, those future isomorphic proposals lists that should have been eliminated will not be eliminated.
             # otherwise, this proposal is not isomorphic to this list, but also not strictly more or less useful, so need to keep looking.
         else:
             # Found a new group of isomorphic queries
-            isomorphic_proposals_lol.append([proposal])
+            proposals_to_include.append(proposal)
             representative_info_list.append(small_partition_set)
 
-    isomorphic_proposals_lol = [lst for lst in isomorphic_proposals_lol if (lst is not None)]
-    return(isomorphic_proposals_lol)
+    proposals_to_include = [p for p in proposals_to_include if (p is not None)]
+    return(proposals_to_include)
 
-def _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol):
+def _filter_out_isomorphic_proposals(base_qs_dict, proposals_to_include):
     """
     Given a queries dict and a an isomorphic_qs_lol, returns a new qs dict that contains only one of each isomorphic query.
     WARN: pay attention to whether this mutates the dict or returns a new one. Currently returns new. 
     """
     return_dict = dict()
-    for isomorphic_proposals_list in isomorphic_proposals_lol:
-        proposal = isomorphic_proposals_list[0]
-        return_dict[proposal] = base_qs_dict[proposal]
+    for proposal_to_include in proposals_to_include:
+        return_dict[proposal_to_include] = base_qs_dict[proposal_to_include]
         # return_dict = base_qs_dict
         # for proposal in isomorphic_list[1:]:
         #     del(base_qs_dict[proposal])
@@ -237,8 +243,8 @@ def _get_updated_qs_dict_and_pset_dict(qs_dict: dict, current_cwa_set):
 
 def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set_dict):
     """ TODO: update docstring. Given a queries dict, returns a NEW queries dict with the isomorphic queries filtered out. """
-    isomorphic_proposals_lol = _get_isomorphic_proposals_lol(small_partition_set_dict)
-    filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
+    proposals_to_include = _get_proposals_to_include(small_partition_set_dict)
+    filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, proposals_to_include)
     return(filtered_qs_dict)
 
 ############################## PUBLIC FUNCTIONS #################################################
