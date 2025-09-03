@@ -167,21 +167,24 @@ def _get_proposals_to_include(small_partition_set_dict: dict):
             proposals_to_include.append(proposal)
             representative_info_list.append(small_partition_set)
 
-    proposals_to_include = [p for p in proposals_to_include if (p is not None)]
+    proposals_to_include = set(proposals_to_include)
     return(proposals_to_include)
 
-def _filter_out_isomorphic_proposals(base_qs_dict, proposals_to_include):
+def _filter_out_isomorphic_proposals(base_qs_dict : dict, proposals_to_include):
     """
     Given a queries dict and a an isomorphic_qs_lol, returns a new qs dict that contains only one of each isomorphic query.
     WARN: pay attention to whether this mutates the dict or returns a new one. Currently returns new. 
     """
-    return_dict = dict()
-    for proposal_to_include in proposals_to_include:
-        return_dict[proposal_to_include] = base_qs_dict[proposal_to_include]
+    # return_dict = dict()
+    base_qs_dict_keys = base_qs_dict.keys()
+    ps_to_delete = base_qs_dict_keys - proposals_to_include
+    for proposal_to_delete in ps_to_delete:
+        del(base_qs_dict[proposal_to_delete])
+        # return_dict[proposal_to_include] = base_qs_dict[proposal_to_include]
         # return_dict = base_qs_dict
         # for proposal in isomorphic_list[1:]:
         #     del(base_qs_dict[proposal])
-    return(return_dict)
+    return(base_qs_dict)
 
 def _get_small_partition(cwa_set_1, cwa_set_2):
     """
