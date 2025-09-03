@@ -77,39 +77,39 @@ def create_move_info(
     """
     # cwa_set representation_change
     # will need the function to intersect two sets as well as to see if a set is nonempty.
-    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's 
+    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's
     # type will match the type of the first operand.
     # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
     # Therefore, all of the game states' cwa_sets created below are frozensets.
-    cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
-    cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
-    if(bool(cwa_set_if_false) and bool(cwa_set_if_true)):
-        # this is a useful query.
-        # cwa_set representation_change Will need a function to get the length of a set.
-        num_combos_remaining_true = len(cwa_set_if_true)
-        p_true = num_combos_remaining_true / num_combos_currently
-        p_false = 1 - p_true
-        p_tuple = (p_false, p_true)
-        proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
-        game_state_false = Game_State(
-            num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = proposal_used_this_round,
-            cwa_set = cwa_set_if_false,
-        )
-        game_state_true = Game_State(
-            num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = proposal_used_this_round,
-            cwa_set = cwa_set_if_true,
-        )
-        gs_tuple = (game_state_false, game_state_true)
-        move_info = (move, cost, gs_tuple, p_tuple)
-        # global useful_queries
-        # useful_queries += 1
+    if(game_state.proposal_used_this_round is not None):
+        cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
+        cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
+        if not (bool(cwa_set_if_false) and bool(cwa_set_if_true)):
+            return None # not a useful query
     else:
-        # this is not a useful query. Take move out of the game state frozen set representing remaining moves, if you implement it. Actually, take out all such useless moves before making the next game states. Will require some refactoring.
-        move_info = None
-        # global useless_queries
-        # useless_queries += 1
+        # if the game_state.proposal_used_this_round is None, then can pull the cwa_sets directly from the q_info, as they were just updated at the beginning of the round when filtering the query dict.
+        cwa_set_if_true = q_info.cwa_set_true
+        cwa_set_if_false = q_info.cwa_set_false
+
+    # this is a useful query.
+    # cwa_set representation_change Will need a function to get the length of a set.
+    num_combos_remaining_true = len(cwa_set_if_true)
+    p_true = num_combos_remaining_true / num_combos_currently
+    p_false = 1 - p_true
+    p_tuple = (p_false, p_true)
+    proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
+    game_state_false = Game_State(
+        num_queries_this_round = num_queries_this_round,
+        proposal_used_this_round = proposal_used_this_round,
+        cwa_set = cwa_set_if_false,
+    )
+    game_state_true = Game_State(
+        num_queries_this_round = num_queries_this_round,
+        proposal_used_this_round = proposal_used_this_round,
+        cwa_set = cwa_set_if_true,
+    )
+    gs_tuple = (game_state_false, game_state_true)
+    move_info = (move, cost, gs_tuple, p_tuple)
     return(move_info)
 
 def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
