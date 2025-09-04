@@ -97,12 +97,12 @@ class Solver_Nightmare(Solver):
 
     ):
         # self.called_calculate += 1
-        if(game_state in self.evaluations_cache):
+        if(game_state in self._evaluations_cache):
             # self.cache_hits += 1
-            return(self.evaluations_cache[game_state])
+            return(self._evaluations_cache[game_state])
         if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
-                self.evaluations_cache[game_state] = Solver.null_answer
+                self._evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
         best_node_cost = Solver.initial_best_cost
         if(game_state.proposal_used_this_round is None):
@@ -128,7 +128,7 @@ class Solver_Nightmare(Solver):
                 minimal_vs_list
             )[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = self.cost_calculator(mcost, p_tup, gss_costs)
+            node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
@@ -149,5 +149,5 @@ class Solver_Nightmare(Solver):
                 cwa_set=game_state.cwa_set
             )
             answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
-        self.evaluations_cache[game_state] = answer
+        self._evaluations_cache[game_state] = answer
         return(answer)

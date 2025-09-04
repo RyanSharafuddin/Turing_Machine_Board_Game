@@ -274,6 +274,11 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
         pickle.dump(_PICKLED_TIME_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()
         print("Done pickling the time dict.")
+def get_best_time(problem: Problem):
+    """
+    Return the number of seconds of the best recorded solver performance on this problem, or float("inf") if there is no recorded performance.
+    """
+    return _PICKLED_TIME_DICT.get(problem.identity, float("inf"))
 
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]

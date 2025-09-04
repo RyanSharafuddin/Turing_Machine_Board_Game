@@ -91,31 +91,11 @@ def f_name_from_id(identity):
     f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
     return(f_name)
 
-def get_relevant_parts_cache(s:solver.Solver):
-    """
-    Given a cache and an initial_game_state, returns a new cache that only contains the initial game state and any states that are reachable from it in the best move tree.
-    """
-    if(s.evaluations_cache is None):
-        return(None)
-    new_evaluations_cache = dict()
-    stack : list[Game_State] = [s.initial_game_state]
-    while(stack):
-        curr_gs = stack.pop()
-        if((curr_gs in s.evaluations_cache) and (curr_gs not in new_evaluations_cache) and
-            (not solver.one_answer_left(s.full_cwas_list, curr_gs.cwa_set))):
-            curr_gs_modified_answer = s.get_move_mcost_gs_ncost_from_cache(curr_gs)
-            curr_gs_raw_answer = s.evaluations_cache[curr_gs]
-            (curr_gs_false_result, curr_gs_true_result) = curr_gs_modified_answer[2]
-            new_evaluations_cache[curr_gs] = curr_gs_raw_answer
-            stack.append(curr_gs_false_result)
-            stack.append(curr_gs_true_result)
-    return(new_evaluations_cache)
-
 def make_solver(problem: Problem):
     """ Makes a solver and solve()s the problem. """
-    if(args.capitulate):
-        s = Solver_Capitulate(problem)
-    elif(problem.mode == NIGHTMARE):
+    # if(args.capitulate): # args.capitulate should really be passed in as an argument to this function. At any ratd, capitulate solver isn't working currently anyway.
+        # s = Solver_Capitulate(problem)
+    if(problem.mode == NIGHTMARE):
         s = Solver_Nightmare(problem)
     else:
         s = solver.Solver(problem)
@@ -151,8 +131,7 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
     if(not(pickle_entire)):
-        new_evaluations_cache = get_relevant_parts_cache(s)
-        s.evaluations_cache = new_evaluations_cache
+        s.filter_cache()
     git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
     git_message = git.Repo(search_parent_directories=True).head.object.message
     s.git_hash = git_hash
@@ -168,7 +147,7 @@ def get_or_make_solver(
         pickle_entire=False,
         force_overwrite=True,
         no_pickles=False
-    ):
+    ) -> solver.Solver :
     """
     Given a `problem`, if the corresponding solver has been pickled, gets it, otherwise, makes it, pickles it.
     If pickle_entire is True, pickles the entire solver; otherwise, only pickles the parts of the evaluations cache needed to play the game perfectly.

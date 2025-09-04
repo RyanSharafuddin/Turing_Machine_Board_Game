@@ -162,18 +162,48 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                 # else:
                 #     pass # not a useful query. See other comments.
 
+def testing_stuff(self):
+    global display
+    from . import display
+    global sd
+    sd = display.Solver_Displayer(self)
+    # sd.print_useful_qs_dict_info(self.qs_dict, self.initial_game_state.cwa_set, None, None, False)
+    # sd.print_problem(self.rcs_list, self.problem)
+    # sd.print_all_possible_answers(
+    #     self.full_cwas_list,
+    # )
+    # exit()
+
 class Solver:
     null_answer = (None, (0,0))
+    __slots__ = (
+        "problem",
+        "n_mode",
+        "_evaluations_cache",
+        "_cost_calculator",
+        "rcs_list",
+        "num_rcs",
+        "flat_rule_list",
+        "full_cwas_list",
+        "initial_game_state",
+        "qs_dict",
+        "expected_cost",
+        "seconds_to_solve",
+        "size_of_evaluations_cache_in_bytes",
+        "git_hash",
+        "git_message",
+        # "testing_stuff",
+    )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
-        self.evaluations_cache  = dict()
+        self._evaluations_cache = dict()
+        self._cost_calculator   = solver_utils.calculate_expected_cost # can also be worst_case_cost
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
-        self.cost_calculator    = solver_utils.calculate_expected_cost # can also be worst_case_cost
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.qs_dict            = solver_utils.make_useful_qs_dict(
             self.full_cwas_list,
@@ -182,21 +212,13 @@ class Solver:
             self.n_mode,
         )
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
+        self.expected_cost                      = None # have not called solve() yet.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
-        self.testing_stuff() # WARN TODO: delete
-
-    def testing_stuff(self):
-        global display
-        from . import display
-        global sd
-        sd = display.Solver_Displayer(self)
-        # sd.print_useful_qs_dict_info(self.qs_dict, self.initial_game_state.cwa_set, None, None, False)
-        # sd.print_problem(self.rcs_list, self.problem)
-        # sd.print_all_possible_answers(
-        #     self.full_cwas_list,
-        # )
-        # exit()
+        self.git_hash                           = None
+        self.git_message                        = None
+        # expected cost is the expected cost to to solve the problem from the initial state.
+        testing_stuff(self) # WARN TODO: delete
 
     def _print_debug_info(
             self,
@@ -262,12 +284,12 @@ class Solver:
         best_move_tup is a tup of (proposal, rc_index)
         """
         # self.called_calculate += 1
-        if(game_state in self.evaluations_cache):
+        if(game_state in self._evaluations_cache):
             # self.cache_hits += 1
-            return(self.evaluations_cache[game_state])
+            return(self._evaluations_cache[game_state])
         if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
-                self.evaluations_cache[game_state] = Solver.null_answer
+                self._evaluations_cache[game_state] = Solver.null_answer
             return(Solver.null_answer)
         if(game_state.proposal_used_this_round is None):
             # original_qs_dict = qs_dict                                      # TODO: comment_out testing
@@ -289,7 +311,7 @@ class Solver:
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0])[1]
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1])[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
-            node_cost_tup = self.cost_calculator(mcost, p_tup, gss_costs)
+            node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
@@ -323,7 +345,7 @@ class Solver:
         #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
         #         answer = end_round_early_result
 
-        self.evaluations_cache[game_state] = answer
+        self._evaluations_cache[game_state] = answer
         return(answer)
 
     def solve(self):
@@ -334,6 +356,7 @@ class Solver:
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
+        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
 
     def post_solve_printing(self):
         """
@@ -349,7 +372,7 @@ class Solver:
             from pympler.asizeof import asizeof # only import this if printing post solve debug info.
             # WARN: The line below itself uses up a lot of memory and time.
             # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
-            self.size_of_evaluations_cache_in_bytes = asizeof(self.evaluations_cache)
+            self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
             self.print_eval_cache_stats()
             self.print_cache_by_size()
             # console.print(f"{useless_queries:,} useless queries")
@@ -360,11 +383,15 @@ class Solver:
     def get_move_mcost_gs_ncost_from_cache(self, game_state: Game_State, default=None):
         """
         Given a game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
+
+        Returns
+        -------
+        (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
-        if not(game_state in self.evaluations_cache):
+        if not(game_state in self._evaluations_cache):
             return(default)
         (best_move, node_evaluation) = (
-            self.evaluations_cache[game_state][0], self.evaluations_cache[game_state][-1]
+            self._evaluations_cache[game_state][0], self._evaluations_cache[game_state][-1]
         )
         best_mcost = ((Solver.does_move_cost_round(best_move, game_state)), 1)
         gs_tuple = self.apply_move_to_state(best_move, game_state)
@@ -372,7 +399,7 @@ class Solver:
         return(constructed_answer)
 
     def apply_move_to_state(self, move, gs: Game_State) -> tuple[Game_State, Game_State]:
-        """ WARN: ONLY use this inside the get_move_mcost... function. Not for anything else """
+        """ WARN: Do not use this for anything performance sensitive. Return (gs_false, gs_true) """
         (proposal, v_index) = move
         (q_info_true, q_info_false) = self.qs_dict[proposal][v_index]
         (cwa_set_false, cwa_set_true) = (
@@ -435,7 +462,7 @@ class Solver:
         console.rule()
         console.print(f"\nNumber of game states in evaluations cache by size:", justify="center")
         l = [0] * (len(self.full_cwas_list))
-        for gs in self.evaluations_cache:
+        for gs in self._evaluations_cache:
             # cwa_set representation_change need a function to get length from cwa_set
             # TODO: will need to change significantly once store game state's in the cache with minimal_possible_rules_by_verifier_set s instead of what currently doing.
             l[len(gs.cwa_set) - 1] += 1
@@ -450,7 +477,7 @@ class Solver:
         unnecesary_duplicated_cwa_sets = 0
         wasted_memory = 0
         duplicates_with_same_identity = 0
-        for game_state in self.evaluations_cache:
+        for game_state in self._evaluations_cache:
             game_state: Game_State
             if(game_state.cwa_set in cache_cwa_sets):
                 previously_seen_list = cache_cwa_sets[game_state.cwa_set]
@@ -479,3 +506,40 @@ class Solver:
         #     console.rule()
         #     for gs in gs_list:
         #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
+
+    def transform_working_gs_to_cache_gs(self, working_gs: Game_State):
+        """
+        In the future, use this to transform the game states that are used by the program to conduct queries on to the version of the game state that is stored in self._evaluations_cache.
+        """
+        return(working_gs)
+
+    def filter_cache(self):
+        """
+        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+        """
+        if(self._evaluations_cache is None):
+            return
+        new_evaluations_cache = dict()
+        stack : list[Game_State] = [self.initial_game_state]
+        added_game_states_set = set()
+        while(stack):
+            curr_working_gs = stack.pop()
+            curr_cache_gs = self.transform_working_gs_to_cache_gs(curr_working_gs)
+            if(
+                (curr_cache_gs not in added_game_states_set) and
+                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
+            ):
+                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_cache_gs)
+                if(gs_evaluation_result is None):
+                    console.print("Huh. Why is the evaluation result of the following game state None?")
+                    console.print("Working game state: ", curr_working_gs)
+                    console.print("Cache game state: ", curr_cache_gs)
+                    console.print("Exiting.")
+                    exit()
+                (working_gs_false, working_gs_true) = gs_evaluation_result[2]
+                curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
+                new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
+                stack.append(working_gs_false)
+                stack.append(working_gs_true)
+                added_game_states_set.add(curr_cache_gs)
+        self._evaluations_cache = new_evaluations_cache

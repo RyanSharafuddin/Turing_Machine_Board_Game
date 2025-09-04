@@ -61,8 +61,8 @@ class Solver_Capitulate(Solver):
                     )
                     moves_list = list(get_and_apply_moves(new_game_state, self.qs_dict))
                 answer = _choose_best_move_depth_one(moves_list)
-                self.evaluations_cache[current_gs] = answer
+                self._evaluations_cache[current_gs] = answer
                 (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
                 stack.append(best_gs_tup[0])
                 stack.append(best_gs_tup[1])
-        _calculate_actual_expected_for_capitulation(self.evaluations_cache, self.initial_game_state)
+        _calculate_actual_expected_for_capitulation(self._evaluations_cache, self.initial_game_state)
