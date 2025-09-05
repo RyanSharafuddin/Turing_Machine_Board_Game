@@ -372,7 +372,7 @@ class Solver_Displayer:
                 continue
             (full_cwa_false, full_cwa_true) = [
                 self.solver.full_cwa_list_from_cwa_set(
-                        self.solver.intersect_cwa_sets(cwa_set_when_q_dict_made, q_info_cwa_set)
+                        self.solver.intersect_gscwa_qinfocwa(cwa_set_when_q_dict_made, q_info_cwa_set)
                     ) for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
             ]
 
@@ -839,7 +839,7 @@ class Solver_Displayer:
                     continue
                 (full_cwas_false, full_cwas_true) = [ # (cwas_false, cwas_true)
                     self.solver.full_cwa_list_from_cwa_set(
-                        self.solver.intersect_cwa_sets(cwa_set_when_dict_made, q_info_cwa_set)
+                        self.solver.intersect_gscwa_qinfocwa(cwa_set_when_dict_made, q_info_cwa_set)
                     )
                     for q_info_cwa_set in (q_info.cwa_set_false, q_info.cwa_set_true)
                 ]

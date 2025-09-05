@@ -8,9 +8,9 @@ def make_initial_game_state(full_cwas_list):
     initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
     return(initial_game_state)
 
-def one_answer_left(full_cwas_list, cwa_set):
+def one_answer_left(full_cwas_list, working_cwa_set):
     """
-    Given a set of CWA as stored in the game state object, returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
+    Given a set of CWA as stored in the working game state object (as opposed to the cache game state object), returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
     """
     # cwa_set representation_change
     # TODO: see if using answer block intersection helps or hurts.
@@ -18,7 +18,7 @@ def one_answer_left(full_cwas_list, cwa_set):
     seen_answer_set = set()
     # See comments in definitions.Game_State for the format game_state_cwa_set is in.
     # May not be a literal Python set object.
-    iterator = iter(cwa_set)
+    iterator = iter(working_cwa_set)
     zeroth_cwa_representation = next(iterator)
     seen_answer_set.add(full_cwas_list[zeroth_cwa_representation][-1])
     current_cwa_representation = next(iterator, None)
@@ -403,8 +403,8 @@ class Solver:
         (proposal, v_index) = move
         (q_info_true, q_info_false) = self.qs_dict[proposal][v_index]
         (cwa_set_false, cwa_set_true) = (
-            self.intersect_cwa_sets(gs.cwa_set, q_info_false),
-            self.intersect_cwa_sets(gs.cwa_set, q_info_true)
+            self.intersect_gscwa_qinfocwa(gs.cwa_set, q_info_false),
+            self.intersect_gscwa_qinfocwa(gs.cwa_set, q_info_true)
         )
         num_queries_this_round = (1 if Solver.does_move_cost_round(move, gs) else (
                 (gs.num_queries_this_round + 1) % 3
@@ -453,10 +453,24 @@ class Solver:
         """ A convenience function for getting the full cwa list directly from a game state """
         return(self.full_cwa_list_from_cwa_set(gs.cwa_set))
 
-    def intersect_cwa_sets(self, cwa_set_1, cwa_set_2):
-        """ Used by display.print_useful_qs_dict. """
+    def intersect_gscwa_qinfocwa(self, gs_cwa_set, q_info_cwa_set):
+        """
+        Given a working cwa_set from a game state (as opposed to a cache cwa_set) and a cwa_set from a q_info (either True or False), return a working cwa_set that could be used to construct the working game state that results from using the query info on the gs_cwa_set.
+
+        Parameters
+        ----------
+        gs_cwa_set
+            The working cwa_set that came from a game_state (not the cache cwa_set).
+
+        q_info_cwa_set
+            The cwa set from a query info
+
+        Returns
+        -------
+        A cwa_set that could be used to construct another working game state.
+        """
         # cwa_set representation_change
-        return(cwa_set_1 & cwa_set_2)
+        return(gs_cwa_set & q_info_cwa_set)
 
     def print_cache_by_size(self):
         console.rule()
