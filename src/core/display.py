@@ -193,7 +193,6 @@ def _get_query_history_table(query_history, num_rcs, use_table=True):
                 console.print(f"{round_num}: {proposal}: ", display_text, highlight=False, sep="")
         if(use_table):
             return(result_table)
-
 def display_new_round(current_round_num, query_this_round, query_tup):
     """ This function checks if it is a new round, and displays it. If it's not a new round, does nothing. """
     proposal = query_tup[0]
@@ -1247,6 +1246,32 @@ class Solver_Displayer:
         console.print(_combine(answers_table, q_history_table, ans_line, score_line), justify="center")
     def get_problem_id_text(self):
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
+
+    def get_bitset_Text(self, bitset: int, spaces: bool) -> Text:
+        """
+        Given a bitset (currently in the form of a Python integer, but other formats to be added soon), return a Text that can be used to pretty print it.
+        """
+        num_possible_rules_by_verifier = [len(i) for i in self.solver.possible_rules_by_verifier]
+        texts_by_verifier = []
+        for v_index in range(self.solver.num_rcs):
+            text_this_verifier = []
+            bitset_for_verifier = (
+                (bitset >> sum(num_possible_rules_by_verifier[:v_index]))
+                & ((1 << num_possible_rules_by_verifier[v_index]) - 1)
+            )
+            for bit_index in range(num_possible_rules_by_verifier[v_index]):
+                bit = (bitset_for_verifier >> bit_index) & 1
+                t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
+                text_this_verifier.append(t)
+            text_this_verifier.reverse()
+            texts_by_verifier.append(text_this_verifier)
+            if((v_index < (self.solver.num_rcs - 1)) and spaces):
+                texts_by_verifier.append(Text(" "))
+        texts_by_verifier.reverse()
+        texts = [t for text_this_verifier in texts_by_verifier for t in text_this_verifier]
+        text = Text.assemble(*texts)
+        return(text)
+
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer

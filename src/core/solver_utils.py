@@ -241,7 +241,59 @@ def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set
     filtered_qs_dict = _filter_out_isomorphic_proposals(base_qs_dict, isomorphic_proposals_lol)
     return(filtered_qs_dict)
 
+def _flat_list_bools_to_int(list_bools):
+    return sum((1 << b_index) for (b_index, b) in enumerate(list_bools) if b)
+
+def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type):
+    flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
+    # for b in flat_list_bools:
+    #     console.print(b, end="  " if b else " ")
+    # print("\n", end="")
+    if(set_type == int):
+        bitset = _flat_list_bools_to_int(flat_list_bools)
+        # console.print(bin(bitset), f"{bitset:,}")
+    else:
+        raise NotImplementedError(f"Bitsets of type {set_type} are not implemented.")
+    return(bitset)
+
+def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, set_type):
+    (c, p) = [single_full_cwa[i] for i in [0, 1]]
+    true_false_list_by_verifier = []
+    for (v_index, verifier_list) in enumerate(possible_rules_by_verifier):
+        rule_in_combo = c[p[v_index]] if n_mode else c[v_index]
+        true_false_list_this_v_index = [(r is rule_in_combo) for r in verifier_list]
+        true_false_list_by_verifier.append(true_false_list_this_v_index)
+    return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
+
 ############################## PUBLIC FUNCTIONS #################################################
+
+def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type):
+    """
+    Get the list of bitsets corresponding to the cwas of the problem.
+
+    Parameters
+    ----------
+    full_cwas_list : list[full_cwas]
+        The list of full cwas in the solver object.
+
+    possible_rules_by_verifier : list[list[Rule]]
+        a list where list[i] corresponds to verifier i, and verifier_list[i] is the ith rule that is possible for that verifier at the beginning (i.e. out of all rules that are possible for that verifier in this problem).
+
+    n_mode : bool
+        Whether this is a nightmare mode problem.
+
+    set_type : type
+        The type of the bitsets returned. Currently only int is supported; will add Hashable_Numpy_Array next.
+
+    Returns
+    -------
+    cwa_bitsets
+        cwa_bitsets[i] is the bitset corresponding to the cwa that is solver.full_cwas_list[i].
+    """
+    return [
+        _single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list
+    ]
+
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """
     Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.

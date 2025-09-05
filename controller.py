@@ -357,44 +357,48 @@ def play_from_file(f_name):
 # less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow key press scrolls n lines. Can view full trees with that.
 
 if(__name__ == "__main__"):
-    console.print("", style="green", end="")
-    # console.print(f"Using {platform.python_implementation()}.", justify="center")
-    parser = make_parser()
-    args = parser.parse_args()
+    try:
+        console.print("", style="green", end="")
+        # console.print(f"Using {platform.python_implementation()}.", justify="center")
+        parser = make_parser()
+        args = parser.parse_args()
 
-    if(args.from_file):
+        if(args.from_file):
+            do_two_funcs(
+                args.display,
+                display_problem_solution_from_file,
+                args.play,
+                play_from_file,
+                f_name=args.prob_id
+            )
+            if not(args.play or args.display):
+                s = unpickle_solver_from_f_name(args.prob_id)
+            exit()
+        problem = get_requested_problem(
+            args.prob_id,
+            args.web,
+            args.mode,
+            args.level,
+            args.verifiers,
+            args.new_problem
+        )
+        args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles
         do_two_funcs(
             args.display,
-            display_problem_solution_from_file,
+            display_problem_solution,
             args.play,
-            play_from_file,
-            f_name=args.prob_id
+            play,
+            problem,
+            no_pickles=args.no_pickles,
+            force_overwrite=args.force_overwrite
         )
-        if not(args.play or args.display):
-            s = unpickle_solver_from_f_name(args.prob_id)
+        if(not(args.play or args.display)):
+            s = get_or_make_solver(
+                problem, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
+            )[0]
+    except KeyboardInterrupt:
+        console.print("\nBaii")
         exit()
-    problem = get_requested_problem(
-        args.prob_id,
-        args.web,
-        args.mode,
-        args.level,
-        args.verifiers,
-        args.new_problem
-    )
-    args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles
-    do_two_funcs(
-        args.display,
-        display_problem_solution,
-        args.play,
-        play,
-        problem,
-        no_pickles=args.no_pickles,
-        force_overwrite=args.force_overwrite
-    )
-    if(not(args.play or args.display)):
-        s = get_or_make_solver(
-            problem, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
-        )[0]
 
     # breakpoint here for debugging purposes.
     # To use in REPL: do:

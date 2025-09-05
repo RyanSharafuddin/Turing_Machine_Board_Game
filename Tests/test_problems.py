@@ -9,14 +9,14 @@ class TestProblems:
     @staticmethod
     def get_problem_and_compare_output(p_id, expected_cost):
         """
-        Assert that the solver produces the same evaluation cost as before, and within 10 seconds of the time it took before.
+        Assert that the solver produces the same evaluation cost as before, and within a reasonable amount of time.
         """
         p = controller.get_requested_problem(p_id=p_id)
         console.print(f"\nNow testing problem {p.identity}")
         s : Solver = controller.get_or_make_solver(p, no_pickles=True, force_overwrite=False)[0]
         assert (s.expected_cost == expected_cost)
         previous_best_time = get_best_time(p)
-        assert (s.seconds_to_solve <= (previous_best_time + 10))
+        assert (s.seconds_to_solve <= min(previous_best_time + 10, previous_best_time * 1.15))
         console.print(f"Previous best time: {previous_best_time}. Time this run: {s.seconds_to_solve}.")
 
     def test_zero_query(self):

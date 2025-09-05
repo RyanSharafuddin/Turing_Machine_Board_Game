@@ -167,12 +167,6 @@ def testing_stuff(self):
     from . import display
     global sd
     sd = display.Solver_Displayer(self)
-    # sd.print_useful_qs_dict_info(self.qs_dict, self.initial_game_state.cwa_set, None, None, False)
-    # sd.print_problem(self.rcs_list, self.problem)
-    # sd.print_all_possible_answers(
-    #     self.full_cwas_list,
-    # )
-    # exit()
 
 class Solver:
     null_answer = (None, (0,0))
@@ -192,7 +186,8 @@ class Solver:
         "size_of_evaluations_cache_in_bytes",
         "git_hash",
         "git_message",
-        # "testing_stuff",
+        "possible_rules_by_verifier",
+        "cwa_bitsets",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -211,6 +206,30 @@ class Solver:
             self.flat_rule_list,
             self.n_mode,
         )
+        self.possible_rules_by_verifier = [
+            [self.flat_rule_list[r_index] for r_index in sorted(set_r_unique_ids)]
+            for set_r_unique_ids in
+            solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
+        ]
+        self.cwa_bitsets = solver_utils.get_cwa_bitsets(
+            self.full_cwas_list,
+            self.possible_rules_by_verifier,
+            self.n_mode,
+            set_type=int,
+        )
+        testing_stuff(self) # WARN TODO: delete
+        for (cwa_index, bitset) in enumerate(self.cwa_bitsets):
+            console.print(
+                f'{cwa_index + 1:>3}:',
+                f'{bitset:>20,}',
+                sd.get_bitset_Text(bitset, spaces=True),
+                justify="center"
+            )
+            assert(
+                f"{bin(bitset)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
+                sd.get_bitset_Text(bitset, spaces=False).plain
+            )
+        # console.print(self.cwa_bitsets)
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.expected_cost                      = None # have not called solve() yet.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
@@ -218,7 +237,6 @@ class Solver:
         self.git_hash                           = None
         self.git_message                        = None
         # expected cost is the expected cost to to solve the problem from the initial state.
-        testing_stuff(self) # WARN TODO: delete
 
     def _print_debug_info(
             self,
@@ -557,3 +575,4 @@ class Solver:
                 stack.append(working_gs_true)
                 added_game_states_set.add(curr_cache_gs)
         self._evaluations_cache = new_evaluations_cache
+
