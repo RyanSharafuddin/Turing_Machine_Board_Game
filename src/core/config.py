@@ -90,9 +90,10 @@ PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or 
 ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
 PRINT_SD_COLOR_DICT = False
 
+DISPLAY_CWA_BITSETS = True  # whether to display all the cwa bitsets at the beginning when displaying problem
+CWA_BITSETS_BASE_16 = False # the base in which to display the cwa bitsets, if they are to be displayed.
+
 # Where things are, from perspective of controller.py.
 PICKLE_DIRECTORY = "src/problems/Pickles/Partition_Set_Filter" # "Pickles" # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "src/problems/Pickles/IsomorphicQueryFilter" # "Pickles" # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "src/problems/Pickles/NoIsomorphicQueryFilter"
 USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

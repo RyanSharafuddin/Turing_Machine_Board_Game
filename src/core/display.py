@@ -925,7 +925,6 @@ class Solver_Displayer:
                 (" Mode: "),
                 (MODE_NAMES[problem.mode], STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[problem.mode])
             )
-            # title = f"\nProblem: {problem.identity} Mode: {MODE_NAMES[problem.mode]}"
             self.print_rcs_list(rcs_list, title, justify=justify, show_rc_nums=SHOW_RC_NUMS_IN_PROBLEM)
 
     def print_rcs_list(
@@ -1247,32 +1246,66 @@ class Solver_Displayer:
     def get_problem_id_text(self):
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
-    def get_bitset_Text(self, bitset: int, spaces: bool) -> Text:
+############################### BITSET WERK #################################################################
+    def get_bitset_Texts(self, bitset: int, base_16=False) -> list[Text]:
         """
-        Given a bitset (currently in the form of a Python integer, but other formats to be added soon), return a Text that can be used to pretty print it.
+        Given a bitset (currently in the form of a Python integer, but other formats to be added soon), return a list of Texts that can be used to pretty print it.
+
+        Parameters
+        ---------
+        bitset : int
+            Currently only accepts bitsets that are integers.
+
+        hex : bool
+            Whether to return the Texts for each verifier in base 16
+        Returns
+        -------
+        list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers. TODO: add option to get this in bases other than 2.
         """
+        if(type(bitset) != int):
+            raise NotImplementedError
         num_possible_rules_by_verifier = [len(i) for i in self.solver.possible_rules_by_verifier]
-        texts_by_verifier = []
+        texts = []
         for v_index in range(self.solver.num_rcs):
-            text_this_verifier = []
             bitset_for_verifier = (
                 (bitset >> sum(num_possible_rules_by_verifier[:v_index]))
                 & ((1 << num_possible_rules_by_verifier[v_index]) - 1)
             )
-            for bit_index in range(num_possible_rules_by_verifier[v_index]):
-                bit = (bitset_for_verifier >> bit_index) & 1
-                t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
-                text_this_verifier.append(t)
-            text_this_verifier.reverse()
-            texts_by_verifier.append(text_this_verifier)
-            if((v_index < (self.solver.num_rcs - 1)) and spaces):
-                texts_by_verifier.append(Text(" "))
-        texts_by_verifier.reverse()
-        texts = [t for text_this_verifier in texts_by_verifier for t in text_this_verifier]
-        text = Text.assemble(*texts)
-        return(text)
+            if(base_16):
+                text_this_verifier = Text(hex(bitset_for_verifier).upper()[2:], style="#ffd7af")
+            else:
+                text_this_verifier_parts = []
+                for bit_index in range(num_possible_rules_by_verifier[v_index]):
+                    bit = (bitset_for_verifier >> bit_index) & 1
+                    t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
+                    text_this_verifier_parts.append(t)
+                text_this_verifier_parts.reverse()
+                text_this_verifier = Text.assemble(*text_this_verifier_parts)
+            texts.append(text_this_verifier)
+        texts.reverse()
+        return(texts)
 
-
+    def print_table_bitsets(self, list_bitsets, base_16=False, active=True):
+        if not active:
+            return
+        t = Table(
+            title="CWA Bitsets" + (" Hex" if base_16 else ""),
+            title_style="",
+            header_style="magenta",
+            row_styles=['', 'on #262626']
+        )
+        t.add_column("", justify="right") # index of bitset. Starts at 1.
+        t.add_column(Text("Int", justify="center"), justify="right") # full integer corresponding to bitset
+        for v_index in range(self.solver.num_rcs - 1, -1, -1):
+            t.add_column(Text(f"{letters[v_index]}", justify="center"), justify="right")
+        for (bs_index, bs) in enumerate(list_bitsets):
+            t.add_row(
+                f"{bs_index + 1}",
+                Text(f"{solver.solver_utils.bitset_to_int(bs):,}", style="cyan"),
+                *self.get_bitset_Texts(bs, base_16=base_16)
+            )
+        console.print(t, justify="center")
+############################### BITSET WERK #################################################################
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.

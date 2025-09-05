@@ -246,12 +246,8 @@ def _flat_list_bools_to_int(list_bools):
 
 def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type):
     flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
-    # for b in flat_list_bools:
-    #     console.print(b, end="  " if b else " ")
-    # print("\n", end="")
     if(set_type == int):
         bitset = _flat_list_bools_to_int(flat_list_bools)
-        # console.print(bin(bitset), f"{bitset:,}")
     else:
         raise NotImplementedError(f"Bitsets of type {set_type} are not implemented.")
     return(bitset)
@@ -293,6 +289,15 @@ def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type
     return [
         _single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list
     ]
+
+def bitset_to_int(bitset):
+    """
+    Given a bitset, return the integer that corresponds to it. Note that bitset may be of different types. Intended for use only for non-performance-sensitive tasks like displaying.
+    """
+    if(type(bitset) == int):
+        return bitset
+    else:
+        raise NotImplementedError()
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """

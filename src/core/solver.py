@@ -187,6 +187,8 @@ class Solver:
         "git_hash",
         "git_message",
         "possible_rules_by_verifier",
+        "bitset_type",
+        "cwa_bitsets_ints",
         "cwa_bitsets",
     )
     initial_best_cost = (float('inf'), float('inf'))
@@ -211,24 +213,33 @@ class Solver:
             for set_r_unique_ids in
             solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
         ]
-        self.cwa_bitsets = solver_utils.get_cwa_bitsets(
+
+
+############################### BITSET WERK #################################################################
+        self.bitset_type        = int # TODO: make this easily changeable
+        self.cwa_bitsets_ints = solver_utils.get_cwa_bitsets(
             self.full_cwas_list,
             self.possible_rules_by_verifier,
             self.n_mode,
             set_type=int,
         )
+        self.cwa_bitsets = solver_utils.get_cwa_bitsets(
+            self.full_cwas_list,
+            self.possible_rules_by_verifier,
+            self.n_mode,
+            set_type=self.bitset_type,
+        )
         testing_stuff(self) # WARN TODO: delete
-        for (cwa_index, bitset) in enumerate(self.cwa_bitsets):
-            console.print(
-                f'{cwa_index + 1:>3}:',
-                f'{bitset:>20,}',
-                sd.get_bitset_Text(bitset, spaces=True),
-                justify="center"
+        for bitset_int in [solver_utils.bitset_to_int(bs) for bs in self.cwa_bitsets]:
+            assert( # NOTE: may have to change if use a type of bitset other than int.
+                f"{bin(bitset_int)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
+                display.Text.assemble(*sd.get_bitset_Texts(bitset_int)).plain
             )
-            assert(
-                f"{bin(bitset)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
-                sd.get_bitset_Text(bitset, spaces=False).plain
-            )
+############################### BITSET WERK #################################################################
+
+
+        # print()
+        # sd.print_table_bitsets(self.cwa_bitsets, base_16=True)
         # console.print(self.cwa_bitsets)
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.expected_cost                      = None # have not called solve() yet.

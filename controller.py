@@ -35,6 +35,13 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     sd.print_problem(s.rcs_list, s.problem, active=display_problem)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
+    print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
+    sd.print_table_bitsets(
+        s.cwa_bitsets,
+        CWA_BITSETS_BASE_16,
+        active=((DISPLAY_CWA_BITSETS and display_problem))
+    )
+    print()
     while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
         (best_move, mcost, gs_tup, expected_cost) = s.get_move_mcost_gs_ncost_from_cache(
             current_gs
@@ -73,8 +80,19 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     if(solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
     else:
-        if(display_problem):
-            sd.print_all_possible_answers(full_cwa, "\nAll Possible Answers", permutation_order=P_ORDER)
+        sd.print_all_possible_answers(
+            full_cwa,
+            "\nAll Possible Answers",
+            permutation_order=P_ORDER,
+            active=display_problem
+        )
+        print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
+        sd.print_table_bitsets(
+            s.cwa_bitsets,
+            CWA_BITSETS_BASE_16,
+            active=((DISPLAY_CWA_BITSETS and display_problem))
+        )
+        print()
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 def unpickle_solver(identity):
@@ -110,6 +128,8 @@ def make_solver(problem: Problem):
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
+    print("\n" if DISPLAY_CWA_BITSETS else "", end="")
+    sd.print_table_bitsets(s.cwa_bitsets, CWA_BITSETS_BASE_16, active=DISPLAY_CWA_BITSETS)
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()
