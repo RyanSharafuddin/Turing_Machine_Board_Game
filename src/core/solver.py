@@ -213,9 +213,8 @@ class Solver:
             for set_r_unique_ids in
             solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
         ]
-
-
-############################### BITSET WERK #################################################################
+        # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
+        ############################### BITSET WERK ##########################################################
         self.bitset_type        = int # TODO: make this easily changeable
         self.cwa_bitsets_ints = solver_utils.get_cwa_bitsets(
             self.full_cwas_list,
@@ -231,23 +230,17 @@ class Solver:
         )
         testing_stuff(self) # WARN TODO: delete
         for bitset_int in [solver_utils.bitset_to_int(bs) for bs in self.cwa_bitsets]:
-            assert( # NOTE: may have to change if use a type of bitset other than int.
+            assert( # NOTE: may have to change this if use a type of bitset other than int.
                 f"{bin(bitset_int)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
                 display.Text.assemble(*sd.get_bitset_Texts(bitset_int)).plain
             )
-############################### BITSET WERK #################################################################
-
-
-        # print()
-        # sd.print_table_bitsets(self.cwa_bitsets, base_16=True)
-        # console.print(self.cwa_bitsets)
-        # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
+        ############################### BITSET WERK ##########################################################
+        # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
-        # expected cost is the expected cost to to solve the problem from the initial state.
 
     def _print_debug_info(
             self,

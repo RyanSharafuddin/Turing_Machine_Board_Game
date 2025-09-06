@@ -275,7 +275,6 @@ class Solver_Displayer:
         )
         # note that max_possible_rule_length is different from max_rule_name_length,
         # b/c not all rules in the problem are necessarily possible.
-
         self.solver = solver
         self.n_mode = (self.solver.n_mode)
 
@@ -336,6 +335,51 @@ class Solver_Displayer:
             table.add_column("Rule Indexes")          # Rule Indexes column
             if(self.n_mode):
                 table.add_column("Permutation")       # Permutation column (nightmare mode only)
+    def _print_possible_rules_by_verifier_from_cwas(
+        self,
+        full_cwas,
+        v_index,
+        title,
+        justify="center",
+        indent=0,
+        active=True,
+        border_style="blue",
+        **kwargs
+    ):
+        """
+        Given a list of full_cwas and a verifier index, prints a table of all rules that are possible for that verifier (derived from the cwas).
+        """
+        if not(active):
+            return
+        rule_ids_by_verifier = solver.solver_utils.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
+        # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
+        possible_rules_this_verifier = [
+            self.solver.flat_rule_list[r_id] for r_id in sorted(rule_ids_by_verifier[v_index])
+        ]
+        rcs_list_possible = []
+        if(self.n_mode):
+            finish_possible_rules = False
+            possible_rules_this_v_pointer = 0
+            for rc in self.solver.rcs_list:
+                rc_in_rcs_list_possible = []
+                rcs_list_possible.append(rc_in_rcs_list_possible)
+                if(finish_possible_rules):
+                    continue
+                for r in rc:
+                    if(r.unique_id == possible_rules_this_verifier[possible_rules_this_v_pointer].unique_id):
+                        rc_in_rcs_list_possible.append(
+                            possible_rules_this_verifier[possible_rules_this_v_pointer]
+                        )
+                        possible_rules_this_v_pointer += 1
+                        if(possible_rules_this_v_pointer == len(possible_rules_this_verifier)):
+                            finish_possible_rules = True
+                            break
+        else:
+            for i in range(len(self.solver.rcs_list)):
+                rcs_list_possible.append(possible_rules_this_verifier if(i == v_index) else [])
+        self.print_rcs_list(
+            rcs_list_possible, title, justify=justify, indent=indent, border_style=border_style, **kwargs
+        )
     def _print_useful_qs_dict_info_helper(
         self,
         useful_qs_dict,
@@ -358,7 +402,7 @@ class Solver_Displayer:
 
         possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
         # NOTE print table
-        self.print_possible_rules_by_verifier_from_cwas(
+        self._print_possible_rules_by_verifier_from_cwas(
             full_cwas,
             v_index,
             title=possible_rules_title,
@@ -391,7 +435,7 @@ class Solver_Displayer:
             )
 
             # NOTE table possible verifier rules for ❌ result
-            self.print_possible_rules_by_verifier_from_cwas(
+            self._print_possible_rules_by_verifier_from_cwas(
                 full_cwa_false,
                 v_index,
                 title=possible_rules_false_title,
@@ -399,7 +443,7 @@ class Solver_Displayer:
             )
 
             # NOTE table possible verifier rules for ✅ result
-            self.print_possible_rules_by_verifier_from_cwas(
+            self._print_possible_rules_by_verifier_from_cwas(
                 full_cwa_true,
                 v_index,
                 title=possible_rules_true_title,
@@ -1098,52 +1142,6 @@ class Solver_Displayer:
             **kwargs
         )
 
-    def print_possible_rules_by_verifier_from_cwas(
-        self,
-        full_cwas,
-        v_index,
-        title,
-        justify="center",
-        indent=0,
-        active=True,
-        border_style="blue",
-        **kwargs
-    ):
-        """
-        Given a list of full_cwas and a verifier index, prints a table of all rules that are possible for that verifier (derived from the cwas).
-        """
-        if not(active):
-            return
-        rule_ids_by_verifier = solver.solver_utils.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
-        # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
-        possible_rules_this_verifier = [
-            self.solver.flat_rule_list[r_id] for r_id in sorted(rule_ids_by_verifier[v_index])
-        ]
-        rcs_list_possible = []
-        if(self.n_mode):
-            finish_possible_rules = False
-            possible_rules_this_v_pointer = 0
-            for rc in self.solver.rcs_list:
-                rc_in_rcs_list_possible = []
-                rcs_list_possible.append(rc_in_rcs_list_possible)
-                if(finish_possible_rules):
-                    continue
-                for r in rc:
-                    if(r.unique_id == possible_rules_this_verifier[possible_rules_this_v_pointer].unique_id):
-                        rc_in_rcs_list_possible.append(
-                            possible_rules_this_verifier[possible_rules_this_v_pointer]
-                        )
-                        possible_rules_this_v_pointer += 1
-                        if(possible_rules_this_v_pointer == len(possible_rules_this_verifier)):
-                            finish_possible_rules = True
-                            break
-        else:
-            for i in range(len(self.solver.rcs_list)):
-                rcs_list_possible.append(possible_rules_this_verifier if(i == v_index) else [])
-        self.print_rcs_list(
-            rcs_list_possible, title, justify=justify, indent=indent, border_style=border_style, **kwargs
-        )
-
     def print_useful_qs_dict_info(
         self,
         useful_qs_dict,
@@ -1260,7 +1258,7 @@ class Solver_Displayer:
             Whether to return the Texts for each verifier in base 16
         Returns
         -------
-        list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers. TODO: add option to get this in bases other than 2.
+        list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
         """
         if(type(bitset) != int):
             raise NotImplementedError
@@ -1272,7 +1270,7 @@ class Solver_Displayer:
                 & ((1 << num_possible_rules_by_verifier[v_index]) - 1)
             )
             if(base_16):
-                text_this_verifier = Text(hex(bitset_for_verifier).upper()[2:], style="#ffd7af")
+                text_this_verifier = Text(hex(bitset_for_verifier).upper()[2:], style=HEX_COLOR)
             else:
                 text_this_verifier_parts = []
                 for bit_index in range(num_possible_rules_by_verifier[v_index]):
@@ -1285,25 +1283,46 @@ class Solver_Displayer:
         texts.reverse()
         return(texts)
 
-    def print_table_bitsets(self, list_bitsets, base_16=False, active=True):
+    def print_table_bitsets(self, bitsets, base_16=False, active=True):
+        """
+        Print a table of bitsets. NOTE: `bitsets` can be a list or a single bitset.
+
+        Parameters
+        ---------
+        bitsets : list[bitset] | bitset
+            The bitsets to print. Can be a list of bitsets, or a single bitset.
+
+        base_16 : bool
+            Whether to print the bits as bits or in base 16.
+
+        active : bool
+            If active is False, this function will not do anything.
+        """
         if not active:
             return
+        if(type(bitsets) != list):
+            bitsets = [bitsets]
         t = Table(
-            title="CWA Bitsets" + (" Hex" if base_16 else ""),
+            title="CWA Bitset" + ("s" if (len(bitsets) > 1) else '') + (" Hex" if base_16 else ""),
             title_style="",
             header_style="magenta",
             row_styles=['', 'on #262626']
         )
-        t.add_column("", justify="right") # index of bitset. Starts at 1.
+        if(len(bitsets) > 1):
+            t.add_column("", justify="right") # index of bitset. Starts at 1.
         t.add_column(Text("Int", justify="center"), justify="right") # full integer corresponding to bitset
+        t.add_column(Text("Hex", justify="center"), justify="right") # hex of the integer column
         for v_index in range(self.solver.num_rcs - 1, -1, -1):
             t.add_column(Text(f"{letters[v_index]}", justify="center"), justify="right")
-        for (bs_index, bs) in enumerate(list_bitsets):
-            t.add_row(
-                f"{bs_index + 1}",
-                Text(f"{solver.solver_utils.bitset_to_int(bs):,}", style="cyan"),
-                *self.get_bitset_Texts(bs, base_16=base_16)
-            )
+        for (bs_index, bs) in enumerate(bitsets):
+            index_list = [f"{bs_index + 1}"] if(len(bitsets) > 1) else []
+            bitset_int = solver.solver_utils.bitset_to_int(bs)
+            int_list = [
+                Text(f"{bitset_int:,}", style="cyan"),
+                Text(f"{hex(bitset_int).upper()[2:]:}", style=HEX_COLOR),
+            ]
+            row_args = index_list + int_list + self.get_bitset_Texts(bs, base_16=base_16)
+            t.add_row(*row_args)
         console.print(t, justify="center")
 ############################### BITSET WERK #################################################################
 class Tree:

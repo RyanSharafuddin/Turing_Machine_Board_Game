@@ -47,10 +47,10 @@ COLORS = [
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
-
 PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
 # verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#00FFD5", "#88FF00", "#FFE600", "#FF7B00"]
+HEX_COLOR = "#FFD7AF"
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -94,6 +94,7 @@ DISPLAY_CWA_BITSETS = True  # whether to display all the cwa bitsets at the begi
 CWA_BITSETS_BASE_16 = False # the base in which to display the cwa bitsets, if they are to be displayed.
 
 # Where things are, from perspective of controller.py.
-PICKLE_DIRECTORY = "src/problems/Pickles/Partition_Set_Filter" # "Pickles" # Directory where all pickled solvers go.
+PICKLE_DIRECTORY = "src/problems/Pickles/Bit_Sets" # "Pickles" # Directory where all pickled solvers go.
+# PICKLE_DIRECTORY = "src/problems/Pickles/Partition_Set_Filter"
 USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

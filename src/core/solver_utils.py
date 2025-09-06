@@ -245,6 +245,9 @@ def _flat_list_bools_to_int(list_bools):
     return sum((1 << b_index) for (b_index, b) in enumerate(list_bools) if b)
 
 def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type):
+    """
+    true_false_list_by_verifier[i] is a list corresponding to verifier i. In that list, l[x] is a bool that says whether rule x is the one assigned to verifier i in the combo the whole list corresponds to.
+    """
     flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
     if(set_type == int):
         bitset = _flat_list_bools_to_int(flat_list_bools)
