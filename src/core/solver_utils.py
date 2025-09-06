@@ -277,10 +277,12 @@ def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], s
         # NOTE: bit[i] corresponds to the ith rule in the flat list of verifier rules
         return _flat_list_bools_to_int(flat_list_bools)
     if(set_type == np.ndarray):
-        # NOTE: bitset[i] corresponds to verifier i here
+        # NOTE: bitset[i] corresponds to verifier i here and is a list of uint8.
         homogenized_bool_lol = _homogenize_bool_lol(true_false_list_by_verifier)
         return np.packbits(homogenized_bool_lol, axis=1, bitorder='little')
-    raise NotImplementedError(f"_true_false_lists_to_bitset not implemented for bitsets of type {type(set_type)}")
+    raise NotImplementedError(
+        f"solver_utils._true_false_lists_to_bitset not implemented for bitsets of type {set_type}."
+    )
 
 def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, set_type):
     (c, p) = [single_full_cwa[i] for i in [0, 1]]

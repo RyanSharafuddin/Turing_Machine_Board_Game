@@ -51,7 +51,7 @@ PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem;
 PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
 # verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#00FFD5", "#88FF00", "#FFE600", "#FF7B00"]
-HEX_COLOR = "#FFD7AF"
+HEX_COLOR = "#FFD7AF" # color of hex numbers when displaying bitsets.
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -69,7 +69,7 @@ COLOR_OF_SPACE = "#00FFFF"
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
 SHOW_COMBOS_IN_TREE                = False       # Print combos in trees in display_problem_solution()
-P_ORDER                            = True       # Whether to display tables in permutation order for 
+P_ORDER                            = True       # Whether to display tables in permutation order for
                                                 # nightmare mode (no effect in other modes)
 # whether to print a line b/t every unique answer in the tables
 LINES_BETWEEN_ANSWERS = False
@@ -79,24 +79,27 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 
 
 # Solver workings
-DISABLE_GC = False              # Whether to disable the garbage collector while solve()ing.
-# Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
-CACHE_END_STATES = False        # whether to cache the end states into the evaluations_cache
-SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int
+DISABLE_GC         = False      # Whether to disable the garbage collector while solve()ing.
+                                # Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
+CACHE_END_STATES   = False      # whether to cache the end states into the evaluations_cache
+SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int. How the cache cwa sets are stored.
 
 
-# Settings To Use For Debugging/Displaying Debugging Information
-PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time if you set it to true. See solver.py/post_solve_printing() for details.
-PARTITION_DIVIDER = '│' # options: '│' and '|'
+# Change How Debugging Information Is Displayed
+PARTITION_DIVIDER          = '│' # options: '│' and '|'
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
-ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
-PRINT_SD_COLOR_DICT = False
+ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
+CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
-DISPLAY_CWA_BITSETS = True  # whether to display all the cwa bitsets at the beginning when displaying problem
-CWA_BITSETS_BASE_16 = True # the base in which to display the cwa bitsets, if they are to be displayed.
+# Change Whether Debugging Informations Is Displayed
+PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time
+                                    # if you set it to true. See solver.py/post_solve_printing() for details.
+PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
+DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
 
-# Where things are, from perspective of controller.py.
-PICKLE_DIRECTORY = "src/problems/Pickles/Bit_Sets" # "Pickles" # Directory where all pickled solvers go.
-# PICKLE_DIRECTORY = "src/problems/Pickles/Partition_Set_Filter"
-USER_PROBS_FILE_NAME = "src/problems/user_problems.txt"
+
+# Directory paths, from perspective of controller.py.
+PICKLE_DIRECTORY      = "src/problems/Pickles/Bit_Sets" # Where all pickled solvers go.
+# PICKLE_DIRECTORY    = "src/problems/Pickles/Partition_Set_Filter"
+USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

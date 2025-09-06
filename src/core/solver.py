@@ -495,7 +495,7 @@ class Solver:
         l = [0] * (len(self.full_cwas_list))
         for gs in self._evaluations_cache:
             # cwa_set representation_change need a function to get length from cwa_set
-            # TODO: will need to change significantly once store game state's in the cache with minimal_possible_rules_by_verifier_set s instead of what currently doing.
+            # TODO: will need to change significantly once store game states in the cache with minimal_possible_rules_by_verifier_sets instead of what currently doing.
             l[len(gs.cwa_set) - 1] += 1
         for (size, num) in enumerate(l, start=1):
             console.print(f"{size:>{4},}: {num:>{len(f'{max(l):,}')},}", justify="center")

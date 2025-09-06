@@ -13,6 +13,8 @@ from .definitions import *
 from .config import *
 
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
+BIT_ONE_TEXT = Text('1', style="bright_green")
+BIT_ZERO_TEXT = Text('0', style="bright_red")
 
 letters = string.ascii_uppercase
 def _r_names_perm_order(rl, permutation, permutation_order):
@@ -925,7 +927,7 @@ class Solver_Displayer:
         return
     def _get_bitset_Texts_int(self, bitset: int, base_16: bool, bits_per_verifier=None):
         """
-        get the Texts for get_bitset_Texts when the bitsets are ints.
+        get the Texts for an int given the int, whether it should be displayed in base 16, and the number of bits per verifier (which is None if there are exactly as many bits per verifier as there are possible rules for that verifier).
         """
         num_possible_rules_by_verifier = [len(i) for i in self.solver.possible_rules_by_verifier]
         texts = []
@@ -950,7 +952,7 @@ class Solver_Displayer:
                 text_this_verifier_parts = []
                 for bit_index in range(num_bits):
                     bit = (bitset_for_verifier >> bit_index) & 1
-                    t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
+                    t = BIT_ONE_TEXT if bit else BIT_ZERO_TEXT
                     text_this_verifier_parts.append(t)
                 text_this_verifier_parts.reverse()
                 text_this_verifier = Text.assemble(*text_this_verifier_parts)
