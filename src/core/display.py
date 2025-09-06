@@ -1,6 +1,7 @@
 import string, math, os
 from itertools import zip_longest
 from collections import deque
+import numpy as np
 from PrettyPrint import PrettyPrintTree
 from rich.table import Table
 from rich.text import Text
@@ -922,7 +923,47 @@ class Solver_Displayer:
         )
         self._print_partition_table(table_data, full_cwas, title, verifiers_to_sort_by)
         return
-
+    def _get_bitset_Texts_int(self, bitset: int, base_16: bool, bits_per_verifier=None):
+        """
+        get the Texts for get_bitset_Texts when the bitsets are ints.
+        """
+        num_possible_rules_by_verifier = [len(i) for i in self.solver.possible_rules_by_verifier]
+        texts = []
+        for v_index in range(self.solver.num_rcs):
+            right_shift_amount = (
+                sum(num_possible_rules_by_verifier[:v_index])
+                if (bits_per_verifier is None)
+                else (v_index * bits_per_verifier)
+            )
+            num_bits = (
+                num_possible_rules_by_verifier[v_index]
+                if (bits_per_verifier is None)
+                else bits_per_verifier
+            )
+            bitset_for_verifier = (bitset >> right_shift_amount) & ((1 << num_bits) - 1)
+            if(base_16):
+                text_this_verifier = Text(
+                    f"{hex(bitset_for_verifier).upper()[2:]:0>{math.ceil(num_bits/4)}}",
+                    style=HEX_COLOR,
+                )
+            else:
+                text_this_verifier_parts = []
+                for bit_index in range(num_bits):
+                    bit = (bitset_for_verifier >> bit_index) & 1
+                    t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
+                    text_this_verifier_parts.append(t)
+                text_this_verifier_parts.reverse()
+                text_this_verifier = Text.assemble(*text_this_verifier_parts)
+            texts.append(text_this_verifier)
+        texts.reverse()
+        return(texts)
+    def _get_bitset_Texts_ndarr(self, bitset: np.ndarray, base_16):
+        (num_verifiers, num_unint8_per_verifier) = bitset.shape
+        return self._get_bitset_Texts_int(
+            solver.solver_utils.bitset_to_int(bitset),
+            base_16,
+            bits_per_verifier = 8 * num_unint8_per_verifier
+        )
 
     @staticmethod
     def get_partition_sort_criteria(partition):
@@ -1260,28 +1301,12 @@ class Solver_Displayer:
         -------
         list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
         """
-        if(type(bitset) != int):
-            raise NotImplementedError
-        num_possible_rules_by_verifier = [len(i) for i in self.solver.possible_rules_by_verifier]
-        texts = []
-        for v_index in range(self.solver.num_rcs):
-            bitset_for_verifier = (
-                (bitset >> sum(num_possible_rules_by_verifier[:v_index]))
-                & ((1 << num_possible_rules_by_verifier[v_index]) - 1)
-            )
-            if(base_16):
-                text_this_verifier = Text(hex(bitset_for_verifier).upper()[2:], style=HEX_COLOR)
-            else:
-                text_this_verifier_parts = []
-                for bit_index in range(num_possible_rules_by_verifier[v_index]):
-                    bit = (bitset_for_verifier >> bit_index) & 1
-                    t = Text('1', style="bright_green") if bit else Text('0', style="bright_red")
-                    text_this_verifier_parts.append(t)
-                text_this_verifier_parts.reverse()
-                text_this_verifier = Text.assemble(*text_this_verifier_parts)
-            texts.append(text_this_verifier)
-        texts.reverse()
-        return(texts)
+        if(type(bitset) == int):
+            return self._get_bitset_Texts_int(bitset, base_16)
+        if(type(bitset) == np.ndarray):
+            return self._get_bitset_Texts_ndarr(bitset, base_16)
+        raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
+
 
     def print_table_bitsets(self, bitsets, base_16=False, active=True):
         """

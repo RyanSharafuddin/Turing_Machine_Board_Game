@@ -1,5 +1,5 @@
-import math, itertools
-# from definitions import *
+import math, itertools, copy
+import numpy as np
 from .definitions import Query_Info, all_125_possibilities_set, Rule, console # TODO: delete console
 
 ############################## PRIVATE FUNCTIONS #################################################
@@ -244,16 +244,43 @@ def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set
 def _flat_list_bools_to_int(list_bools):
     return sum((1 << b_index) for (b_index, b) in enumerate(list_bools) if b)
 
+def _nd_array_to_int(ndarr : np.ndarray):
+    """
+    Given a nested packed bit `ndarr`, where `ndarr[i]` is a packed bool list for the ith verifier, and all `ndarr[i]` are the same length, return a corresponding integer.
+    """
+    (num_verifiers, num_unint8_per_verifier) = ndarr.shape
+    answer = 0
+    for v_index in range(num_verifiers):
+        for uint8_index in range(num_unint8_per_verifier):
+            answer += int(ndarr[v_index, uint8_index]) << (
+                (v_index * num_unint8_per_verifier * 8) + (uint8_index * 8)
+            )
+    return answer
+
+def _homogenize_bool_lol(bool_lol):
+    """
+    Given a list of lists of bools, make a new lol where each list within the list is extended to the same length by appending Falses to the shorter lists. Returns a copy of the bool lol.
+    """
+    bool_lol_copy = copy.deepcopy(bool_lol)
+    length_to_extend_to = max([len(l) for l in bool_lol_copy])
+    for l in bool_lol_copy:
+        for extend_index in range(length_to_extend_to - len(l)):
+            l.append(False)
+    return(bool_lol_copy)
+
 def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type):
     """
     true_false_list_by_verifier[i] is a list corresponding to verifier i. In that list, l[x] is a bool that says whether rule x is the one assigned to verifier i in the combo the whole list corresponds to.
     """
     flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
     if(set_type == int):
-        bitset = _flat_list_bools_to_int(flat_list_bools)
-    else:
-        raise NotImplementedError(f"Bitsets of type {set_type} are not implemented.")
-    return(bitset)
+        # NOTE: bit[i] corresponds to the ith rule in the flat list of verifier rules
+        return _flat_list_bools_to_int(flat_list_bools)
+    if(set_type == np.ndarray):
+        # NOTE: bitset[i] corresponds to verifier i here
+        homogenized_bool_lol = _homogenize_bool_lol(true_false_list_by_verifier)
+        return np.packbits(homogenized_bool_lol, axis=1, bitorder='little')
+    raise NotImplementedError(f"_true_false_lists_to_bitset not implemented for bitsets of type {type(set_type)}")
 
 def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, set_type):
     (c, p) = [single_full_cwa[i] for i in [0, 1]]
@@ -299,8 +326,9 @@ def bitset_to_int(bitset):
     """
     if(type(bitset) == int):
         return bitset
-    else:
-        raise NotImplementedError()
+    if(type(bitset) == np.ndarray):
+        return _nd_array_to_int(bitset)
+    raise NotImplementedError(f"bitset_to_int not implemented for bitsets of type {type(bitset)}")
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """

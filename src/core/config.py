@@ -1,3 +1,4 @@
+import numpy as np
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
@@ -81,6 +82,7 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 DISABLE_GC = False              # Whether to disable the garbage collector while solve()ing.
 # Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
 CACHE_END_STATES = False        # whether to cache the end states into the evaluations_cache
+SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int
 
 
 # Settings To Use For Debugging/Displaying Debugging Information
@@ -91,7 +93,7 @@ ANSWER_TABLE_ROW_STYLES = PARTITION_TABLE_ROW_STYLES
 PRINT_SD_COLOR_DICT = False
 
 DISPLAY_CWA_BITSETS = True  # whether to display all the cwa bitsets at the beginning when displaying problem
-CWA_BITSETS_BASE_16 = False # the base in which to display the cwa bitsets, if they are to be displayed.
+CWA_BITSETS_BASE_16 = True # the base in which to display the cwa bitsets, if they are to be displayed.
 
 # Where things are, from perspective of controller.py.
 PICKLE_DIRECTORY = "src/problems/Pickles/Bit_Sets" # "Pickles" # Directory where all pickled solvers go.

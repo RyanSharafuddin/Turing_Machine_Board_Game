@@ -1,4 +1,5 @@
 import time, sys
+import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
 
@@ -188,7 +189,6 @@ class Solver:
         "git_message",
         "possible_rules_by_verifier",
         "bitset_type",
-        "cwa_bitsets_ints",
         "cwa_bitsets",
     )
     initial_best_cost = (float('inf'), float('inf'))
@@ -215,13 +215,7 @@ class Solver:
         ]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         ############################### BITSET WERK ##########################################################
-        self.bitset_type        = int # TODO: make this easily changeable
-        self.cwa_bitsets_ints = solver_utils.get_cwa_bitsets(
-            self.full_cwas_list,
-            self.possible_rules_by_verifier,
-            self.n_mode,
-            set_type=int,
-        )
+        self.bitset_type        = config.SOLVER_BITSET_TYPE
         self.cwa_bitsets = solver_utils.get_cwa_bitsets(
             self.full_cwas_list,
             self.possible_rules_by_verifier,
@@ -230,10 +224,11 @@ class Solver:
         )
         testing_stuff(self) # WARN TODO: delete
         for bitset_int in [solver_utils.bitset_to_int(bs) for bs in self.cwa_bitsets]:
-            assert( # NOTE: may have to change this if use a type of bitset other than int.
-                f"{bin(bitset_int)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
-                display.Text.assemble(*sd.get_bitset_Texts(bitset_int)).plain
-            )
+            if(self.bitset_type == int):
+                assert( # NOTE: may have to change this if use a type of bitset other than int.
+                    f"{bin(bitset_int)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
+                    display.Text.assemble(*sd.get_bitset_Texts(bitset_int)).plain
+                )
         ############################### BITSET WERK ##########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
