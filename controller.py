@@ -37,8 +37,8 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
     print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
     sd.print_table_bitsets(
-        s.cwa_bitsets,
-        CWA_BITSETS_BASE_16,
+        bitsets=s.all_cwa_bitsets,
+        base_16=CWA_BITSETS_BASE_16,
         active=((DISPLAY_CWA_BITSETS and display_problem))
     )
     print()
@@ -88,8 +88,8 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
         )
         print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
         sd.print_table_bitsets(
-            s.cwa_bitsets,
-            CWA_BITSETS_BASE_16,
+            bitsets=s.all_cwa_bitsets,
+            base_16=CWA_BITSETS_BASE_16,
             active=((DISPLAY_CWA_BITSETS and display_problem))
         )
         print()
@@ -134,7 +134,7 @@ def make_solver(problem: Problem):
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
     print("\n" if DISPLAY_CWA_BITSETS else "", end="")
-    sd.print_table_bitsets(s.cwa_bitsets, CWA_BITSETS_BASE_16, active=DISPLAY_CWA_BITSETS)
+    sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=DISPLAY_CWA_BITSETS)
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()

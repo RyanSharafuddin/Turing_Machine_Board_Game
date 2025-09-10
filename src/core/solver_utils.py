@@ -293,9 +293,22 @@ def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, s
         true_false_list_by_verifier.append(true_false_list_this_v_index)
     return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
 
-############################## PUBLIC FUNCTIONS #################################################
+def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
+    # NOTE: understand the difference between integer indexing using list(working_cwa_set) or using an np integer array.
+    bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
+    return np.bitwise_or.reduce(bitsets_to_include, axis=0)
+    # see this for when switch working cwa sets and q_infos to np.ndarray packed bit sets:
+    # https://www.google.com/search?q=np+reduce+where&sca_esv=d2b59b7238d5f6ec&ei=s9u_aLCDPNGoptQP0b7o8Qk&ved=0ahUKEwjwqJyxmMuPAxVRlIkEHVEfOp4Q4dUDCBM&uact=5&oq=np+reduce+where&gs_lp=Egxnd3Mtd2l6LXNlcnAiD25wIHJlZHVjZSB3aGVyZTIFECEYoAEyBRAhGKABMgUQIRigATIFECEYnwUyBRAhGJ8FMgUQIRifBTIFECEYnwUyBRAhGJ8FMgUQIRifBTIFECEYnwVIgBVQnwVY9xJwAXgBkAEAmAFyoAGTBaoBAzAuNrgBA8gBAPgBAZgCB6ACvQXCAgoQABiwAxjWBBhHwgILEAAYgAQYkQIYigXCAgYQABgWGB7CAggQABgWGAoYHsICBRAhGKsCmAMAiAYBkAYIkgcDMS42oAfqJrIHAzAuNrgHtQXCBwUwLjIuNcgHGw&sclient=gws-wiz-serp (the where parameter in np bitwise or reduce)
+    # also see np.where for filtering np arrays.
 
-def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type):
+def _convert_cache_bitset_to_canonical_nparray(cache_bitset):
+    pass
+
+def _convert_cache_bitset_to_canonical_int(cache_bitset, num_rules_per_verifier):
+    pass
+
+############################## PUBLIC FUNCTIONS #################################################
+def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """
     Get the list of bitsets corresponding to the cwas of the problem.
 
@@ -315,12 +328,13 @@ def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type
 
     Returns
     -------
-    cwa_bitsets
+    cwa_bitsets : np.ndarray (each element of cwa_bitsets is a combo. if set_type is int, each combo is a Python integer. if set_type is np.ndarray, each combo is itself an ndarray where each element of the combo is a np.ndarray of uint8 representing a verifier).
         cwa_bitsets[i] is the bitset corresponding to the cwa that is solver.full_cwas_list[i].
     """
-    return [
-        _single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list
-    ]
+    return np.array(
+        [_single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list],
+        dtype=(np.uint8 if (set_type == np.ndarray) else object)
+    )
 
 def bitset_to_int(bitset):
     """

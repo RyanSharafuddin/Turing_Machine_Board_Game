@@ -1310,7 +1310,7 @@ class Solver_Displayer:
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
 
 
-    def print_table_bitsets(self, bitsets, base_16=False, active=True):
+    def print_table_bitsets(self, bitsets, title=None, base_16=False, active=True, single_bitset=False):
         """
         Print a table of bitsets. NOTE: `bitsets` can be a list or a single bitset.
 
@@ -1319,18 +1319,26 @@ class Solver_Displayer:
         bitsets : list[bitset] | bitset
             The bitsets to print. Can be a list of bitsets, or a single bitset.
 
+        title : str | None
+            The title of the table. If left as None, will default to CWA Bitset (with an s at end or Hex).
+
         base_16 : bool
             Whether to print the bits as bits or in base 16.
 
         active : bool
             If active is False, this function will not do anything.
+
+        single_bitset : bool
+            A boolean which tells the function whether bitsets is a single bitset or not.
         """
         if not active:
             return
-        if(type(bitsets) != list):
+        if(title is None):
+            title = "CWA Bitset" + ("s" if (len(bitsets) > 1) else '') + (" Hex" if base_16 else "")
+        if(single_bitset):
             bitsets = [bitsets]
         t = Table(
-            title="CWA Bitset" + ("s" if (len(bitsets) > 1) else '') + (" Hex" if base_16 else ""),
+            title=title,
             title_style="",
             header_style="magenta",
             row_styles=['', 'on #262626']

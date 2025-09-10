@@ -189,7 +189,7 @@ class Solver:
         "git_message",
         "possible_rules_by_verifier",
         "bitset_type",
-        "cwa_bitsets",
+        "all_cwa_bitsets",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -215,20 +215,20 @@ class Solver:
         ]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         ############################### BITSET WERK ##########################################################
+        testing_stuff(self) # WARN TODO: delete
         self.bitset_type        = config.SOLVER_BITSET_TYPE
-        self.cwa_bitsets = solver_utils.get_cwa_bitsets(
+        self.all_cwa_bitsets        = solver_utils.get_cwa_bitsets(
             self.full_cwas_list,
             self.possible_rules_by_verifier,
             self.n_mode,
             set_type=self.bitset_type,
         )
-        testing_stuff(self) # WARN TODO: delete
-        for bitset_int in [solver_utils.bitset_to_int(bs) for bs in self.cwa_bitsets]:
-            if(self.bitset_type == int):
-                assert( # NOTE: may have to change this if use a type of bitset other than int.
-                    f"{bin(bitset_int)[2:]:0>{sum([len(x) for x in self.possible_rules_by_verifier])}}" ==
-                    display.Text.assemble(*sd.get_bitset_Texts(bitset_int)).plain
-                )
+        # NOTE: below 2 function calls are only for testing purposes.
+        cache_bitset_initial = solver_utils._working_cwa_set_to_cache_bitset(
+            self.initial_game_state.cwa_set,
+            self.all_cwa_bitsets
+        )
+        sd.print_table_bitsets(cache_bitset_initial, title="Initial State Cache Bitset", single_bitset=True)
         ############################### BITSET WERK ##########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.

@@ -83,6 +83,7 @@ DISABLE_GC         = False      # Whether to disable the garbage collector while
                                 # Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
 CACHE_END_STATES   = False      # whether to cache the end states into the evaluations_cache
 SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int. How the cache cwa sets are stored.
+# SOLVER_BITSET_TYPE = int        # options: np.ndarray, int. How the cache cwa sets are stored.
 
 
 # Change How Debugging Information Is Displayed
