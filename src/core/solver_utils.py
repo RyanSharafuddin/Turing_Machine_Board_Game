@@ -1,6 +1,7 @@
 import math, itertools, copy
 import numpy as np
 from .definitions import Query_Info, all_125_possibilities_set, Rule, console # TODO: delete console
+from .hashable_numpy_array import Hashable_Numpy_Array
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
