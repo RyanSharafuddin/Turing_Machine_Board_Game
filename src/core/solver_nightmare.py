@@ -86,15 +86,22 @@ def _nightmare_get_and_apply_moves(
                     break
 
 class Solver_Nightmare(Solver):
+    __slots__ = (
+        "num_possible_rules",
+        "int_verifier_bit_mask",
+        "shift_amounts",
+    )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
+        self.num_possible_rules = len(self.possible_rules_by_verifier[0])
+        self.int_verifier_bit_mask = (1 << self.num_possible_rules) - 1
+        self.shift_amounts = [v_index * self.num_possible_rules for v_index in range(self.num_rcs)]
 
     def _calculate_best_move(
         self,
         qs_dict,
         game_state: Game_State,
         minimal_vs_list: list[set[int]] = None,
-
     ):
         # self.called_calculate += 1
         if(game_state in self._evaluations_cache):

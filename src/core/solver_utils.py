@@ -294,19 +294,51 @@ def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, s
     return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
 
 def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
-    # NOTE: understand the difference between integer indexing using list(working_cwa_set) or using an np integer array.
     bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
     return np.bitwise_or.reduce(bitsets_to_include, axis=0)
-    # see this for when switch working cwa sets and q_infos to np.ndarray packed bit sets:
-    # https://www.google.com/search?q=np+reduce+where&sca_esv=d2b59b7238d5f6ec&ei=s9u_aLCDPNGoptQP0b7o8Qk&ved=0ahUKEwjwqJyxmMuPAxVRlIkEHVEfOp4Q4dUDCBM&uact=5&oq=np+reduce+where&gs_lp=Egxnd3Mtd2l6LXNlcnAiD25wIHJlZHVjZSB3aGVyZTIFECEYoAEyBRAhGKABMgUQIRigATIFECEYnwUyBRAhGJ8FMgUQIRifBTIFECEYnwUyBRAhGJ8FMgUQIRifBTIFECEYnwVIgBVQnwVY9xJwAXgBkAEAmAFyoAGTBaoBAzAuNrgBA8gBAPgBAZgCB6ACvQXCAgoQABiwAxjWBBhHwgILEAAYgAQYkQIYigXCAgYQABgWGB7CAggQABgWGAoYHsICBRAhGKsCmAMAiAYBkAYIkgcDMS42oAfqJrIHAzAuNrgHtQXCBwUwLjIuNcgHGw&sclient=gws-wiz-serp (the where parameter in np bitwise or reduce)
-    # also see np.where for filtering np arrays.
 
-def _convert_cache_bitset_to_canonical_nparray(cache_bitset):
-    pass
+def _invert_permutation(permutation):
+    """
+    querying verifier V in original form is equivalent to querying verifier answer[V] in canonical form.
+    """
+    answer = np.empty(shape=len(permutation), dtype=np.uint8)
+    for (index, num) in enumerate(permutation):
+        answer[num] = index
+    return answer
 
-def _convert_cache_bitset_to_canonical_int(cache_bitset, num_rules_per_verifier):
-    pass
+def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
+    """
+    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form.
 
+    Returns
+    -------
+    (canonical_form, permutation)
+        A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
+        NOTE: this has not been tested. Test by pretty printing.
+    """
+    permutation = np.lexsort(cache_bitset.T)
+    return (cache_bitset[permutation], _invert_permutation(permutation))
+
+def _convert_cache_bitset_to_canonical_int(
+        cache_bitset : int,
+        shift_amounts,
+        int_verifier_bit_mask,
+    ):
+    """
+    TODO: test by displaying.
+    """
+    bitset_ints_by_verifier_with_indices = [
+        ((cache_bitset >> shift_amount) & int_verifier_bit_mask, index)
+        for (index, shift_amount) in enumerate(shift_amounts)
+    ]
+    console.print(bitset_ints_by_verifier_with_indices)
+    bitset_ints_by_verifier_with_indices.sort(key=lambda t: t[0], reverse=True)
+    console.print(bitset_ints_by_verifier_with_indices)
+    (bitsets, indices) = zip(*bitset_ints_by_verifier_with_indices)
+    result = 0
+    for (bitset, shift_amount) in zip(bitsets, shift_amounts):
+        result |= (bitset << shift_amount)
+    return (result, _invert_permutation(indices))
 ############################## PUBLIC FUNCTIONS #################################################
 def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """

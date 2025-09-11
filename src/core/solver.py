@@ -229,6 +229,7 @@ class Solver:
             self.all_cwa_bitsets
         )
         sd.print_table_bitsets(cache_bitset_initial, title="Initial State Cache Bitset", single_bitset=True)
+        console.print(cache_bitset_initial, justify="center")
         ############################### BITSET WERK ##########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
