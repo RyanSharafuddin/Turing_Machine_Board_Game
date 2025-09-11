@@ -7,3 +7,8 @@ __pycache__/
 **/scratch_experiments/
 .python-version
 todo.txt
+
+# venv stuff
+bin/
+include/
+lib/
