@@ -90,12 +90,35 @@ class Solver_Nightmare(Solver):
         "num_possible_rules",
         "int_verifier_bit_mask",
         "shift_amounts",
+        "convert_cache_bitset_to_canonical_form",
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])
         self.int_verifier_bit_mask = (1 << self.num_possible_rules) - 1
         self.shift_amounts = [v_index * self.num_possible_rules for v_index in range(self.num_rcs)]
+        self.convert_cache_bitset_to_canonical_form = (
+            solver_utils.convert_cache_bitset_to_canonical_nparray
+            if(self.bitset_type == np.ndarray) else
+            solver_utils.convert_cache_bitset_to_canonical_int
+        )
+
+    def convert_working_gs_to_cache_gs(self, working_gs):
+        """
+        Return the cache game state as well as the permutation such that a move on verifier index V in the working game state is equivalent to a move on verifier index permutation[V] in the cache game state.
+        """
+        cache_bitset = solver_utils.working_cwa_set_to_cache_bitset(working_gs.cwa_set, self.all_cwa_bitsets)
+        (cache_bitset_canonical_form, permutation) = self.convert_cache_bitset_to_canonical_form(
+            cache_bitset,
+            self.shift_amounts,
+            self.int_verifier_bit_mask
+        )
+        cache_gs = Game_State(
+            num_queries_this_round=working_gs.num_queries_this_round,
+            proposal_used_this_round=working_gs.proposal_used_this_round,
+            cwa_set=cache_bitset_canonical_form
+        )
+        return (cache_gs, permutation)
 
     def _calculate_best_move(
         self,

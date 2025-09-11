@@ -1,6 +1,6 @@
 import math, itertools, copy
 import numpy as np
-from .definitions import Query_Info, all_125_possibilities_set, Rule, console # TODO: delete console
+from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
 from .hashable_numpy_array import Hashable_Numpy_Array
 
 ############################## PRIVATE FUNCTIONS #################################################
@@ -294,10 +294,6 @@ def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, s
         true_false_list_by_verifier.append(true_false_list_this_v_index)
     return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
 
-def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
-    bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
-    return np.bitwise_or.reduce(bitsets_to_include, axis=0)
-
 def _invert_permutation(permutation):
     """
     querying verifier V in original form is equivalent to querying verifier answer[V] in canonical form.
@@ -307,9 +303,10 @@ def _invert_permutation(permutation):
         answer[num] = index
     return answer
 
-def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
+############################## PUBLIC FUNCTIONS #################################################
+def convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray, *args):
     """
-    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form.
+    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. Takes `*args` to absorb arguments given to the int version of this.
 
     Returns
     -------
@@ -320,7 +317,7 @@ def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
     permutation = np.lexsort(cache_bitset.T)
     return (cache_bitset[permutation], _invert_permutation(permutation))
 
-def _convert_cache_bitset_to_canonical_int(
+def convert_cache_bitset_to_canonical_int(
         cache_bitset : int,
         shift_amounts,
         int_verifier_bit_mask,
@@ -340,7 +337,7 @@ def _convert_cache_bitset_to_canonical_int(
     for (bitset, shift_amount) in zip(bitsets, shift_amounts):
         result |= (bitset << shift_amount)
     return (result, _invert_permutation(indices))
-############################## PUBLIC FUNCTIONS #################################################
+
 def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """
     Get the list of bitsets corresponding to the cwas of the problem.
@@ -392,6 +389,10 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
             possible_rule = c[p[v_index]] if(n_mode) else rule
             corresponding_set.add(possible_rule.unique_id)
     return(possible_rule_ids_by_verifier)
+
+def working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
+    bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
+    return np.bitwise_or.reduce(bitsets_to_include, axis=0)
 
 def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
     """

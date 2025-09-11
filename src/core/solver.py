@@ -294,6 +294,18 @@ class Solver:
         console.rule()
         return
 
+    def convert_working_gs_to_cache_gs(self, working_gs: Game_State):
+        """
+        Note: Once switch working_gs to be the numpy bitset array directly, rather than a Python set of ints, won't need to include `self` as an argument to this function.
+        """
+        cache_bitset = solver_utils.working_cwa_set_to_cache_bitset(working_gs.cwa_set, self.all_cwa_bitsets)
+        cache_game_state = Game_State(
+            num_queries_this_round=working_gs.num_queries_this_round,
+            proposal_used_this_round=working_gs.proposal_used_this_round,
+            cwa_set=cache_bitset
+        )
+        return cache_game_state
+
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(self, qs_dict, game_state: Game_State):
