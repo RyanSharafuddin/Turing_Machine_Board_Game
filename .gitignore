@@ -12,3 +12,4 @@ todo.txt
 bin/
 include/
 lib/
+pyvenv.cfg
