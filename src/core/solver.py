@@ -1,5 +1,6 @@
 import time, sys
 import numpy as np
+from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
 from .hashable_numpy_array import Hashable_Numpy_Array
@@ -170,6 +171,19 @@ def testing_stuff(self):
     global sd
     sd = display.Solver_Displayer(self)
 
+def progress_initialize():
+    p = progress.Progress(
+        progress.TextColumn("[progress.description]{task.description}"),
+        progress.BarColumn(),
+        progress.MofNCompleteColumn(),
+        progress.TaskProgressColumn(),
+        progress.TimeElapsedColumn(),
+        refresh_per_second=1,
+        console=console,
+    )
+    return(p)
+progress = progress_initialize()
+
 class Solver:
     null_answer = (None, (0,0))
     __slots__ = (
@@ -192,6 +206,8 @@ class Solver:
         "bitset_type",
         "all_cwa_bitsets",
         "convert_working_gs_to_cache_gs",
+        "num_concurrent_tasks",
+        "depth_to_tasks_l",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -236,12 +252,29 @@ class Solver:
         sd.print_table_bitsets(cache_bitset_initial, title="Initial State Cache Bitset", single_bitset=True)
         # console.print(cache_bitset_initial, justify="center")
         ############################### BITSET WERK ##########################################################
+        ############################### PROGRESS WERK ########################################################
+        self.num_concurrent_tasks = config.SOLVER_NUM_CONCURRENT_TASKS
+        self.depth_to_tasks_l     = [
+            progress.add_task(f"Calculating depth {depth}:", total=0, visible=False)
+            for depth in range(self.num_concurrent_tasks)
+        ]
+        ############################### PROGRESS WERK ########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
+
+    def tasks_initialize(self, depth, move_generator):
+        if(depth < self.num_concurrent_tasks):
+            move_iterable = list(move_generator)
+            total = len(move_iterable)
+            task_id = self.depth_to_tasks_l[depth]
+            progress.reset(task_id, total=total, visible=True)
+        else:
+            move_iterable = move_generator
+        return(move_iterable)
 
     def _print_debug_info(
             self,
@@ -301,7 +334,7 @@ class Solver:
 
     # called_calculate = 0
     # cache_hits = 0
-    def _calculate_best_move(self, qs_dict, game_state: Game_State):
+    def _calculate_best_move(self, qs_dict, game_state: Game_State, depth=0):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
@@ -330,10 +363,11 @@ class Solver:
             ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
         best_node_cost = Solver.initial_best_cost
         found_moves = False
-        for move_info in get_and_apply_moves(game_state, qs_dict):
+        move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
+        for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
-            gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0])[1]
-            gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1])[1]
+            gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)[1]
+            gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
@@ -346,6 +380,8 @@ class Solver:
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
+            if(depth < self.num_concurrent_tasks):
+                progress.update(self.depth_to_tasks_l[depth], advance=1)
         if(found_moves):
             answer = (best_move, best_node_cost)
         else:
@@ -354,7 +390,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
 
         # comment out else block above and uncomment this to try starting new rounds early as well.
         # if(game_state.num_queries_this_round != 0):
@@ -376,11 +412,15 @@ class Solver:
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
+        if(self.num_concurrent_tasks):
+            progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         end = time.time()
         self.seconds_to_solve = int(end - start)
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
+        if(self.num_concurrent_tasks):
+            progress.stop()
 
     def post_solve_printing(self):
         """

@@ -105,6 +105,7 @@ class Solver_Nightmare(Solver):
         qs_dict,
         game_state: Game_State,
         minimal_vs_list: list[set[int]] = None,
+        depth=0,
     ):
         # self.called_calculate += 1
         (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
@@ -131,17 +132,23 @@ class Solver_Nightmare(Solver):
         found_moves = False
         # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
         # For testing purposes, make the entire moves_list before examining any moves.
-        for move_info in _nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list):
+        move_iterable = self.tasks_initialize(
+            depth,
+            _nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
+        )
+        for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(
                 qs_dict,
                 gs_tup[0],
-                minimal_vs_list
+                minimal_vs_list,
+                depth + 1,
             )[1]
             gs_true_node_cost = self._calculate_best_move(
                 qs_dict,
                 gs_tup[1],
-                minimal_vs_list
+                minimal_vs_list,
+                depth + 1,
             )[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
@@ -155,6 +162,8 @@ class Solver_Nightmare(Solver):
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
+            if(depth < self.num_concurrent_tasks):
+                progress.update(self.depth_to_tasks_l[depth], advance=1)
         if(found_moves):
             (best_proposal, best_v_index) = best_move
             best_move = (best_proposal, permutation[best_v_index])
@@ -166,7 +175,7 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
         self._evaluations_cache[cache_game_state] = answer
         return(answer)
 
