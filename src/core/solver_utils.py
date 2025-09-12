@@ -303,8 +303,7 @@ def _invert_permutation(permutation):
         answer[num] = index
     return answer
 
-############################## PUBLIC FUNCTIONS #################################################
-def convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray, *args):
+def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
     """
     Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. Takes `*args` to absorb arguments given to the int version of this.
 
@@ -317,7 +316,7 @@ def convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray, *args):
     permutation = np.lexsort(cache_bitset.T)
     return (cache_bitset[permutation], _invert_permutation(permutation))
 
-def convert_cache_bitset_to_canonical_int(
+def _convert_cache_bitset_to_canonical_int(
         cache_bitset : int,
         shift_amounts,
         int_verifier_bit_mask,
@@ -329,15 +328,78 @@ def convert_cache_bitset_to_canonical_int(
         ((cache_bitset >> shift_amount) & int_verifier_bit_mask, index)
         for (index, shift_amount) in enumerate(shift_amounts)
     ]
-    console.print(bitset_ints_by_verifier_with_indices)
+    # console.print(bitset_ints_by_verifier_with_indices)
     bitset_ints_by_verifier_with_indices.sort(key=lambda t: t[0], reverse=True)
-    console.print(bitset_ints_by_verifier_with_indices)
+    # console.print(bitset_ints_by_verifier_with_indices)
     (bitsets, indices) = zip(*bitset_ints_by_verifier_with_indices)
     result = 0
     for (bitset, shift_amount) in zip(bitsets, shift_amounts):
         result |= (bitset << shift_amount)
     return (result, _invert_permutation(indices))
 
+def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
+    bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
+    return np.bitwise_or.reduce(bitsets_to_include, axis=0)
+
+def _convert_working_gs_to_cache_gs_standard_int(
+        working_gs: Game_State,
+        all_cwa_bitsets, # NOTE: will not be necessary once switch working_gs cwa set from ints to np array
+    ):
+    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets)
+    cache_game_state = Game_State(
+        num_queries_this_round=working_gs.num_queries_this_round,
+        proposal_used_this_round=working_gs.proposal_used_this_round,
+        cwa_set=cache_bitset
+    )
+    return cache_game_state
+
+def _convert_working_gs_to_cache_gs_standard_nparray(
+        working_gs: Game_State,
+        all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+    ):
+    cache_bitset = Hashable_Numpy_Array(_working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets))
+    cache_game_state = Game_State(
+        num_queries_this_round=working_gs.num_queries_this_round,
+        proposal_used_this_round=working_gs.proposal_used_this_round,
+        cwa_set=cache_bitset
+    )
+    return cache_game_state
+
+def _convert_working_gs_to_cache_gs_nightmare_int(
+        working_gs: Game_State,
+        all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        shift_amounts,
+        int_verifier_bit_mask
+    ):
+    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets)
+    (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_int(
+        cache_bitset,
+        shift_amounts,
+        int_verifier_bit_mask
+    )
+    cache_gs = Game_State(
+        num_queries_this_round=working_gs.num_queries_this_round,
+        proposal_used_this_round=working_gs.proposal_used_this_round,
+        cwa_set=cache_bitset_canonical_form
+    )
+    return (cache_gs, permutation)
+
+def _convert_working_gs_to_cache_gs_nightmare_nparray(
+        working_gs: Game_State,
+        all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        *args, # for accepting the 2 last arguments given in the int version
+    ):
+    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets)
+    (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
+    cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form)
+    cache_gs = Game_State(
+        num_queries_this_round=working_gs.num_queries_this_round,
+        proposal_used_this_round=working_gs.proposal_used_this_round,
+        cwa_set=cache_bitset_canonical_form
+    )
+    return (cache_gs, permutation)
+
+############################## PUBLIC FUNCTIONS #################################################
 def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """
     Get the list of bitsets corresponding to the cwas of the problem.
@@ -376,6 +438,24 @@ def bitset_to_int(bitset):
         return _nd_array_to_int(bitset)
     raise NotImplementedError(f"bitset_to_int not implemented for bitsets of type {type(bitset)}")
 
+def get_convert_working_to_cache_gs_standard(bitset_type):
+    if(bitset_type is int):
+        return _convert_working_gs_to_cache_gs_standard_int
+    if(bitset_type is np.ndarray):
+        return _convert_working_gs_to_cache_gs_standard_nparray
+    raise NotImplementedError(
+        f"Convert working game state to cache game state not implemented for bitset_type {bitset_type}"
+    )
+
+def get_convert_working_to_cache_gs_nightmare(bitset_type):
+    if(bitset_type is int):
+        return _convert_working_gs_to_cache_gs_nightmare_int
+    if(bitset_type is np.ndarray):
+        return _convert_working_gs_to_cache_gs_nightmare_nparray
+    raise NotImplementedError(
+        f"Convert working game state to cache game state not implemented for bitset_type {bitset_type}"
+    )
+
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """
     Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.
@@ -389,10 +469,6 @@ def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
             possible_rule = c[p[v_index]] if(n_mode) else rule
             corresponding_set.add(possible_rule.unique_id)
     return(possible_rule_ids_by_verifier)
-
-def working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
-    bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
-    return np.bitwise_or.reduce(bitsets_to_include, axis=0)
 
 def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
     """

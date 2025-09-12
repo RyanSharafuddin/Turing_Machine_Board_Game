@@ -2,6 +2,7 @@ import time, sys
 import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
+from .hashable_numpy_array import Hashable_Numpy_Array
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
@@ -190,6 +191,7 @@ class Solver:
         "possible_rules_by_verifier",
         "bitset_type",
         "all_cwa_bitsets",
+        "convert_working_gs_to_cache_gs",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -223,7 +225,10 @@ class Solver:
             self.n_mode,
             set_type=self.bitset_type,
         )
-        # NOTE: below 2 function calls are only for testing purposes.
+        self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
+            self.bitset_type
+        )
+        # NOTE: below lines are only for testing purposes.
         cache_bitset_initial = solver_utils._working_cwa_set_to_cache_bitset(
             self.initial_game_state.cwa_set,
             self.all_cwa_bitsets
@@ -293,18 +298,6 @@ class Solver:
         )
         console.rule()
         return
-
-    def convert_working_gs_to_cache_gs(self, working_gs: Game_State):
-        """
-        Note: Once switch working_gs to be the numpy bitset array directly, rather than a Python set of ints, won't need to include `self` as an argument to this function.
-        """
-        cache_bitset = solver_utils.working_cwa_set_to_cache_bitset(working_gs.cwa_set, self.all_cwa_bitsets)
-        cache_game_state = Game_State(
-            num_queries_this_round=working_gs.num_queries_this_round,
-            proposal_used_this_round=working_gs.proposal_used_this_round,
-            cwa_set=cache_bitset
-        )
-        return cache_game_state
 
     # called_calculate = 0
     # cache_hits = 0
