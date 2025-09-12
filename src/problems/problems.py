@@ -50,6 +50,10 @@ def _add_problem_to_both_dicts(problem: Problem):
 def _read_user_problems_from_file(f_name):
     """ Reads user problems from a file line by line and returns a list of them """
     l = []
+    if not os.path.exists(f_name):
+        with open(f_name, 'w') as f:
+            pass # create the file if it doesn't exist
+        return l
     with open(f_name, 'r') as f:
         for line in f:
             if(line.strip()):
@@ -311,6 +315,9 @@ for _problem in _ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(_problem)
 
 if not os.path.isfile(TIME_PICKLE_FILE_NAME):
+    time_pickle_dir = os.path.dirname(TIME_PICKLE_FILE_NAME)
+    if not os.path.exists(time_pickle_dir):
+        os.makedirs(time_pickle_dir)
     _PICKLED_TIME_DICT = dict()
     with open(TIME_PICKLE_FILE_NAME, 'wb') as _f:
         pickle.dump(_PICKLED_TIME_DICT, _f, protocol=pickle.HIGHEST_PROTOCOL)

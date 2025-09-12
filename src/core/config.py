@@ -82,8 +82,8 @@ PRINT_COMBOS          = True       # whether or not to print remaining combos af
 DISABLE_GC         = False      # Whether to disable the garbage collector while solve()ing.
                                 # Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
 CACHE_END_STATES   = False      # whether to cache the end states into the evaluations_cache
-SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int. How the cache cwa sets are stored.
-# SOLVER_BITSET_TYPE = int        # options: np.ndarray, int. How the cache cwa sets are stored.
+# SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int. How the cache cwa sets are stored.
+SOLVER_BITSET_TYPE = int        # options: np.ndarray, int. How the cache cwa sets are stored.
 
 
 # Change How Debugging Information Is Displayed
@@ -93,7 +93,7 @@ ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
-PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time
+PRINT_POST_SOLVE_DEBUG_INFO = True # WARN: this will cause your program to use up a lot of memory and time
                                     # if you set it to true. See solver.py/post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?

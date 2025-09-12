@@ -307,12 +307,13 @@ class Solver:
         best_move_tup is a tup of (proposal, rc_index)
         """
         # self.called_calculate += 1
-        if(game_state in self._evaluations_cache):
+        cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
+        if(cache_game_state in self._evaluations_cache):
             # self.cache_hits += 1
-            return(self._evaluations_cache[game_state])
+            return(self._evaluations_cache[cache_game_state])
         if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
-                self._evaluations_cache[game_state] = Solver.null_answer
+                self._evaluations_cache[cache_game_state] = Solver.null_answer
             return(Solver.null_answer)
         if(game_state.proposal_used_this_round is None):
             # original_qs_dict = qs_dict                                      # TODO: comment_out testing
@@ -368,7 +369,7 @@ class Solver:
         #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
         #         answer = end_round_early_result
 
-        self._evaluations_cache[game_state] = answer
+        self._evaluations_cache[cache_game_state] = answer
         return(answer)
 
     def solve(self):
@@ -412,10 +413,11 @@ class Solver:
         (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
         #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        if not(game_state in self._evaluations_cache):
+        cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
+        if not(cache_game_state in self._evaluations_cache):
             return(default)
         (best_move, node_evaluation) = (
-            self._evaluations_cache[game_state][0], self._evaluations_cache[game_state][-1]
+            self._evaluations_cache[cache_game_state][0], self._evaluations_cache[cache_game_state][-1]
         )
         best_mcost = ((Solver.does_move_cost_round(best_move, game_state)), 1)
         gs_tuple = self.apply_move_to_state(best_move, game_state)
@@ -552,13 +554,6 @@ class Solver:
         #     for gs in gs_list:
         #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
 
-    #TODO cache_gs delete below
-    def transform_working_gs_to_cache_gs(self, working_gs: Game_State):
-        """
-        In the future, use this to transform the game states that are used by the program to conduct queries on to the version of the game state that is stored in self._evaluations_cache.
-        """
-        return(working_gs)
-
     def filter_cache(self):
         """
         Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
@@ -570,12 +565,12 @@ class Solver:
         added_game_states_set = set()
         while(stack):
             curr_working_gs = stack.pop()
-            curr_cache_gs = self.transform_working_gs_to_cache_gs(curr_working_gs) #TODO cache_gs
+            curr_cache_gs = self.convert_working_gs_to_cache_gs(curr_working_gs, self.all_cwa_bitsets) #TODO cache_gs
             if(
                 (curr_cache_gs not in added_game_states_set) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
             ):
-                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_cache_gs)
+                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
                 if(gs_evaluation_result is None):
                     console.print("Huh. Why is the evaluation result of the following game state None?")
                     console.print("Working game state: ", curr_working_gs)
