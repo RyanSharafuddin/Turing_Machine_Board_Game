@@ -171,18 +171,7 @@ def testing_stuff(self):
     global sd
     sd = display.Solver_Displayer(self)
 
-def progress_initialize():
-    p = progress.Progress(
-        progress.TextColumn("[progress.description]{task.description}"),
-        progress.BarColumn(),
-        progress.MofNCompleteColumn(),
-        progress.TaskProgressColumn(),
-        progress.TimeElapsedColumn(),
-        refresh_per_second=1,
-        console=console,
-    )
-    return(p)
-progress = progress_initialize()
+progress = solver_utils.progress_initialize()
 
 class Solver:
     null_answer = (None, (0,0))
@@ -274,7 +263,7 @@ class Solver:
             progress.reset(task_id, total=total, visible=True)
         else:
             move_iterable = move_generator
-        return(move_iterable)
+        return move_iterable
 
     def _print_debug_info(
             self,
@@ -284,7 +273,7 @@ class Solver:
             qs_dict_2=None
         ):
         """
-        Print out debug info (info about the queries dicts and game state) if `condition` is True.
+        Print out debug info (partition info about the queries dicts and game state) if `condition` is True.
         """
         if not condition:
             return
@@ -406,7 +395,7 @@ class Solver:
         #         answer = end_round_early_result
 
         self._evaluations_cache[cache_game_state] = answer
-        return(answer)
+        return answer
 
     def solve(self):
         """
@@ -424,19 +413,19 @@ class Solver:
 
     def post_solve_printing(self):
         """
-        Define what you would like controller to print after solving.
+        Define what you would like controller to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers.
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
         from .display import Solver_Displayer
         sd = Solver_Displayer(self)
-        sd.print_eval_cache_size()
         if(config.PRINT_POST_SOLVE_DEBUG_INFO):
             global asizeof
             from pympler.asizeof import asizeof # only import this if printing post solve debug info.
             # WARN: The line below itself uses up a lot of memory and time.
             # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
             self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+            sd.print_eval_cache_size()
             self.print_eval_cache_stats()
             self.print_cache_by_size()
             # console.print(f"{useless_queries:,} useless queries")
@@ -453,12 +442,22 @@ class Solver:
         (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
         #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
+        if self.n_mode:
+            (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+                working_game_state,
+                self.all_cwa_bitsets,
+                self.shift_amounts,
+                self.int_verifier_bit_mask
+            )
+        else: # not nightmare mode
+            cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
         if not(cache_game_state in self._evaluations_cache):
             return default
-        (best_move, node_evaluation) = (
-            self._evaluations_cache[cache_game_state][0], self._evaluations_cache[cache_game_state][-1]
-        )
+        evaluation_result = self._evaluations_cache[cache_game_state]
+        (best_move, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
+        if self.n_mode:
+            (best_proposal, best_v_index) = best_move
+            best_move = (best_proposal, np.argwhere(permutation == best_v_index)[0, 0]) # fancy way to get index of an arg in a 1d numpy array
         best_mcost = ((Solver.does_move_cost_round(best_move, working_game_state)), 1)
         gs_tuple = self.apply_move_to_state(best_move, working_game_state)
         constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
@@ -505,19 +504,19 @@ class Solver:
             return((a, unique_id_in_c_tup, p))
         # not nightmare mode
         return( (a, unique_id_in_c_tup) )
-    def full_cwa_list_from_cwa_set(self, cwa_set):
+    def full_cwa_list_from_cwa_set(self, working_cwa_set):
         # cwa_set representation_change
         """
-        Given a cwa_set, return a list of the complete cwas in it. They are sorted in a consistent order.
+        Given a working_cwa_set, return a list of the complete cwas in it. They are sorted in a consistent order.
         """
-        full_cwa_list = [self.full_cwas_list[cwa_index] for cwa_index in cwa_set]
+        full_cwa_list = [self.full_cwas_list[cwa_index] for cwa_index in working_cwa_set]
         # sort the list in a consistent way so that printouts when debugging are consistent.
         full_cwa_list.sort(key=self.default_cwa_sort_key)
         return(full_cwa_list)
 
-    def full_cwa_list_from_game_state(self, gs: Game_State):
-        """ A convenience function for getting the full cwa list directly from a game state """
-        return(self.full_cwa_list_from_cwa_set(gs.cwa_set))
+    def full_cwa_list_from_game_state(self, working_gs: Game_State):
+        """ A convenience function for getting the full cwa list directly from a working game state """
+        return(self.full_cwa_list_from_cwa_set(working_gs.cwa_set))
 
     def intersect_gscwa_qinfocwa(self, gs_cwa_set, q_info_cwa_set):
         """
@@ -603,9 +602,18 @@ class Solver:
         new_evaluations_cache = dict()
         stack : list[Game_State] = [self.initial_game_state]
         added_game_states_set = set()
-        while(stack):
+        while stack:
             curr_working_gs = stack.pop()
-            curr_cache_gs = self.convert_working_gs_to_cache_gs(curr_working_gs, self.all_cwa_bitsets) #TODO cache_gs
+            if self.n_mode:
+                curr_cache_gs = self.convert_working_gs_to_cache_gs(
+                curr_working_gs,
+                self.all_cwa_bitsets,
+                self.shift_amounts,
+                self.int_verifier_bit_mask
+            )[0]
+            else: # not nightmare mode.
+                #TODO cache_gs
+                curr_cache_gs = self.convert_working_gs_to_cache_gs(curr_working_gs, self.all_cwa_bitsets)
             if(
                 (curr_cache_gs not in added_game_states_set) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))

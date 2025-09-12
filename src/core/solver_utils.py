@@ -1,5 +1,6 @@
 import math, itertools, copy
 import numpy as np
+from rich import progress
 from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
 from .hashable_numpy_array import Hashable_Numpy_Array
 
@@ -518,6 +519,18 @@ def get_num_queries_in_qs_dict(qs_dict: dict):
     Return the number of queries contained in a qs dict. For debugging/information displaying purposes.
     """
     return(sum([len(inner_dict) for inner_dict in qs_dict.values()]))
+
+def progress_initialize():
+    p = progress.Progress(
+        progress.TextColumn("[progress.description]{task.description}"),
+        progress.BarColumn(),
+        progress.MofNCompleteColumn(),
+        progress.TaskProgressColumn(),
+        progress.TimeElapsedColumn(),
+        refresh_per_second=1,
+        console=console,
+    )
+    return(p)
 
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
 def calculate_expected_cost(move_cost, probs, gss_costs):

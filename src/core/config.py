@@ -48,10 +48,10 @@ COLORS = [
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
 SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
-PROPOSAL_COLOR = "#00FFAA" # currently only used in partition tables
+PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
+HEX_COLOR                  = "#FFD7AF" # color of hex numbers when displaying bitsets.
 # verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#00FFD5", "#88FF00", "#FFE600", "#FF7B00"]
-HEX_COLOR = "#FFD7AF" # color of hex numbers when displaying bitsets.
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -68,13 +68,12 @@ COLOR_OF_SPACE = "#00FFFF"
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
-SHOW_COMBOS_IN_TREE                = False       # Print combos in trees in display_problem_solution()
-P_ORDER                            = True       # Whether to display tables in permutation order for
-                                                # nightmare mode (no effect in other modes)
-# whether to print a line b/t every unique answer in the tables
-LINES_BETWEEN_ANSWERS = False
-DISPLAY               = True       # Whether controller displays the problems it asks solver to solve
-PRINT_COMBOS          = True       # whether or not to print remaining combos after every query in play()
+SHOW_COMBOS_IN_TREE   = False      # Print combos in trees in display_problem_solution()
+P_ORDER               = True       # Display tables in permutation order for
+                                   # nightmare mode (no effect in other modes)
+LINES_BETWEEN_ANSWERS = False      # print a line b/t every unique answer in answer tables
+DISPLAY               = True       # display the problem when asked to solve
+PRINT_COMBOS          = True       # print remaining combos after every query in play()
 
 
 
@@ -102,6 +101,5 @@ DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginni
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY      = "src/problems/Pickles/Bit_Sets" # Where all pickled solvers go.
-# PICKLE_DIRECTORY    = "src/problems/Pickles/Partition_Set_Filter"
 USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"
