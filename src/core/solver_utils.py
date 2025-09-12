@@ -403,7 +403,7 @@ def _convert_working_gs_to_cache_gs_nightmare_nparray(
 ############################## PUBLIC FUNCTIONS #################################################
 def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """
-    Get the list of bitsets corresponding to the cwas of the problem.
+    Get the list of bitsets corresponding to the cwas of the problem, or None if `set_type` is set.
 
     Parameters
     ----------
@@ -417,13 +417,15 @@ def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type
         Whether this is a nightmare mode problem.
 
     set_type : type
-        The type of the bitsets returned. Currently only int is supported; will add Hashable_Numpy_Array next.
+        The type of the bitsets returned. If this is set, will return None, b/c then will use Python sets of int indexes, rather than bitsets.
 
     Returns
     -------
     cwa_bitsets : np.ndarray (each element of cwa_bitsets is a combo. if set_type is int, each combo is a Python integer. if set_type is np.ndarray, each combo is itself an ndarray where each element of the combo is a np.ndarray of uint8 representing a verifier).
         cwa_bitsets[i] is the bitset corresponding to the cwa that is solver.full_cwas_list[i].
     """
+    if (set_type is set):
+        return None
     return np.array(
         [_single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list],
         dtype=(np.uint8 if (set_type == np.ndarray) else object)
@@ -433,10 +435,12 @@ def bitset_to_int(bitset):
     """
     Given a bitset, return the integer that corresponds to it. Note that bitset may be of different types. Intended for use only for non-performance-sensitive tasks like displaying.
     """
-    if(type(bitset) == int):
+    if(type(bitset) is int):
         return bitset
-    if(type(bitset) == np.ndarray):
+    if(type(bitset) is np.ndarray):
         return _nd_array_to_int(bitset)
+    if(type(bitset) is Hashable_Numpy_Array):
+        return _nd_array_to_int(bitset.nparray)
     raise NotImplementedError(f"bitset_to_int not implemented for bitsets of type {type(bitset)}")
 
 def get_convert_working_to_cache_gs_standard(bitset_type):

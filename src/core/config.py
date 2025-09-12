@@ -78,12 +78,18 @@ PRINT_COMBOS          = True       # print remaining combos after every query in
 
 
 # Solver workings
-DISABLE_GC         = False      # Whether to disable the garbage collector while solve()ing.
-                                # Increases speed on many problems, but *may* use more memory (does it actually, though? Test this with fil-profiler), and some problems already get killed due to out of memory even without this.
+DISABLE_GC         = False      # disable the garbage collector while solve()ing.
 CACHE_END_STATES   = False      # whether to cache the end states into the evaluations_cache
 SOLVER_NUM_CONCURRENT_TASKS = 4 # number of progress bars to display. Can set to 0 to 'disable'.
-# SOLVER_BITSET_TYPE = np.ndarray # options: np.ndarray, int. How the cache cwa sets are stored.
-SOLVER_BITSET_TYPE = int        # options: np.ndarray, int. How the cache cwa sets are stored.
+STANDARD_BITSET_TYPE = (        # cache game state set type in standard mode. Choose 1.
+    # int
+    # np.ndarray
+    set
+)
+NIGHTMARE_BITSET_TYPE = (       # cache game state set type in standard mode. Choose 1.
+    int
+    # np.ndarray
+)
 
 
 # Change How Debugging Information Is Displayed

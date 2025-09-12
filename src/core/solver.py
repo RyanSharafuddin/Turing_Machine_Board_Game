@@ -223,8 +223,8 @@ class Solver:
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         ############################### BITSET WERK ##########################################################
         testing_stuff(self) # WARN TODO: delete
-        self.bitset_type        = config.SOLVER_BITSET_TYPE
-        self.all_cwa_bitsets        = solver_utils.get_cwa_bitsets(
+        self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
+        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(
             self.full_cwas_list,
             self.possible_rules_by_verifier,
             self.n_mode,
