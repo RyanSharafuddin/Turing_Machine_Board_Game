@@ -1288,9 +1288,9 @@ class Solver_Displayer:
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
 ############################### BITSET WERK #################################################################
-    def get_bitset_Texts(self, bitset: int, base_16=False) -> list[Text]:
+    def get_bitset_Texts(self, bitset, base_16=False) -> list[Text]:
         """
-        Given a bitset (currently in the form of a Python integer, but other formats to be added soon), return a list of Texts that can be used to pretty print it.
+        Given a bitset, return a list of Texts that can be used to pretty print it.
 
         Parameters
         ---------
@@ -1303,9 +1303,9 @@ class Solver_Displayer:
         -------
         list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
         """
-        if(type(bitset) == int):
+        if(type(bitset) is int):
             return self._get_bitset_Texts_int(bitset, base_16)
-        if(type(bitset) == np.ndarray):
+        if(type(bitset) is np.ndarray):
             return self._get_bitset_Texts_ndarr(bitset, base_16)
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
 

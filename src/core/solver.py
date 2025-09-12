@@ -411,6 +411,7 @@ class Solver:
         -------
         (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
+        #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
         if not(game_state in self._evaluations_cache):
             return(default)
         (best_move, node_evaluation) = (
@@ -449,7 +450,7 @@ class Solver:
     @staticmethod
     def does_move_cost_round(move, gs: Game_State):
         proposal = move[0]
-        # if num_queries_this_round is 3, then gs.proposal_used.. should be None
+        # if num_queries_this_round is 0, then gs.proposal_used.. should be None
         return(gs.proposal_used_this_round != proposal)
 
     def default_cwa_sort_key(self, full_cwa):
@@ -492,16 +493,23 @@ class Solver:
         -------
         A cwa_set that could be used to construct another working game state.
         """
-        # cwa_set representation_change
+        # working cwa_set representation_change
         return(gs_cwa_set & q_info_cwa_set)
 
     def print_cache_by_size(self):
+        #TODO cache_gs: reconsider this function entirely in light of cache bitsets.
+        for gs in self._evaluations_cache:
+            break
+        if(type(gs.cwa_set) is not set):
+            console.print(
+                f"print_cache_by_size not implemented for cache cwa sets of type {type(gs.cwa_set)}."
+            )
+            console.print("Skipping.")
+            return
         console.rule()
         console.print(f"\nNumber of game states in evaluations cache by size:", justify="center")
         l = [0] * (len(self.full_cwas_list))
         for gs in self._evaluations_cache:
-            # cwa_set representation_change need a function to get length from cwa_set
-            # TODO: will need to change significantly once store game states in the cache with minimal_possible_rules_by_verifier_sets instead of what currently doing.
             l[len(gs.cwa_set) - 1] += 1
         for (size, num) in enumerate(l, start=1):
             console.print(f"{size:>{4},}: {num:>{len(f'{max(l):,}')},}", justify="center")
@@ -544,6 +552,7 @@ class Solver:
         #     for gs in gs_list:
         #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
 
+    #TODO cache_gs delete below
     def transform_working_gs_to_cache_gs(self, working_gs: Game_State):
         """
         In the future, use this to transform the game states that are used by the program to conduct queries on to the version of the game state that is stored in self._evaluations_cache.
@@ -561,7 +570,7 @@ class Solver:
         added_game_states_set = set()
         while(stack):
             curr_working_gs = stack.pop()
-            curr_cache_gs = self.transform_working_gs_to_cache_gs(curr_working_gs)
+            curr_cache_gs = self.transform_working_gs_to_cache_gs(curr_working_gs) #TODO cache_gs
             if(
                 (curr_cache_gs not in added_game_states_set) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
