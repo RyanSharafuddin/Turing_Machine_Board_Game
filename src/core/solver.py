@@ -234,7 +234,7 @@ class Solver:
             self.all_cwa_bitsets
         )
         sd.print_table_bitsets(cache_bitset_initial, title="Initial State Cache Bitset", single_bitset=True)
-        console.print(cache_bitset_initial, justify="center")
+        # console.print(cache_bitset_initial, justify="center")
         ############################### BITSET WERK ##########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
@@ -404,7 +404,7 @@ class Solver:
             # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
         sys.stdout.flush()
 
-    def get_move_mcost_gs_ncost_from_cache(self, game_state: Game_State, default=None):
+    def get_move_mcost_gs_ncost_from_cache(self, working_game_state: Game_State, default=None):
         """
         Given a game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
 
@@ -413,19 +413,19 @@ class Solver:
         (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
         #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
+        cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
         if not(cache_game_state in self._evaluations_cache):
-            return(default)
+            return default
         (best_move, node_evaluation) = (
             self._evaluations_cache[cache_game_state][0], self._evaluations_cache[cache_game_state][-1]
         )
-        best_mcost = ((Solver.does_move_cost_round(best_move, game_state)), 1)
-        gs_tuple = self.apply_move_to_state(best_move, game_state)
+        best_mcost = ((Solver.does_move_cost_round(best_move, working_game_state)), 1)
+        gs_tuple = self.apply_move_to_state(best_move, working_game_state)
         constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
-        return(constructed_answer)
+        return constructed_answer
 
     def apply_move_to_state(self, move, gs: Game_State) -> tuple[Game_State, Game_State]:
-        """ WARN: Do not use this for anything performance sensitive. Return (gs_false, gs_true) """
+        """ WARN: Do not use this for anything performance sensitive. Return (gs_false, gs_true). Note: these are working states this function is dealing with."""
         (proposal, v_index) = move
         (q_info_true, q_info_false) = self.qs_dict[proposal][v_index]
         (cwa_set_false, cwa_set_true) = (
