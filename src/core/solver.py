@@ -3,7 +3,6 @@ import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
-from .hashable_numpy_array import Hashable_Numpy_Array
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
@@ -197,6 +196,8 @@ class Solver:
         "convert_working_gs_to_cache_gs",
         "num_concurrent_tasks",
         "depth_to_tasks_l",
+        "max_hex_length", # a bit janky to store a display detail here rather than Solver_Displayer, but oh well.
+        "max_decimal_length",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -233,12 +234,17 @@ class Solver:
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
         )
+        self.max_hex_length     = 0
+        self.max_decimal_length = 0
         # NOTE: below block is only for testing purposes.
         if ((self.bitset_type is not set) and (not self.n_mode)):
             initial_cache_gs = self.convert_working_gs_to_cache_gs(
                 self.initial_game_state,
                 self.all_cwa_bitsets
             )
+            initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
+            self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
+            self.max_decimal_length = len(f'{initial_bitset_int:,}')
             sd.print_cache_game_state(initial_cache_gs, "Initial State")
         ############################### BITSET WERK ##########################################################
         ############################### PROGRESS WERK ########################################################
@@ -338,8 +344,8 @@ class Solver:
                 self._evaluations_cache[cache_game_state] = Solver.null_answer
             return(Solver.null_answer)
         if(game_state.proposal_used_this_round is None):
-            # original_qs_dict = qs_dict                                      # TODO: comment_out testing
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
+            # original_qs_dict = qs_dict # COMMENT OUT THIS LINE WHEN NOT DEBUGGING ##########################
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # KEEP this line always
             ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
             # len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
             # len_now = solver_utils.get_num_queries_in_qs_dict(qs_dict)

@@ -926,7 +926,7 @@ class Solver_Displayer:
         )
         self._print_partition_table(table_data, full_cwas, title, verifiers_to_sort_by)
         return
-    def _get_bitset_Texts_int(self, bitset: int, base_16: bool, bits_per_verifier=None):
+    def _get_bitset_Texts_int(self, bitset: int, base_16: bool, bits_per_verifier=None, verifier_colors=None):
         """
         get the Texts for an int given the int, whether it should be displayed in base 16, and the number of bits per verifier (which is None if there are exactly as many bits per verifier as there are possible rules for that verifier).
         """
@@ -947,25 +947,29 @@ class Solver_Displayer:
             if(base_16):
                 text_this_verifier = Text(
                     f"{hex(bitset_for_verifier).upper()[2:]:0>{math.ceil(num_bits/4)}}",
-                    style=HEX_COLOR,
+                    style=HEX_COLOR if (verifier_colors is None) else verifier_colors[v_index],
                 )
             else:
                 text_this_verifier_parts = []
                 for bit_index in range(num_bits):
                     bit = (bitset_for_verifier >> bit_index) & 1
-                    t = BIT_ONE_TEXT if bit else BIT_ZERO_TEXT
+                    if(verifier_colors is None):
+                        t = BIT_ONE_TEXT if bit else BIT_ZERO_TEXT
+                    else:
+                        t = BIT_ONE_TEXT if bit else Text('0', style=verifier_colors[v_index])
                     text_this_verifier_parts.append(t)
                 text_this_verifier_parts.reverse()
                 text_this_verifier = Text.assemble(*text_this_verifier_parts)
             texts.append(text_this_verifier)
         texts.reverse()
         return(texts)
-    def _get_bitset_Texts_ndarr(self, bitset: np.ndarray, base_16):
+    def _get_bitset_Texts_ndarr(self, bitset: np.ndarray, base_16, verifier_colors=None):
         (num_verifiers, num_unint8_per_verifier) = bitset.shape
         return self._get_bitset_Texts_int(
             solver.solver_utils.bitset_to_int(bitset),
             base_16,
-            bits_per_verifier = 8 * num_unint8_per_verifier
+            bits_per_verifier = 8 * num_unint8_per_verifier,
+            verifier_colors=verifier_colors,
         )
 
     @staticmethod
@@ -1289,7 +1293,7 @@ class Solver_Displayer:
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
     ############################### BITSET WERK #######################################################
-    def get_bitset_Texts(self, bitset, base_16=False) -> list[Text]:
+    def get_bitset_Texts(self, bitset, base_16=False, verifier_colors=None) -> list[Text]:
         """
         Given a bitset, return a list of Texts that can be used to pretty print it.
 
@@ -1300,20 +1304,31 @@ class Solver_Displayer:
 
         hex : bool
             Whether to return the Texts for each verifier in base 16
+
+        verifier_colors: list[colors] | None
+            A list of what color to use for the Text of what verifier (only colors the 0s if displaying bits). Can be None to use default colors for the verifier texts.
+
         Returns
         -------
         list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
         """
         if(type(bitset) is int):
-            return self._get_bitset_Texts_int(bitset, base_16)
+            return self._get_bitset_Texts_int(bitset, base_16, verifier_colors=verifier_colors)
         if(type(bitset) is np.ndarray):
-            return self._get_bitset_Texts_ndarr(bitset, base_16)
+            return self._get_bitset_Texts_ndarr(bitset, base_16, verifier_colors=verifier_colors)
         if(type(bitset) is Hashable_Numpy_Array):
-            return self._get_bitset_Texts_ndarr(bitset.nparray, base_16)
+            return self._get_bitset_Texts_ndarr(bitset.nparray, base_16, verifier_colors=verifier_colors)
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
 
-
-    def print_table_bitsets(self, bitsets, title=None, base_16=False, active=True, single_bitset=False):
+    def print_table_bitsets(
+            self,
+            bitsets,
+            title=None,
+            base_16=False,
+            active=True,
+            single_bitset=False,
+            verifier_colors=None
+        ):
         """
         Print a table of bitsets. NOTE: `bitsets` can be a list or a single bitset.
 
@@ -1333,6 +1348,9 @@ class Solver_Displayer:
 
         single_bitset : bool
             A boolean which tells the function whether bitsets is a single bitset or not.
+
+        verifier_colors: list[colors] | None
+            A list of what color to use for the Text of what verifier (only colors the 0s if displaying bits). Can be None to use default colors for the verifier texts.
         """
         if not active:
             return
@@ -1341,15 +1359,17 @@ class Solver_Displayer:
         if(single_bitset):
             bitsets = [bitsets]
         t = Table(
-            title=title,
-            title_style="",
             header_style="magenta",
             row_styles=['', 'on #262626']
         )
         if(len(bitsets) > 1):
             t.add_column("", justify="right") # index of bitset. Starts at 1.
-        t.add_column(Text("Int", justify="center"), justify="right") # full integer corresponding to bitset
-        t.add_column(Text("Hex", justify="center"), justify="right") # hex of the integer column
+        t.add_column(
+            Text("Int", justify="center"),
+            justify="right",
+            min_width=self.solver.max_decimal_length
+        ) # full integer corresponding to bitset
+        t.add_column(Text("Hex", justify="center"), justify="right", min_width=self.solver.max_hex_length) # hex of the integer column
         for v_index in range(self.solver.num_rcs - 1, -1, -1):
             t.add_column(Text(f"{letters[v_index]}", justify="center"), justify="right")
         for (bs_index, bs) in enumerate(bitsets):
@@ -1357,21 +1377,54 @@ class Solver_Displayer:
             bitset_int = solver.solver_utils.bitset_to_int(bs)
             int_list = [
                 Text(f"{bitset_int:,}", style="cyan"),
-                Text(f"{hex(bitset_int).upper()[2:]:}", style=HEX_COLOR),
+                Text(f"{hex(bitset_int).upper()[2:]}", style=HEX_COLOR),
             ]
-            row_args = index_list + int_list + self.get_bitset_Texts(bs, base_16=base_16)
+            row_args = index_list + int_list + self.get_bitset_Texts(
+                bs,
+                base_16=base_16,
+                verifier_colors=verifier_colors
+            )
             t.add_row(*row_args)
+        console.print(title, justify="center")
         console.print(t, justify="center")
         return
 
-    def print_cache_game_state(self, cache_gs : Game_State, title):
+    def print_cache_game_state(
+            self,
+            cache_gs : Game_State,
+            title="Bit State",
+            verifier_colors=None,
+            include_round_info=True,
+        ):
         """
+        Parameters
+        ----------
+        cache_gs: Game_State
+            A game state that is using a bitset to represent which CWAs are possible.
+
+        title: str | Text
+            The title of the table.
+
+        verifier_colors: list[colors] | None
+            A list of what color to use for the Text of what verifier (only colors the 0s if displaying bits). Can be None to use default colors for the verifier texts.
+
+        include_round_info: bool
+            Whether the printed table should include the number of queries this round/proposal this round.
+
         WARN: only use this on cache game states that are actually different from working game states. i.e. don't use this in standard mode if you're using set as bitset_type.
         """
         q_str = _highlight(f' Queries this round: {cache_gs.num_queries_this_round}.')
-        prop_str = _highlight(f' Proposal this round: {cache_gs.proposal_used_this_round}.')
-        title = Text.assemble(title + ":", q_str, prop_str)
-        self.print_table_bitsets(cache_gs.cwa_set, title, base_16=CWA_BITSETS_BASE_16, single_bitset=True)
+        prop_str = _highlight(f' Current Proposal: {cache_gs.proposal_used_this_round}.')
+        if(type(title) is str):
+            title = Text(title)
+        title = Text.assemble(title + ":", q_str, prop_str) if(include_round_info) else title
+        self.print_table_bitsets(
+            cache_gs.cwa_set,
+            title,
+            base_16=CWA_BITSETS_BASE_16,
+            single_bitset=True,
+            verifier_colors=verifier_colors,
+        )
     ############################### BITSET WERK #######################################################
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer

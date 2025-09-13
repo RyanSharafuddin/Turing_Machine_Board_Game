@@ -51,7 +51,7 @@ PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem;
 PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
 HEX_COLOR                  = "#FFD7AF" # color of hex numbers when displaying bitsets.
 # verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
-VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#00FFD5", "#88FF00", "#FFE600", "#FF7B00"]
+VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#14A990", "#3E53DE", "#FFE600", "#FF7B00"]
 
 # Colors for the problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
@@ -68,17 +68,17 @@ COLOR_OF_SPACE = "#00FFFF"
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
-SHOW_COMBOS_IN_TREE   = False      # Print combos in trees in display_problem_solution()
-P_ORDER               = True       # Display tables in permutation order for
-                                   # nightmare mode (no effect in other modes)
-LINES_BETWEEN_ANSWERS = False      # print a line b/t every unique answer in answer tables
-DISPLAY               = True       # display the problem when asked to solve
-PRINT_COMBOS          = True       # print remaining combos after every query in play()
+SHOW_COMBOS_IN_TREE   = False # Print combos in trees in display_problem_solution()
+P_ORDER               = True  # Display tables in permutation order for
+                              # nightmare mode (no effect in other modes)
+LINES_BETWEEN_ANSWERS = False # print a line b/t every unique answer in answer tables
+DISPLAY               = True  # display the problem when asked to solve
+PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
 
 
 # Solver workings
-DISABLE_GC                  = False # disable the garbage collector while solve()ing.
+DISABLE_GC                  = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES            = False # whether to cache the end states into the evaluations_cache
 SOLVER_NUM_CONCURRENT_TASKS = 1     # number of progress bars to display. Can set to 0 to 'disable'.
 STANDARD_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
@@ -86,7 +86,7 @@ STANDARD_BITSET_TYPE        = (     # cache game state set type in standard mode
     # int
     # np.ndarray
 )
-NIGHTMARE_BITSET_TYPE = (       # cache game state set type in standard mode. Choose 1.
+NIGHTMARE_BITSET_TYPE = (           # cache game state set type in standard mode. Choose 1.
     int
     # np.ndarray
 )

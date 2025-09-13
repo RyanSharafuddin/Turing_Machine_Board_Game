@@ -112,10 +112,49 @@ class Solver_Nightmare(Solver):
             self.shift_amounts,
             self.int_verifier_bit_mask
         )[0]
+        initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
+        self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
+        self.max_decimal_length = len(f'{initial_bitset_int:,}')
         testing_stuff(self) # TODO: delete
         sd = display.Solver_Displayer(self)
         sd.print_cache_game_state(initial_cache_gs, "Initial State")
 
+    def _print_canonical_form_info(self, game_state, cache_game_state, permutation, max_num_forms):
+        if ('num_forms' not in globals()):
+            global num_forms
+            num_forms = 0
+        else:
+            num_forms += 1
+        if(num_forms < max_num_forms):
+            console.rule()
+            rearranged_colors = [None] * len(config.VERIFIER_COLORS)
+            for (index, num) in enumerate(permutation):
+                rearranged_colors[num] = config.VERIFIER_COLORS[index]
+            cache_state_without_reordering_func = (
+                solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
+                solver_utils._convert_working_gs_to_cache_gs_standard_nparray
+            )
+            cache_state_without_reordering = cache_state_without_reordering_func(
+                game_state,
+                self.all_cwa_bitsets
+            )
+            if not np.array_equal(np.array([i for i in range(self.num_rcs)]), permutation):
+                form_equal_string = ("Canonical form [red]not[/red] equal!")
+            else:
+                form_equal_string = ("Canonical form [green]is[/green] equal!")
+            console.print(f"Table # {num_forms + 1:,}. {form_equal_string}\n", justify="center")
+            sd.print_cache_game_state(
+                cache_state_without_reordering,
+                "Original",
+                config.VERIFIER_COLORS
+            )
+            print()
+            sd.print_cache_game_state(
+                cache_game_state,
+                "Canonical",
+                rearranged_colors,
+                include_round_info=False,
+            )
 
     def _calculate_best_move(
         self,
@@ -131,6 +170,9 @@ class Solver_Nightmare(Solver):
             self.shift_amounts,
             self.int_verifier_bit_mask
         )
+        ######################################## DEBUGGING ###################################################
+        # self._print_canonical_form_info(game_state, cache_game_state, permutation, max_num_forms=500)
+        ######################################## DEBUGGING ###################################################
         if(cache_game_state in self._evaluations_cache):
             # self.cache_hits += 1
             return(self._evaluations_cache[cache_game_state])
