@@ -233,13 +233,13 @@ class Solver:
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
         )
-        # NOTE: below lines are only for testing purposes.
-        cache_bitset_initial = solver_utils._working_cwa_set_to_cache_bitset(
-            self.initial_game_state.cwa_set,
-            self.all_cwa_bitsets
-        )
-        sd.print_table_bitsets(cache_bitset_initial, title="Initial State Cache Bitset", single_bitset=True)
-        # console.print(cache_bitset_initial, justify="center")
+        # NOTE: below block is only for testing purposes.
+        if ((self.bitset_type is not set) and (not self.n_mode)):
+            initial_cache_gs = self.convert_working_gs_to_cache_gs(
+                self.initial_game_state,
+                self.all_cwa_bitsets
+            )
+            sd.print_cache_game_state(initial_cache_gs, "Initial State")
         ############################### BITSET WERK ##########################################################
         ############################### PROGRESS WERK ########################################################
         self.num_concurrent_tasks = config.SOLVER_NUM_CONCURRENT_TASKS

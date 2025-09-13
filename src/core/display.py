@@ -11,6 +11,7 @@ from rich import box
 from . import solver
 from .definitions import *
 from .config import *
+from .hashable_numpy_array import Hashable_Numpy_Array
 
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 BIT_ONE_TEXT = Text('1', style="bright_green")
@@ -1287,7 +1288,7 @@ class Solver_Displayer:
     def get_problem_id_text(self):
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
-############################### BITSET WERK #################################################################
+    ############################### BITSET WERK #######################################################
     def get_bitset_Texts(self, bitset, base_16=False) -> list[Text]:
         """
         Given a bitset, return a list of Texts that can be used to pretty print it.
@@ -1307,6 +1308,8 @@ class Solver_Displayer:
             return self._get_bitset_Texts_int(bitset, base_16)
         if(type(bitset) is np.ndarray):
             return self._get_bitset_Texts_ndarr(bitset, base_16)
+        if(type(bitset) is Hashable_Numpy_Array):
+            return self._get_bitset_Texts_ndarr(bitset.nparray, base_16)
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
 
 
@@ -1359,7 +1362,17 @@ class Solver_Displayer:
             row_args = index_list + int_list + self.get_bitset_Texts(bs, base_16=base_16)
             t.add_row(*row_args)
         console.print(t, justify="center")
-############################### BITSET WERK #################################################################
+        return
+
+    def print_cache_game_state(self, cache_gs : Game_State, title):
+        """
+        WARN: only use this on cache game states that are actually different from working game states. i.e. don't use this in standard mode if you're using set as bitset_type.
+        """
+        q_str = _highlight(f' Queries this round: {cache_gs.num_queries_this_round}.')
+        prop_str = _highlight(f' Proposal this round: {cache_gs.proposal_used_this_round}.')
+        title = Text.assemble(title + ":", q_str, prop_str)
+        self.print_table_bitsets(cache_gs.cwa_set, title, base_16=CWA_BITSETS_BASE_16, single_bitset=True)
+    ############################### BITSET WERK #######################################################
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.

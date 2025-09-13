@@ -85,6 +85,12 @@ def _nightmare_get_and_apply_moves(
                                 return
                     break
 
+def testing_stuff(self):
+    global display
+    from . import display
+    global sd
+    sd = display.Solver_Displayer(self)
+
 class Solver_Nightmare(Solver):
     __slots__ = (
         "num_possible_rules",
@@ -99,6 +105,17 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
+        # NOTE: below is only for testing purposes.
+        initial_cache_gs = self.convert_working_gs_to_cache_gs(
+            self.initial_game_state,
+            self.all_cwa_bitsets,
+            self.shift_amounts,
+            self.int_verifier_bit_mask
+        )[0]
+        testing_stuff(self) # TODO: delete
+        sd = display.Solver_Displayer(self)
+        sd.print_cache_game_state(initial_cache_gs, "Initial State")
+
 
     def _calculate_best_move(
         self,

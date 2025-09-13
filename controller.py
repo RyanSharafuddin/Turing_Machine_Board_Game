@@ -35,11 +35,11 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     sd.print_problem(s.rcs_list, s.problem, active=display_problem)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
-    print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
+    print("\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end="")
     sd.print_table_bitsets(
         bitsets=s.all_cwa_bitsets,
         base_16=CWA_BITSETS_BASE_16,
-        active=((DISPLAY_CWA_BITSETS and display_problem))
+        active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
     )
     print()
     while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
@@ -86,11 +86,11 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
             permutation_order=P_ORDER,
             active=display_problem
         )
-        print("\n" if (DISPLAY_CWA_BITSETS and display_problem) else "", end="")
+        print("\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end="")
         sd.print_table_bitsets(
             bitsets=s.all_cwa_bitsets,
             base_16=CWA_BITSETS_BASE_16,
-            active=((DISPLAY_CWA_BITSETS and display_problem))
+            active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
         )
         print()
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
@@ -133,8 +133,8 @@ def make_solver(problem: Problem):
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
-    print("\n" if DISPLAY_CWA_BITSETS else "", end="")
-    sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=DISPLAY_CWA_BITSETS)
+    print("\n" if (DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)) else "", end="")
+    sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=(DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)))
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()

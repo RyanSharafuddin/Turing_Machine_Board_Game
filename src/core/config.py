@@ -78,13 +78,13 @@ PRINT_COMBOS          = True       # print remaining combos after every query in
 
 
 # Solver workings
-DISABLE_GC         = False      # disable the garbage collector while solve()ing.
-CACHE_END_STATES   = False      # whether to cache the end states into the evaluations_cache
-SOLVER_NUM_CONCURRENT_TASKS = 4 # number of progress bars to display. Can set to 0 to 'disable'.
-STANDARD_BITSET_TYPE = (        # cache game state set type in standard mode. Choose 1.
+DISABLE_GC                  = False # disable the garbage collector while solve()ing.
+CACHE_END_STATES            = False # whether to cache the end states into the evaluations_cache
+SOLVER_NUM_CONCURRENT_TASKS = 1     # number of progress bars to display. Can set to 0 to 'disable'.
+STANDARD_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
+    set
     # int
     # np.ndarray
-    set
 )
 NIGHTMARE_BITSET_TYPE = (       # cache game state set type in standard mode. Choose 1.
     int
@@ -99,7 +99,7 @@ ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
-PRINT_POST_SOLVE_DEBUG_INFO = True # WARN: this will cause your program to use up a lot of memory and time
+PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time
                                     # if you set it to true. See solver.py/post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?

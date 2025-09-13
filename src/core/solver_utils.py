@@ -366,6 +366,9 @@ def _convert_working_gs_to_cache_gs_standard_nparray(
     )
     return cache_game_state
 
+def _do_not_convert_gs(working_gs, *other_args):
+    return working_gs
+
 def _convert_working_gs_to_cache_gs_nightmare_int(
         working_gs: Game_State,
         all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
@@ -448,8 +451,10 @@ def get_convert_working_to_cache_gs_standard(bitset_type):
         return _convert_working_gs_to_cache_gs_standard_int
     if(bitset_type is np.ndarray):
         return _convert_working_gs_to_cache_gs_standard_nparray
+    if(bitset_type is set):
+        return _do_not_convert_gs
     raise NotImplementedError(
-        f"Convert working game state to cache game state not implemented for bitset_type {bitset_type}"
+        f"Convert working game state to cache game state standard not implemented for bitset_type {bitset_type}"
     )
 
 def get_convert_working_to_cache_gs_nightmare(bitset_type):
@@ -458,7 +463,7 @@ def get_convert_working_to_cache_gs_nightmare(bitset_type):
     if(bitset_type is np.ndarray):
         return _convert_working_gs_to_cache_gs_nightmare_nparray
     raise NotImplementedError(
-        f"Convert working game state to cache game state not implemented for bitset_type {bitset_type}"
+        f"Convert working game state to cache game state nightmare not implemented for bitset_type {bitset_type}"
     )
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
