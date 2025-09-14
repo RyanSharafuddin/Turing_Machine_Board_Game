@@ -248,7 +248,13 @@ class Solver:
             sd.print_cache_game_state(initial_cache_gs, "Initial State")
         ############################### BITSET WERK ##########################################################
         ############################### PROGRESS WERK ########################################################
-        self.num_concurrent_tasks = config.SOLVER_NUM_CONCURRENT_TASKS
+        progress_bars_dict = (
+            config.N_MODE_PROGRESS_BARS_DICT if self.n_mode else config.S_MODE_PROGRESS_BARS_DICT
+        )
+        default_progress_bars = (
+            config.N_MODE_DEFAULT_PROGRESS_BARS if self.n_mode else config.S_MODE_DEFAULT_PROGRESS_BARS
+        )
+        self.num_concurrent_tasks = progress_bars_dict.get(self.num_rcs, default_progress_bars)
         self.depth_to_tasks_l     = [
             progress.add_task(f"Calculating depth {depth}:", total=0, visible=False)
             for depth in range(self.num_concurrent_tasks)

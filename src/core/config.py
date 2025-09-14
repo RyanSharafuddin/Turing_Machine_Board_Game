@@ -78,15 +78,24 @@ PRINT_COMBOS          = True  # print remaining combos after every query in play
 
 
 # Solver workings
-DISABLE_GC                  = True  # disable the garbage collector while solve()ing.
-CACHE_END_STATES            = False # whether to cache the end states into the evaluations_cache
-SOLVER_NUM_CONCURRENT_TASKS = 1     # number of progress bars to display. Can set to 0 to 'disable'.
-STANDARD_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
+DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
+CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
+S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
+
+}
+S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
+N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in nightmare mode
+    4: 4,
+    5: 7,
+    6: 7,
+}
+N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
+STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
     # np.ndarray
 )
-NIGHTMARE_BITSET_TYPE = (           # cache game state set type in standard mode. Choose 1.
+NIGHTMARE_BITSET_TYPE        = (           # cache game state set type in standard mode. Choose 1.
     int
     # np.ndarray
 )
