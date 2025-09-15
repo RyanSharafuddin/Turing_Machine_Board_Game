@@ -295,15 +295,6 @@ def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, s
         true_false_list_by_verifier.append(true_false_list_this_v_index)
     return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
 
-def _invert_permutation(permutation):
-    """
-    querying verifier V in original form is equivalent to querying verifier answer[V] in canonical form.
-    """
-    answer = np.empty(shape=len(permutation), dtype=np.uint8)
-    for (index, num) in enumerate(permutation):
-        answer[num] = index
-    return answer
-
 def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
     """
     Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. NOTE: when the cache_bitsets are ints, the 'canonical form' is the one that leads to the smallest bitset int, in contrast to when the cache_bitsets are np arrays, in which case the canonical form is the one that leads to the largest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
@@ -314,7 +305,7 @@ def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
         A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
     """
     permutation = np.lexsort(cache_bitset.T)
-    return (cache_bitset[permutation], _invert_permutation(permutation))
+    return (cache_bitset[permutation], permutation)
 
 def _convert_cache_bitset_to_canonical_int(
         cache_bitset : int,
@@ -340,7 +331,7 @@ def _convert_cache_bitset_to_canonical_int(
     result = 0
     for (bitset, shift_amount) in zip(bitsets, shift_amounts):
         result |= (bitset << shift_amount)
-    return (result, _invert_permutation(indices))
+    return (result, indices)
 
 def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
     bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
@@ -407,6 +398,12 @@ def _convert_working_gs_to_cache_gs_nightmare_nparray(
     )
     return (cache_gs, permutation)
 
+def _python_index(seq, item):
+    return seq.index(item)
+
+def _numpy_index(nparray, item):
+    return np.argwhere(nparray == item)[0, 0]
+
 ############################## PUBLIC FUNCTIONS #################################################
 def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
     """
@@ -469,6 +466,12 @@ def get_convert_working_to_cache_gs_nightmare(bitset_type):
     raise NotImplementedError(
         f"Convert working game state to cache game state nightmare not implemented for bitset_type {bitset_type}"
     )
+
+def get_index_function(bitset_type):
+    if bitset_type is int:
+        return _python_index
+    if bitset_type is np.ndarray:
+        return _numpy_index
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """

@@ -96,6 +96,7 @@ class Solver_Nightmare(Solver):
         "num_possible_rules",
         "int_verifier_bit_mask",
         "shift_amounts",
+        "index_function",
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
@@ -105,6 +106,7 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
+        self.index_function = solver_utils.get_index_function(self.bitset_type)
         # NOTE: below is only for testing purposes.
         initial_cache_gs = self.convert_working_gs_to_cache_gs(
             self.initial_game_state,
@@ -127,9 +129,7 @@ class Solver_Nightmare(Solver):
             num_forms += 1
         if(num_forms < max_num_forms):
             console.rule()
-            rearranged_colors = [None] * len(config.VERIFIER_COLORS)
-            for (index, num) in enumerate(permutation):
-                rearranged_colors[num] = config.VERIFIER_COLORS[index]
+            rearranged_colors = [config.VERIFIER_COLORS[num] for num in permutation]
             cache_state_without_reordering_func = (
                 solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
                 solver_utils._convert_working_gs_to_cache_gs_standard_nparray
@@ -225,7 +225,7 @@ class Solver_Nightmare(Solver):
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
         if(found_moves):
             (best_proposal, best_v_index) = best_move
-            best_move = (best_proposal, permutation[best_v_index])
+            best_move = (best_proposal, self.index_function(permutation, best_v_index))
             answer = (best_move, best_node_cost)
         else:
             # don't have to recalculate minimal_vs_list here; the next invocation will do that.
@@ -269,5 +269,5 @@ class Solver_Nightmare(Solver):
         evaluation_result = self._evaluations_cache[cache_game_state]
         (best_move_on_canonical, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
         (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
-        best_move = (best_proposal, np.argwhere(permutation == best_v_index_on_canonical)[0, 0]) # fancy way to get index of an arg in a 1d numpy array
+        best_move = (best_proposal, permutation[best_v_index_on_canonical])
         return (best_move, node_evaluation)
