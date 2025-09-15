@@ -306,13 +306,12 @@ def _invert_permutation(permutation):
 
 def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
     """
-    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. Takes `*args` to absorb arguments given to the int version of this.
+    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. NOTE: when the cache_bitsets are ints, the 'canonical form' is the one that leads to the smallest bitset int, in contrast to when the cache_bitsets are np arrays, in which case the canonical form is the one that leads to the largest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
 
     Returns
     -------
     (canonical_form, permutation)
         A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
-        NOTE: this has not been tested. Test by pretty printing.
     """
     permutation = np.lexsort(cache_bitset.T)
     return (cache_bitset[permutation], _invert_permutation(permutation))
@@ -323,7 +322,12 @@ def _convert_cache_bitset_to_canonical_int(
         int_verifier_bit_mask,
     ):
     """
-    TODO: test by displaying.
+    Given a cache_bitset in the form of an int, return the canonical form of this cache bitset as well as the permutation that transforms moves on the original into moves on the canonical form. Takes `*args` to absorb arguments given to the int version of this. NOTE: when the cache_bitsets are np arrays, the 'canonical form' is the one that leads to the largest bitset int, in contrast to when the cache_bitsets are ints, in which case the canonical form is the one that leads to the smallest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
+
+    Returns
+    -------
+    (canonical_form, permutation)
+        A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
     """
     bitset_ints_by_verifier_with_indices = [
         ((cache_bitset >> shift_amount) & int_verifier_bit_mask, index)

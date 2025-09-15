@@ -105,7 +105,7 @@ NIGHTMARE_BITSET_TYPE        = (           # cache game state set type in standa
 PARTITION_DIVIDER          = '│' # options: '│' and '|'
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
-CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
+CWA_BITSETS_BASE_16        = True # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time

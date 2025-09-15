@@ -175,11 +175,11 @@ class Solver_Nightmare(Solver):
         ######################################## DEBUGGING ###################################################
         if(cache_game_state in self._evaluations_cache):
             # self.cache_hits += 1
-            return(self._evaluations_cache[cache_game_state])
+            return self._evaluations_cache[cache_game_state]
         if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
             if(config.CACHE_END_STATES):
                 self._evaluations_cache[cache_game_state] = Solver.null_answer
-            return(Solver.null_answer)
+            return Solver.null_answer
         best_node_cost = Solver.initial_best_cost
         if(game_state.proposal_used_this_round is None):
             minimal_vs_list = _calculate_minimal_vs_list(
