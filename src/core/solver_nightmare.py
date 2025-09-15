@@ -237,3 +237,37 @@ class Solver_Nightmare(Solver):
             answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
         self._evaluations_cache[cache_game_state] = answer
         return answer
+
+    def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
+        """
+        A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
+        """
+        cache_gs = self.convert_working_gs_to_cache_gs(
+            working_game_state,
+            self.all_cwa_bitsets,
+            self.shift_amounts,
+            self.int_verifier_bit_mask
+        )[0]
+        return cache_gs
+
+    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
+        """
+        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
+
+        Returns
+        -------
+        (best_move, node_evaluation)
+        """
+        (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+            working_game_state,
+            self.all_cwa_bitsets,
+            self.shift_amounts,
+            self.int_verifier_bit_mask
+        )
+        if cache_game_state not in self._evaluations_cache:
+            return default
+        evaluation_result = self._evaluations_cache[cache_game_state]
+        (best_move_on_canonical, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
+        (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
+        best_move = (best_proposal, np.argwhere(permutation == best_v_index_on_canonical)[0, 0]) # fancy way to get index of an arg in a 1d numpy array
+        return (best_move, node_evaluation)

@@ -417,6 +417,7 @@ class Solver:
             progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        # TODO: consider calling filter_cache here to build up a cache that contains all info needed to play perfectly, and only the info needed to play perfectly, and counting that as part of the solve time.
         end = time.time()
         self.seconds_to_solve = int(end - start)
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
@@ -445,31 +446,33 @@ class Solver:
             # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
         sys.stdout.flush()
 
+    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
+        """
+        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
+
+        Returns
+        -------
+        (best_move, node_evaluation)
+        """
+        #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
+        cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
+        if cache_game_state not in self._evaluations_cache:
+            return default
+        evaluation_result = self._evaluations_cache[cache_game_state]
+        (best_move, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
+        return (best_move, node_evaluation)
+
     def get_move_mcost_gs_ncost_from_cache(self, working_game_state: Game_State, default=None):
         """
-        Given a game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
+        Given a working game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
 
         Returns
         -------
         (best_move, best_move_cost, gs_tuple, node_evaluation)
         """
-        #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        if self.n_mode:
-            (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
-                working_game_state,
-                self.all_cwa_bitsets,
-                self.shift_amounts,
-                self.int_verifier_bit_mask
-            )
-        else: # not nightmare mode
-            cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
-        if not(cache_game_state in self._evaluations_cache):
+        (best_move, node_evaluation) = self._get_best_move_and_ncost_from_cache(working_game_state)
+        if node_evaluation is None:
             return default
-        evaluation_result = self._evaluations_cache[cache_game_state]
-        (best_move, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
-        if self.n_mode:
-            (best_proposal, best_v_index) = best_move
-            best_move = (best_proposal, np.argwhere(permutation == best_v_index)[0, 0]) # fancy way to get index of an arg in a 1d numpy array
         best_mcost = ((Solver.does_move_cost_round(best_move, working_game_state)), 1)
         gs_tuple = self.apply_move_to_state(best_move, working_game_state)
         constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
@@ -553,7 +556,7 @@ class Solver:
         #TODO cache_gs: reconsider this function entirely in light of cache bitsets.
         for gs in self._evaluations_cache:
             break
-        if(type(gs.cwa_set) is not set):
+        if(type(gs.cwa_set) is not frozenset):
             console.print(
                 f"print_cache_by_size not implemented for cache cwa sets of type {type(gs.cwa_set)}."
             )
@@ -605,6 +608,12 @@ class Solver:
         #     for gs in gs_list:
         #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
 
+    def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
+        """
+        A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
+        """
+        return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
+
     def filter_cache(self):
         """
         Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
@@ -616,16 +625,7 @@ class Solver:
         added_game_states_set = set()
         while stack:
             curr_working_gs = stack.pop()
-            if self.n_mode:
-                curr_cache_gs = self.convert_working_gs_to_cache_gs(
-                curr_working_gs,
-                self.all_cwa_bitsets,
-                self.shift_amounts,
-                self.int_verifier_bit_mask
-            )[0]
-            else: # not nightmare mode.
-                #TODO cache_gs
-                curr_cache_gs = self.convert_working_gs_to_cache_gs(curr_working_gs, self.all_cwa_bitsets)
+            curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
             if(
                 (curr_cache_gs not in added_game_states_set) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))

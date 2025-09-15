@@ -30,15 +30,16 @@ _NIGHTMARE_PROB_TUPS = [
     ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
 ]
 _IDS_TO_COMMENTS_DICT = {
-    "B63YRW4" : "Zero query",
-    "C630YVB" : "Mult. combos",
-    "F5XTDF"  : "~180s -> ~56s",
-    "F63EZQM" : "Excellent tree",
-    "F52LUJG" : "Excellent tree",
-    "F435FE"  : "~3,500s -> ~500s",
-    "I4BYJK"  : "Killed 9",
-    "INVALID" : "Example test",
-    "I48ZCX"  : "Somehow harder than 2_N",
+    "B63YRW4"   : "Zero query",
+    "C630YVB"   : "Mult. combos",
+    "F5XTDF"    : "Formerly ~180s",
+    "F63EZQM"   : "Excellent tree",
+    "F52LUJG"   : "Excellent tree",
+    "F435FE"    : "Formerly ~3,500s",
+    "INVALID"   : "Example test",
+    "INVALID_N" : "Example test",
+    "I48ZCX"    : "Somehow harder than 2_N",
+    "C630YVB_N" : "Killed 9",
 }
 _ACCEPTABLE_MODES = ["S", "E", "N"]
 def _add_problem_to_both_dicts(problem: Problem):

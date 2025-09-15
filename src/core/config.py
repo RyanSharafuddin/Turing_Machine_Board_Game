@@ -83,7 +83,7 @@ CACHE_END_STATES             = False # whether to cache the end states into the 
 S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
 
 }
-S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
+S_MODE_DEFAULT_PROGRESS_BARS = 0     # default number of progress bars in standard mode
 N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in nightmare mode
     4: 4,
     5: 7,

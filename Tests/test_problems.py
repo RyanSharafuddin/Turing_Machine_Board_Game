@@ -4,7 +4,7 @@ from src.core.solver import Solver as Solver
 from src.problems.problems import get_best_time as get_best_time
 # problems, solver
 # import math
-# NOTE: run pytest --capture=tee-sys to see code output in real-time, rather than having it all captured.
+# NOTE: run .venv/bin/pytest --capture=tee-sys to see code output in real-time, rather than having it all captured.
 class TestProblems:
     @staticmethod
     def get_problem_and_compare_output(p_id, expected_cost):

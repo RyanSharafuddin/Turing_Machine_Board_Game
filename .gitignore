@@ -10,6 +10,7 @@ todo.txt
 *.svg
 
 # venv stuff
+.venv/
 bin/
 include/
 lib/
