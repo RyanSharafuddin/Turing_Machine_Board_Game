@@ -35,11 +35,12 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     sd.print_problem(s.rcs_list, s.problem, active=display_problem)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
-    print("\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end="")
+    display_bitsets = DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)
+    print("\n" if display_bitsets else "", end="")
     sd.print_table_bitsets(
         bitsets=s.all_cwa_bitsets,
         base_16=CWA_BITSETS_BASE_16,
-        active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
+        active=display_bitsets
     )
     print()
     while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
@@ -133,8 +134,13 @@ def make_solver(problem: Problem):
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     title = "\nAll Possible Answers"
     sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
-    print("\n" if (DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)) else "", end="")
-    sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=(DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)))
+    display_bitsets = DISPLAY and DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)
+    print("\n" if display_bitsets else "", end="")
+    sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=display_bitsets)
+    console.print(
+        "[b #af87ff]NOTE[/b #af87ff]: If you think this problem will take a long time to solve, be sure to enable the 'Prevent your Mac from automatically sleeping when the display is off' system setting (or equivalent for your computer).",
+        highlight=False
+    )
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()

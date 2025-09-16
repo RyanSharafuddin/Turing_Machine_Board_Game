@@ -46,19 +46,19 @@ COLORS = [
 # Displaying
 # TREE_BACKGROUND_COLOR      = "#690969"
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
-SHOW_RC_NUMS_IN_PROBLEM    = True # whether displaying a problem should also show the rule card numbers.
+SHOW_RC_NUMS_IN_PROBLEM    = True          # Display rule card numbers when displaying a problem?
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
 HEX_COLOR                  = "#FFD7AF" # color of hex numbers when displaying bitsets.
-# verifier colors currently only used for partition table column titles. Also they look pretti in VSCode c:
+# verifier colors used for partition table column titles/canonical form bitsets. + look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#14A990", "#3E53DE", "#FFE600", "#FF7B00"]
 
-# Colors for the problems table
+# Settings for displaying the available problems table
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
 RULE_CARD_NUMS_COLOR       = "#FFAFFF"
 PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
-STACK_EXTREME_RULE_CARDS   = True # print out a problems table with this true or false to see what this does.
+STACK_EXTREME_RULE_CARDS   = True # stack the rule card numbers on top of each other in extreme mode?
 STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
 
 # Used for printing out info related to where pickles are stored and how much time and space solvers used.
@@ -69,13 +69,10 @@ COLOR_OF_SPACE = "#00FFFF"
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
 SHOW_COMBOS_IN_TREE   = False # Print combos in trees in display_problem_solution()
-P_ORDER               = True  # Display tables in permutation order for
-                              # nightmare mode (no effect in other modes)
+P_ORDER               = True  # Display tables in permutation order in nightmare mode (no effect other modes)
 LINES_BETWEEN_ANSWERS = False # print a line b/t every unique answer in answer tables
 DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
-
-
 
 # Solver workings
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
@@ -95,24 +92,21 @@ STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mod
     # int
     # np.ndarray
 )
-NIGHTMARE_BITSET_TYPE        = (           # cache game state set type in standard mode. Choose 1.
+NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
     int
     # np.ndarray
 )
 
-
 # Change How Debugging Information Is Displayed
-PARTITION_DIVIDER          = '│' # options: '│' and '|'
-PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1c1c1c"] to zebra
+PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
+PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = True # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
-PRINT_POST_SOLVE_DEBUG_INFO = False # WARN: this will cause your program to use up a lot of memory and time
-                                    # if you set it to true. See solver.py/post_solve_printing() for details.
+PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
-
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY      = "src/problems/Pickles/Bit_Sets" # Where all pickled solvers go.
