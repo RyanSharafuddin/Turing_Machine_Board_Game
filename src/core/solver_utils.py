@@ -333,7 +333,10 @@ def _convert_cache_bitset_to_canonical_int(
         result |= (bitset << shift_amount)
     return (result, indices)
 
-def _working_cwa_set_to_cache_bitset(working_cwa_set, all_cwa_bitsets : np.ndarray):
+def _working_cwa_set_to_cache_bitset(
+        working_cwa_set,
+        all_cwa_bitsets : np.ndarray,
+    ):
     bitsets_to_include = all_cwa_bitsets[list(working_cwa_set)] # bitwise or reduce these ints
     return np.bitwise_or.reduce(bitsets_to_include, axis=0)
 
@@ -367,15 +370,23 @@ def _do_not_convert_gs(working_gs, *other_args):
 def _convert_working_gs_to_cache_gs_nightmare_int(
         working_gs: Game_State,
         all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        working_cwa_set_convert_cache : dict,
         shift_amounts,
         int_verifier_bit_mask
     ):
-    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets)
-    (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_int(
-        cache_bitset,
-        shift_amounts,
-        int_verifier_bit_mask
-    )
+    res = working_cwa_set_convert_cache.get(working_gs.cwa_set, None)
+    if res is None:
+        cache_bitset = _working_cwa_set_to_cache_bitset(
+            working_gs.cwa_set,
+            all_cwa_bitsets,
+        )
+        res = _convert_cache_bitset_to_canonical_int(
+            cache_bitset,
+            shift_amounts,
+            int_verifier_bit_mask
+        )
+        working_cwa_set_convert_cache[working_gs.cwa_set] = res
+    (cache_bitset_canonical_form, permutation) = res
     cache_gs = Game_State(
         num_queries_this_round=working_gs.num_queries_this_round,
         proposal_used_this_round=working_gs.proposal_used_this_round,
@@ -386,11 +397,20 @@ def _convert_working_gs_to_cache_gs_nightmare_int(
 def _convert_working_gs_to_cache_gs_nightmare_nparray(
         working_gs: Game_State,
         all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        working_cwa_set_convert_cache : dict,
         *args, # for accepting the 2 last arguments given in the int version
     ):
-    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, all_cwa_bitsets)
-    (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
-    cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form)
+    res = working_cwa_set_convert_cache.get(working_gs.cwa_set, None)
+    if res is None:
+        cache_bitset = _working_cwa_set_to_cache_bitset(
+            working_gs.cwa_set,
+            all_cwa_bitsets,
+        )
+        (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
+        cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form)
+        res = (cache_bitset_canonical_form, permutation)
+        working_cwa_set_convert_cache[working_gs.cwa_set] = res
+    (cache_bitset_canonical_form, permutation) = res
     cache_gs = Game_State(
         num_queries_this_round=working_gs.num_queries_this_round,
         proposal_used_this_round=working_gs.proposal_used_this_round,

@@ -216,6 +216,8 @@ class Solver:
             self.flat_rule_list,
             self.n_mode,
         )
+        if not self.full_cwas_list: # invalid problem with no solutions.
+            return
         self.possible_rules_by_verifier = [
             [self.flat_rule_list[r_index] for r_index in sorted(set_r_unique_ids)]
             for set_r_unique_ids in
@@ -342,14 +344,15 @@ class Solver:
         """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
-        if(cache_game_state in self._evaluations_cache):
+        result = self._evaluations_cache.get(cache_game_state, None)
+        if result is not None:
             # self.cache_hits += 1
-            return(self._evaluations_cache[cache_game_state])
-        if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
-            if(config.CACHE_END_STATES):
+            return result
+        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+            if config.CACHE_END_STATES:
                 self._evaluations_cache[cache_game_state] = Solver.null_answer
-            return(Solver.null_answer)
-        if(game_state.proposal_used_this_round is None):
+            return Solver.null_answer
+        if game_state.proposal_used_this_round is None:
             # original_qs_dict = qs_dict # COMMENT OUT THIS LINE WHEN NOT DEBUGGING ##########################
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # KEEP this line always
             ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
@@ -381,9 +384,9 @@ class Solver:
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
-            if(depth < self.num_concurrent_tasks):
+            if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if(found_moves):
+        if found_moves:
             answer = (best_move, best_node_cost)
         else:
             new_gs = Game_State(
@@ -556,11 +559,10 @@ class Solver:
         #TODO cache_gs: reconsider this function entirely in light of cache bitsets.
         for gs in self._evaluations_cache:
             break
-        if(type(gs.cwa_set) is not frozenset):
+        if type(gs.cwa_set) is not frozenset:
             console.print(
-                f"print_cache_by_size not implemented for cache cwa sets of type {type(gs.cwa_set)}."
+                f"print_cache_by_size not implemented for cache cwa sets of type {type(gs.cwa_set)}. Skipping."
             )
-            console.print("Skipping.")
             return
         console.rule()
         console.print(f"\nNumber of game states in evaluations cache by size:", justify="center")

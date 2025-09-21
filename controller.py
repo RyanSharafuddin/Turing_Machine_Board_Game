@@ -122,7 +122,7 @@ def make_solver(problem: Problem):
     sd.print_problem(s.rcs_list, s.problem, active=DISPLAY)
     if(not(s.full_cwas_list)):
         rprint(
-            f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that the problem is specified correctly, and check the relevant rule cards in rules.py."
+            f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that the problem is specified correctly, and check the relevant rules in rules.py."
         )
         console.print(
             "Reminder that any valid rule combination must obey two rules:\n  1. There is exactly one proposal that satisfies them all.\n  2. Each rule eliminates at least one possibility that is not eliminated by any other rule.",

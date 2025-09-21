@@ -100,6 +100,8 @@ class Solver_Nightmare(Solver):
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
+        if not self.full_cwas_list: # invalid problem with no solutions
+            return
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])
         self.int_verifier_bit_mask = (1 << self.num_possible_rules) - 1
         self.shift_amounts = [v_index * self.num_possible_rules for v_index in range(self.num_rcs)]
@@ -111,6 +113,7 @@ class Solver_Nightmare(Solver):
         initial_cache_gs = self.convert_working_gs_to_cache_gs(
             self.initial_game_state,
             self.all_cwa_bitsets,
+            dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
         )[0]
@@ -161,27 +164,33 @@ class Solver_Nightmare(Solver):
         qs_dict,
         game_state: Game_State,
         minimal_vs_list: list[set[int]] = None,
-        depth=0,
+        depth = 0,
+        working_cwa_set_convert_cache = dict(),
     ):
+        if game_state.proposal_used_this_round is None:
+            working_cwa_set_convert_cache = dict()
+
         # self.called_calculate += 1
         (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
             game_state,
             self.all_cwa_bitsets,
+            working_cwa_set_convert_cache,
             self.shift_amounts,
-            self.int_verifier_bit_mask
+            self.int_verifier_bit_mask,
         )
         ######################################## DEBUGGING ###################################################
         # self._print_canonical_form_info(game_state, cache_game_state, permutation, max_num_forms=500)
         ######################################## DEBUGGING ###################################################
-        if(cache_game_state in self._evaluations_cache):
+        result = self._evaluations_cache.get(cache_game_state, None)
+        if result is not None:
             # self.cache_hits += 1
-            return self._evaluations_cache[cache_game_state]
-        if(one_answer_left(self.full_cwas_list, game_state.cwa_set)):
-            if(config.CACHE_END_STATES):
+            return result
+        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+            if config.CACHE_END_STATES:
                 self._evaluations_cache[cache_game_state] = Solver.null_answer
             return Solver.null_answer
         best_node_cost = Solver.initial_best_cost
-        if(game_state.proposal_used_this_round is None):
+        if game_state.proposal_used_this_round is None:
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
@@ -198,16 +207,18 @@ class Solver_Nightmare(Solver):
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(
-                qs_dict,
-                gs_tup[0],
-                minimal_vs_list,
-                depth + 1,
+                qs_dict=qs_dict,
+                game_state=gs_tup[0],
+                minimal_vs_list=minimal_vs_list,
+                depth=depth + 1,
+                working_cwa_set_convert_cache=working_cwa_set_convert_cache,
             )[1]
             gs_true_node_cost = self._calculate_best_move(
-                qs_dict,
-                gs_tup[1],
-                minimal_vs_list,
-                depth + 1,
+                qs_dict=qs_dict,
+                game_state=gs_tup[1],
+                minimal_vs_list=minimal_vs_list,
+                depth=depth + 1,
+                working_cwa_set_convert_cache=working_cwa_set_convert_cache,
             )[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
@@ -221,9 +232,9 @@ class Solver_Nightmare(Solver):
                 ):
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
-            if(depth < self.num_concurrent_tasks):
+            if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if(found_moves):
+        if found_moves:
             (best_proposal, best_v_index) = best_move
             best_move = (best_proposal, self.index_function(permutation, best_v_index))
             answer = (best_move, best_node_cost)
@@ -234,7 +245,11 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
+            answer = self._calculate_best_move(
+                qs_dict=qs_dict,
+                game_state=new_gs,
+                depth=depth+1
+            )
         self._evaluations_cache[cache_game_state] = answer
         return answer
 
@@ -245,6 +260,7 @@ class Solver_Nightmare(Solver):
         cache_gs = self.convert_working_gs_to_cache_gs(
             working_game_state,
             self.all_cwa_bitsets,
+            dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
         )[0]
@@ -261,6 +277,7 @@ class Solver_Nightmare(Solver):
         (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
             working_game_state,
             self.all_cwa_bitsets,
+            dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
         )
