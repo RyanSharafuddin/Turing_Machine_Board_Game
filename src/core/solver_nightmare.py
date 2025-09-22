@@ -165,7 +165,7 @@ class Solver_Nightmare(Solver):
         game_state: Game_State,
         minimal_vs_list: list[set[int]] = None,
         depth = 0,
-        working_cwa_set_convert_cache = dict(),
+        working_cwa_set_convert_cache = None,
     ):
         if game_state.proposal_used_this_round is None:
             working_cwa_set_convert_cache = dict()
