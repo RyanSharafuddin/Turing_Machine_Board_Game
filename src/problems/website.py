@@ -43,10 +43,22 @@ def _get_response_by_problem_id(p_id: str):
     }
 
     try:
-        response = requests.get('https://turingmachine.info/api/api.php', params=params, cookies=cookies, headers=headers)
+        response = requests.get(
+            'https://turingmachine.info/api/api.php',
+            params=params,
+            cookies=cookies,
+            headers=headers
+        )
         response_data = json.loads(response.text)
+    except requests.exceptions.ConnectionError:
+        console.print(
+            f"There was a [b red]ConnectionError[/b red]. Are you sure you're connected to the internet? If so, check whether the website is down."
+        )
+        return dict()
     except Exception:
-        console.print(f"There was an error getting or decoding a response for problem ID: {p_id}.")
+        console.print(
+            f"There was an error getting or decoding a response for problem ID: {p_id}."
+        )
         console.print("Printing response.")
         console.print(response)
         response_data = json.loads("{}")
@@ -107,7 +119,7 @@ def _get_required_field_from_response(response, field):
     """
     try:
         required_field = response[field]
-    except KeyError:
+    except (KeyError, TypeError):
         console.print(
             f"[b red]Error[/b red]: received a response that does not contain the required field:", end=""
         )
