@@ -277,7 +277,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 
     27: [triangle_lt_4, square_lt_4, circle_lt_4],
     28: [triangle_eq_1, square_eq_1, circle_eq_1],
-
+    29: [triangle_eq_3, square_eq_3, circle_eq_3],
     30: [triangle_eq_4, square_eq_4, circle_eq_4],
     31: [triangle_gt_1, square_gt_1, circle_gt_1],
 
@@ -305,8 +305,10 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
          square_lt_circle, square_eq_circle, square_gt_circle],
 
     46: [zero_3, one_3, two_3, zero_4, one_4, two_4],
-    47: [zero_1, one_1, two_1, zero_4, one_4, two_4]
-
+    47: [zero_1, one_1, two_1, zero_4, one_4, two_4],
+    48: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
+         triangle_lt_circle, triangle_eq_circle, triangle_gt_circle,
+         square_lt_circle, square_eq_circle, square_gt_circle]
 }
 
 # max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
