@@ -1,5 +1,4 @@
 import time, sys
-import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
@@ -8,7 +7,7 @@ def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
     cwa_set = frozenset(list(range(len(full_cwas_list))))
     initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
-    return(initial_game_state)
+    return initial_game_state
 
 def one_answer_left(full_cwas_list, working_cwa_set):
     """
@@ -27,9 +26,9 @@ def one_answer_left(full_cwas_list, working_cwa_set):
 
     while(current_cwa_representation is not None):
         if(full_cwas_list[current_cwa_representation][-1] not in seen_answer_set):
-            return(False)
+            return False
         current_cwa_representation = next(iterator, None)
-    return(True)
+    return True
 
 def get_set_r_unique_ids_vs_from_cwas_set_representation(
         full_cwas_list,
@@ -60,7 +59,7 @@ def get_set_r_unique_ids_vs_from_cwas_set_representation(
             rc_index_for_this_v = p[v_index] if(n_mode) else v_index
             unique_id = c[rc_index_for_this_v].unique_id
             corresponding_set.add(unique_id)
-    return(possible_rule_ids_by_verifier)
+    return possible_rule_ids_by_verifier
 # TODO: define a length method if switch to another set representation
 
 # useless_queries = 0
@@ -112,7 +111,7 @@ def create_move_info(
     )
     gs_tuple = (game_state_false, game_state_true)
     move_info = (move, cost, gs_tuple, p_tuple)
-    return(move_info)
+    return move_info
 
 def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
     """
@@ -139,7 +138,7 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     cost
                 )
                 if(move_info is not None):
-                    yield(move_info)
+                    yield move_info
                 # else:
                 #     pass # not a useful query
 
@@ -160,7 +159,7 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     cost
                 )
                 if(move_info is not None):
-                    yield(move_info)
+                    yield move_info
                 # else:
                 #     pass # not a useful query. See other comments.
 

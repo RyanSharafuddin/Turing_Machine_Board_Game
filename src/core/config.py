@@ -1,4 +1,3 @@
-import numpy as np
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
