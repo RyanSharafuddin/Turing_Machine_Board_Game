@@ -392,17 +392,15 @@ class Solver:
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if found_moves:
-            answer = best_node_cost
-        else:
+        if not found_moves:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
+            best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
 
-        # comment out else block above and uncomment this to try starting new rounds early as well.
+        # comment out if not block above and uncomment this to try starting new rounds early as well.
         # if(game_state.num_queries_this_round != 0):
         #     new_gs = Game_State(
         #         num_queries_this_round=0,
@@ -410,13 +408,13 @@ class Solver:
         #         cwa_set=game_state.cwa_set
         #     )
         #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
-        #     if(end_round_early_result[1] < best_node_cost):
+        #     if(end_round_early_result < best_node_cost):
         #         # breakpoint here to see if there are situations where ending the round early is better.
         #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
-        #         answer = end_round_early_result
+        #         best_node_cost = end_round_early_result
 
-        self._evaluations_cache[cache_game_state] = answer
-        return answer
+        self._evaluations_cache[cache_game_state] = best_node_cost
+        return best_node_cost
 
     def solve(self):
         """
