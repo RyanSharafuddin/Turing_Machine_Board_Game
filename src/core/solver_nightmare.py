@@ -1,5 +1,5 @@
-from .solver import *
 import numpy as np
+from .solver import *
 
 def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]:
     # TODO: print this out to make sure it works
@@ -47,7 +47,8 @@ def _nightmare_get_and_apply_moves(
                                 next_num_queries,
                                 q_info,
                                 move,
-                                cost
+                                cost,
+                                force_set_intersect=False
                             )
                             if(move_info is not None):
                                 list_hit_v_sets[v_set_index] = True
@@ -76,7 +77,8 @@ def _nightmare_get_and_apply_moves(
                             next_num_queries,
                             q_info,
                             move,
-                            cost
+                            cost,
+                            force_set_intersect=False
                         )
                         if(move_info is not None):
                             list_hit_v_sets[v_set_index] = True
@@ -289,3 +291,32 @@ class Solver_Nightmare(Solver):
         (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
         best_move = (best_proposal, permutation[best_v_index_on_canonical])
         return (best_move, node_evaluation)
+
+    def _filter_cache(self):
+        """
+        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+        """
+        new_evaluations_cache = dict()
+        stack : list[Game_State] = [self.initial_game_state]
+        added_game_states_set = set()
+        while stack:
+            curr_working_gs = stack.pop()
+            curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
+            if(
+                (curr_cache_gs not in added_game_states_set) and
+                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
+            ):
+                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
+                if(gs_evaluation_result is None):
+                    console.print("Huh. Why is the evaluation result of the following game state None?")
+                    console.print("Working game state: ", curr_working_gs)
+                    console.print("Cache game state: ", curr_cache_gs)
+                    console.print("Exiting.")
+                    exit()
+                (working_gs_false, working_gs_true) = gs_evaluation_result[2]
+                curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
+                new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
+                stack.append(working_gs_false)
+                stack.append(working_gs_true)
+                added_game_states_set.add(curr_cache_gs)
+        self._evaluations_cache = new_evaluations_cache

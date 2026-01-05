@@ -1,4 +1,4 @@
-import time, sys
+import time, sys, itertools
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
@@ -70,11 +70,15 @@ def create_move_info(
         num_queries_this_round,
         q_info: Query_Info,
         move,
-        cost
+        cost,
+        force_set_intersect: bool
     ):
     """
-    num_queries_this_round is the number there will be after making this move.
-    WARN: could be None
+    `num_queries_this_round`
+        the number there will be after making this move.
+    `force_set_intersect`
+        if this is True, then this function will set intersect the q_info sets with the game state sets in order to determine which cwas are left in each case. (used in the filter_cache function, which does not update the qs_dict). If this is False, then it will only do the set intersect if game_state.proposal_used_this_round is not None. If it is None, it will just pull the cwa_sets straight from the qs dict, b/c the qs_dict was just updated at the beginning of the round.
+    WARN: could return None
     """
     # cwa_set representation_change
     # will need the function to intersect two sets as well as to see if a set is nonempty.
@@ -82,7 +86,7 @@ def create_move_info(
     # type will match the type of the first operand.
     # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
     # Therefore, all of the game states' cwa_sets created below are frozensets.
-    if(game_state.proposal_used_this_round is not None):
+    if((game_state.proposal_used_this_round is not None) or force_set_intersect):
         cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
         cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
         if not (bool(cwa_set_if_false) and bool(cwa_set_if_true)):
@@ -113,11 +117,12 @@ def create_move_info(
     move_info = (move, cost, gs_tuple, p_tuple)
     return move_info
 
-def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
+def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
     """
     yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
     move is a tuple (proposal tuple, rc_index of verifier to query).
     cost is a tuple (round cost, query cost)
+    See create_move_info function docstring for what force_set_intersect does.
     """
     # calling len() to figure out num_combos_currently here so don't have to do it repeatedly inside loop
     # cwa_set representation_change Will have to implement a function to get length of set
@@ -135,7 +140,8 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     next_num_queries,
                     q_info,
                     move,
-                    cost
+                    cost,
+                    force_set_intersect
                 )
                 if(move_info is not None):
                     yield move_info
@@ -156,7 +162,8 @@ def get_and_apply_moves(game_state : Game_State, qs_dict: dict):
                     next_num_queries,
                     q_info,
                     move,
-                    cost
+                    cost,
+                    force_set_intersect
                 )
                 if(move_info is not None):
                     yield move_info
@@ -172,7 +179,8 @@ def testing_stuff(self):
 progress = solver_utils.progress_initialize()
 
 class Solver:
-    null_answer = (None, (0,0))
+    double_zero = (0, 0)
+    null_answer = (None, double_zero)
     __slots__ = (
         "problem",
         "n_mode",
@@ -349,8 +357,8 @@ class Solver:
             return result
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             if config.CACHE_END_STATES:
-                self._evaluations_cache[cache_game_state] = Solver.null_answer
-            return Solver.null_answer
+                self._evaluations_cache[cache_game_state] = Solver.double_zero
+            return Solver.double_zero
         if game_state.proposal_used_this_round is None:
             # original_qs_dict = qs_dict # COMMENT OUT THIS LINE WHEN NOT DEBUGGING ##########################
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # KEEP this line always
@@ -369,14 +377,13 @@ class Solver:
         move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
-            gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)[1]
-            gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)[1]
+            gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
+            gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
-                best_move = move
                 if(
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
@@ -386,7 +393,7 @@ class Solver:
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
         if found_moves:
-            answer = (best_move, best_node_cost)
+            answer = best_node_cost
         else:
             new_gs = Game_State(
                 num_queries_this_round=0,
@@ -415,15 +422,20 @@ class Solver:
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
-        if(self.num_concurrent_tasks):
+        if self.num_concurrent_tasks:
             progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
-        # TODO: consider calling filter_cache here to build up a cache that contains all info needed to play perfectly, and only the info needed to play perfectly, and counting that as part of the solve time.
+        # console.print("Evaluations cache BEFORE filter:")
+        # console.print(self._evaluations_cache)
+        print("Cleaning up evaluations dictionary . . .")
+        self._filter_cache()
+        # console.print("Evaluations cache AFTER filter:")
+        # console.print(self._evaluations_cache)
         end = time.time()
         self.seconds_to_solve = int(end - start)
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
-        if(self.num_concurrent_tasks):
+        if self.num_concurrent_tasks:
             progress.stop()
 
     def post_solve_printing(self):
@@ -615,34 +627,86 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
-    def filter_cache(self):
+    def _filter_cache(self):
         """
-        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
         """
-        if(self._evaluations_cache is None):
-            return
         new_evaluations_cache = dict()
         stack : list[Game_State] = [self.initial_game_state]
-        added_game_states_set = set()
         while stack:
             curr_working_gs = stack.pop()
             curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
             if(
-                (curr_cache_gs not in added_game_states_set) and
+                (curr_cache_gs not in new_evaluations_cache) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
             ):
-                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
+                gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
+                # above is just a tuple (rounds, queries)
                 if(gs_evaluation_result is None):
-                    console.print("Huh. Why is the evaluation result of the following game state None?")
+                    console.print(
+                        "Huh. Why is the evaluation result of the following game state None?"
+                    )
                     console.print("Working game state: ", curr_working_gs)
                     console.print("Cache game state: ", curr_cache_gs)
+                    sd.print_cache_game_state(curr_cache_gs)
+                    sd.print_game_state(curr_working_gs)
                     console.print("Exiting.")
                     exit()
-                (working_gs_false, working_gs_true) = gs_evaluation_result[2]
-                curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
-                new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
-                stack.append(working_gs_false)
-                stack.append(working_gs_true)
-                added_game_states_set.add(curr_cache_gs)
+
+                for move_info in get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
+                    if self._check_move_info(
+                        move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
+                    ):
+                        break
+                else:
+                    early_new_round_curr_working_gs = Game_State(
+                        num_queries_this_round=0,
+                        proposal_used_this_round=None,
+                        cwa_set=curr_working_gs.cwa_set
+                    )
+                    for move_info in get_and_apply_moves(
+                        early_new_round_curr_working_gs, self.qs_dict, force_set_intersect=True
+                    ):
+                        if self._check_move_info(
+                            move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
+                        ):
+                            break
+                    else:
+                        console.print("FAILURE!")
+                        console.print("Encountered the following game state on the best play game tree:")
+                        print(curr_cache_gs)
+                        sd.print_game_state(curr_working_gs)
+                        console.print(f"Evaluation: {gs_evaluation_result}")
+                        console.print(
+                            "But within the loop that checks for which move leads to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
+                        )
+                        exit()
         self._evaluations_cache = new_evaluations_cache
 
+
+    def _evaluate_potential_state(self, cache_gs, working_gs):
+        """
+        Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
+        """
+        if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
+            return Solver.double_zero
+        return self._evaluations_cache.get(cache_gs)
+
+    def _check_move_info(self, move_info, desired_evaluation_result, new_ev_cache, curr_cache_gs, stack):
+        (move, mcost, working_gs_tuple, p_tuple) = move_info
+        (working_gs_false, working_gs_true) = working_gs_tuple
+        (cache_gs_false, cache_gs_true) = (
+            self._easy_working_gs_to_cache_gs(gs) for gs in working_gs_tuple
+        )
+        false_evaluation = self._evaluate_potential_state(cache_gs_false, working_gs_false)
+        true_evaluation = self._evaluate_potential_state(cache_gs_true, working_gs_true)
+        if not ((false_evaluation is None) or (true_evaluation is None)):
+            curr_gs_cost_with_this_move = self._cost_calculator(
+                mcost, p_tuple, (false_evaluation, true_evaluation)
+            )
+            if (curr_gs_cost_with_this_move == desired_evaluation_result):
+                new_ev_cache[curr_cache_gs] = (move, desired_evaluation_result)
+                stack.append(working_gs_false)
+                stack.append(working_gs_true)
+                return True
+        return False

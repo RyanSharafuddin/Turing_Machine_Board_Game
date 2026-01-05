@@ -144,7 +144,7 @@ def make_solver(problem: Problem):
     print("\nSolving . . .")
     s.solve()
     s.post_solve_printing()
-    return(s)
+    return s
 
 def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     """
@@ -152,6 +152,7 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     If pickle_entire is True, pickles the entire solver. If it's false, sets the solver's evaluation cache to only the parts accessed during a best game (all that is needed to display tree and play game), so that unpickling it is much faster.
     If force_overwrite is true, then it remakes the solver regardless of whether the corresponding file exists, and overwrites the file if it does exist.
     """
+    # NOTE: as of now, setting pickle_entire to True doesn't do anything. To restore this functionality, will need to change the solver and nightmare_solver classes to offer a way to preserve the old evaluations cache that contains *all* evaluated game states so that it can be pickled. However, this is not high priority.
     f_name = f_name_from_id(problem.identity)
     if(not os.path.exists(PICKLE_DIRECTORY)):
         os.makedirs(PICKLE_DIRECTORY)
@@ -161,8 +162,6 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     s = make_solver(problem)
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
-    if(not(pickle_entire)):
-        s.filter_cache()
     git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
     git_message = git.Repo(search_parent_directories=True).head.object.message
     s.git_hash = git_hash
@@ -171,7 +170,7 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     f.close()
     console.print("Done.")
     problems.update_pickled_time_dict_if_necessary(s)
-    return(s)
+    return s
 
 def get_or_make_solver(
         problem: Problem,
