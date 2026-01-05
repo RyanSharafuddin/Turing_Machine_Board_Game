@@ -1,4 +1,4 @@
-import time, sys, itertools
+import time, sys
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
