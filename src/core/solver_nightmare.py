@@ -1,4 +1,5 @@
 from .solver import *
+import numpy as np
 
 def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]:
     # TODO: print this out to make sure it works
