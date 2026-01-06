@@ -640,17 +640,10 @@ class Solver:
             ):
                 gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
                 # above is just a tuple (rounds, queries)
-                if(gs_evaluation_result is None):
-                    console.print(
-                        "Huh. Why is the evaluation result of the following game state None?"
-                    )
-                    console.print("Working game state: ", curr_working_gs)
-                    console.print("Cache game state: ", curr_cache_gs)
-                    sd.print_cache_game_state(curr_cache_gs)
-                    sd.print_game_state(curr_working_gs)
-                    console.print("Exiting.")
-                    exit()
-
+                if gs_evaluation_result is None:
+                    message = "The following game state should be on the path" \
+                        + " of the best game tree, but it is not present in the evaluations_cache."
+                    self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
                 for move_info in get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
                     if self._check_move_info(
                         move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
@@ -670,15 +663,10 @@ class Solver:
                         ):
                             break
                     else:
-                        console.print("FAILURE!")
-                        console.print("Encountered the following game state on the best play game tree:")
-                        print(curr_cache_gs)
-                        sd.print_game_state(curr_working_gs)
-                        console.print(f"Evaluation: {gs_evaluation_result}")
-                        console.print(
-                            "But within the loop that checks for which move leads to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
+                        message = (
+                            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
                         )
-                        exit()
+                        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
         self._evaluations_cache = new_evaluations_cache
 
 
@@ -708,3 +696,11 @@ class Solver:
                 stack.append(working_gs_true)
                 return True
         return False
+
+    def _filter_cache_error_show(self, working_gs, cache_gs, message):
+        console.print(message)
+        sd.print_game_state(working_gs, "Working Game State")
+        console.print("Cache game state:")
+        console.print(cache_gs)
+        console.print("Exiting.")
+        exit()
