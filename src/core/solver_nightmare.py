@@ -11,7 +11,7 @@ def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) 
         n_mode=True,
     )
     for v_index in range(num_rcs):
-        for (v_set_index, v_set) in enumerate(minimal_vs_list):
+        for v_set in minimal_vs_list:
             for arbitrary_v_set_member in v_set:
                 break
             if(r_unique_ids_by_verifier[v_index] == r_unique_ids_by_verifier[arbitrary_v_set_member]):
@@ -19,7 +19,7 @@ def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) 
                 break
         else:
             minimal_vs_list.append(set([v_index]))
-    return(minimal_vs_list)
+    return minimal_vs_list
 
 def _nightmare_get_and_apply_moves(
         game_state: Game_State,
@@ -29,7 +29,7 @@ def _nightmare_get_and_apply_moves(
     # TODO: step through with a debugger to understand how the minimal vs_list is working.
     # cwa_set representation_change Will have to implement a function to get length of set
     num_combos_currently = len(game_state.cwa_set)
-    if(game_state.proposal_used_this_round is None):
+    if game_state.proposal_used_this_round is None:
         cost = (1, 1)
         next_num_queries = 1
         for (proposal, inner_dict) in qs_dict.items():
@@ -53,7 +53,11 @@ def _nightmare_get_and_apply_moves(
                             if(move_info is not None):
                                 list_hit_v_sets[v_set_index] = True
                                 num_v_sets_left_to_hit -= 1
-                                yield(move_info)
+                                yield move_info
+                            else: # TODO This entire else block can be deleted
+                                from .import display
+                                console.print(display.get_move_text(move))
+                                exit()
                         break
                 if(not num_v_sets_left_to_hit):
                     break
@@ -86,6 +90,21 @@ def _nightmare_get_and_apply_moves(
                             yield(move_info)
                             if(not num_v_sets_left_to_hit):
                                 return
+                        else: # TODO this entire else block can be deleted
+                            from . import display
+                            console.print(display.get_move_text(move))
+                            console.print(v_set)
+                            cache_state_without_reordering_func = (
+                                solver_utils._convert_working_gs_to_cache_gs_standard_int if config.NIGHTMARE_BITSET_TYPE is int else
+                                solver_utils._convert_working_gs_to_cache_gs_standard_nparray
+                            )
+                            cache_state_without_reordering = cache_state_without_reordering_func(
+                                game_state,
+                                all_cwa_bitsets
+                            )
+                            sd.print_game_state(game_state, "State with ineffective move:")
+                            sd.print_cache_game_state(cache_state_without_reordering)
+                            exit()
                     break
 
 def testing_stuff(self):
@@ -103,6 +122,13 @@ class Solver_Nightmare(Solver):
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
+
+        # WARN TODO: delete the next 2 lines
+        # #################################################
+        global all_cwa_bitsets
+        all_cwa_bitsets = self.all_cwa_bitsets
+        #################################################################################################
+
         if not self.full_cwas_list: # invalid problem with no solutions
             return
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])

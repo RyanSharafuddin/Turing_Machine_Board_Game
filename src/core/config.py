@@ -100,7 +100,7 @@ NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mod
 PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
-CWA_BITSETS_BASE_16        = True # whether to display cwa bit sets in base 16 (if they are to be displayed)
+CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = False  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
@@ -108,6 +108,6 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY      = "src/problems/Pickles/cache_working_cwa" # Where all pickled solvers go.
+PICKLE_DIRECTORY      = "src/problems/Pickles/no_store_moves" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"
