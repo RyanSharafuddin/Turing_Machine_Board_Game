@@ -678,7 +678,16 @@ class Solver:
             return Solver.double_zero
         return self._evaluations_cache.get(cache_gs)
 
-    def _check_move_info(self, move_info, desired_evaluation_result, new_ev_cache, curr_cache_gs, stack):
+    def _check_move_info(
+            self,
+            move_info,
+            desired_evaluation_result,
+            new_ev_cache,
+            curr_cache_gs,
+            stack,
+            put_cache_gs_into_new_ev_cache=True,
+            curr_working_gs=None
+        ):
         (move, mcost, working_gs_tuple, p_tuple) = move_info
         (working_gs_false, working_gs_true) = working_gs_tuple
         (cache_gs_false, cache_gs_true) = (
@@ -691,7 +700,8 @@ class Solver:
                 mcost, p_tuple, (false_evaluation, true_evaluation)
             )
             if (curr_gs_cost_with_this_move == desired_evaluation_result):
-                new_ev_cache[curr_cache_gs] = (move, desired_evaluation_result)
+                gs_to_put_in_new_ev = curr_cache_gs if put_cache_gs_into_new_ev_cache else curr_working_gs
+                new_ev_cache[gs_to_put_in_new_ev] = (move, desired_evaluation_result)
                 stack.append(working_gs_false)
                 stack.append(working_gs_true)
                 return True
@@ -700,7 +710,10 @@ class Solver:
     def _filter_cache_error_show(self, working_gs, cache_gs, message):
         console.print(message)
         sd.print_game_state(working_gs, "Working Game State")
-        console.print("Cache game state:")
-        console.print(cache_gs)
+        try:
+            sd.print_cache_game_state(cache_gs)
+        except Exception:
+            console.print("Cache game state:")
+            console.print(cache_gs)
         console.print("Exiting.")
         exit()

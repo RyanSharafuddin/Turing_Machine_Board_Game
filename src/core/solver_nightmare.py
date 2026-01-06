@@ -24,7 +24,8 @@ def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) 
 def _nightmare_get_and_apply_moves(
         game_state: Game_State,
         qs_dict: dict[int:dict[int:Query_Info]],
-        minimal_vs_list: list[set[int]]
+        minimal_vs_list: list[set[int]],
+        force_set_intersect=False
     ):
     # TODO: step through with a debugger to understand how the minimal vs_list is working.
     # cwa_set representation_change Will have to implement a function to get length of set
@@ -48,16 +49,16 @@ def _nightmare_get_and_apply_moves(
                                 q_info,
                                 move,
                                 cost,
-                                force_set_intersect=False
+                                force_set_intersect=force_set_intersect
                             )
                             if(move_info is not None):
                                 list_hit_v_sets[v_set_index] = True
                                 num_v_sets_left_to_hit -= 1
                                 yield move_info
-                            else: # TODO This entire else block can be deleted
-                                from .import display
-                                console.print(display.get_move_text(move))
-                                exit()
+                            # else: # TODO This entire else block can be deleted
+                            #     from .import display
+                            #     console.print(display.get_move_text(move))
+                            #     exit()
                         break
                 if(not num_v_sets_left_to_hit):
                     break
@@ -82,7 +83,7 @@ def _nightmare_get_and_apply_moves(
                             q_info,
                             move,
                             cost,
-                            force_set_intersect=False
+                            force_set_intersect=force_set_intersect
                         )
                         if(move_info is not None):
                             list_hit_v_sets[v_set_index] = True
@@ -90,21 +91,21 @@ def _nightmare_get_and_apply_moves(
                             yield(move_info)
                             if(not num_v_sets_left_to_hit):
                                 return
-                        else: # TODO this entire else block can be deleted
-                            from . import display
-                            console.print(display.get_move_text(move))
-                            console.print(v_set)
-                            cache_state_without_reordering_func = (
-                                solver_utils._convert_working_gs_to_cache_gs_standard_int if config.NIGHTMARE_BITSET_TYPE is int else
-                                solver_utils._convert_working_gs_to_cache_gs_standard_nparray
-                            )
-                            cache_state_without_reordering = cache_state_without_reordering_func(
-                                game_state,
-                                all_cwa_bitsets
-                            )
-                            sd.print_game_state(game_state, "State with ineffective move:")
-                            sd.print_cache_game_state(cache_state_without_reordering)
-                            exit()
+                        # else: # TODO this entire else block can be deleted
+                        #     from . import display
+                        #     console.print(display.get_move_text(move))
+                        #     console.print(v_set)
+                        #     cache_state_without_reordering_func = (
+                        #         solver_utils._convert_working_gs_to_cache_gs_standard_int if config.NIGHTMARE_BITSET_TYPE is int else
+                        #         solver_utils._convert_working_gs_to_cache_gs_standard_nparray
+                        #     )
+                        #     cache_state_without_reordering = cache_state_without_reordering_func(
+                        #         game_state,
+                        #         all_cwa_bitsets
+                        #     )
+                        #     sd.print_game_state(game_state, "State with ineffective move:")
+                        #     sd.print_cache_game_state(cache_state_without_reordering)
+                        #     exit()
                     break
 
 def testing_stuff(self):
@@ -125,8 +126,8 @@ class Solver_Nightmare(Solver):
 
         # WARN TODO: delete the next 2 lines
         # #################################################
-        global all_cwa_bitsets
-        all_cwa_bitsets = self.all_cwa_bitsets
+        # global all_cwa_bitsets
+        # all_cwa_bitsets = self.all_cwa_bitsets
         #################################################################################################
 
         if not self.full_cwas_list: # invalid problem with no solutions
@@ -216,8 +217,8 @@ class Solver_Nightmare(Solver):
             return result
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             if config.CACHE_END_STATES:
-                self._evaluations_cache[cache_game_state] = Solver.null_answer
-            return Solver.null_answer
+                self._evaluations_cache[cache_game_state] = Solver.double_zero
+            return Solver.double_zero
         best_node_cost = Solver.initial_best_cost
         if game_state.proposal_used_this_round is None:
             minimal_vs_list = _calculate_minimal_vs_list(
@@ -241,20 +242,19 @@ class Solver_Nightmare(Solver):
                 minimal_vs_list=minimal_vs_list,
                 depth=depth + 1,
                 working_cwa_set_convert_cache=working_cwa_set_convert_cache,
-            )[1]
+            )
             gs_true_node_cost = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=gs_tup[1],
                 minimal_vs_list=minimal_vs_list,
                 depth=depth + 1,
                 working_cwa_set_convert_cache=working_cwa_set_convert_cache,
-            )[1]
+            )
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
-                best_move = move
                 if(
                     (node_cost_tup == (0, 1)) or
                     ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
@@ -263,24 +263,20 @@ class Solver_Nightmare(Solver):
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if found_moves:
-            (best_proposal, best_v_index) = best_move
-            best_move = (best_proposal, self.index_function(permutation, best_v_index))
-            answer = (best_move, best_node_cost)
-        else:
+        if not found_moves:
             # don't have to recalculate minimal_vs_list here; the next invocation will do that.
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            answer = self._calculate_best_move(
+            best_node_cost = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
                 depth=depth+1
             )
-        self._evaluations_cache[cache_game_state] = answer
-        return answer
+        self._evaluations_cache[cache_game_state] = best_node_cost
+        return best_node_cost
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """
@@ -303,21 +299,51 @@ class Solver_Nightmare(Solver):
         -------
         (best_move, node_evaluation)
         """
-        (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
-            working_game_state,
-            self.all_cwa_bitsets,
-            dict(),
-            self.shift_amounts,
-            self.int_verifier_bit_mask
-        )
-        if cache_game_state not in self._evaluations_cache:
-            return default
-        evaluation_result = self._evaluations_cache[cache_game_state]
-        (best_move_on_canonical, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
-        (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
-        best_move = (best_proposal, permutation[best_v_index_on_canonical])
-        return (best_move, node_evaluation)
+        return self._evaluations_cache.get(working_game_state, default)
+        # (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+        #     working_game_state,
+        #     self.all_cwa_bitsets,
+        #     dict(),
+        #     self.shift_amounts,
+        #     self.int_verifier_bit_mask
+        # )
+        # if cache_game_state not in self._evaluations_cache:
+        #     return default
+        # evaluation_result = self._evaluations_cache[cache_game_state]
+        # (best_move_on_canonical, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
+        # (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
+        # best_move = (best_proposal, permutation[best_v_index_on_canonical])
+        # return (best_move, node_evaluation)
 
+    # def _filter_cache(self):
+    #     """
+    #     Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+    #     """
+    #     new_evaluations_cache = dict()
+    #     stack : list[Game_State] = [self.initial_game_state]
+    #     while stack:
+    #         curr_working_gs = stack.pop()
+    #         curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
+    #         if(
+    #             (curr_cache_gs not in new_evaluations_cache) and
+    #             (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
+    #         ):
+    #             gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
+    #             if(gs_evaluation_result is None):
+    #                 console.print("Huh. Why is the evaluation result of the following game state None?")
+    #                 console.print("Working game state: ", curr_working_gs)
+    #                 console.print("Cache game state: ", curr_cache_gs)
+    #                 console.print("Exiting.")
+    #                 exit()
+    #             (working_gs_false, working_gs_true) = gs_evaluation_result[2]
+    #             curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
+    #             new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
+    #             stack.append(working_gs_false)
+    #             stack.append(working_gs_true)
+    #     self._evaluations_cache = new_evaluations_cache
+
+
+########################## NOTE: Temporarily call this updated until ready ################################
     def _filter_cache(self):
         """
         Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
@@ -328,36 +354,7 @@ class Solver_Nightmare(Solver):
             curr_working_gs = stack.pop()
             curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
             if(
-                (curr_cache_gs not in new_evaluations_cache) and
-                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
-            ):
-                gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
-                if(gs_evaluation_result is None):
-                    console.print("Huh. Why is the evaluation result of the following game state None?")
-                    console.print("Working game state: ", curr_working_gs)
-                    console.print("Cache game state: ", curr_cache_gs)
-                    console.print("Exiting.")
-                    exit()
-                (working_gs_false, working_gs_true) = gs_evaluation_result[2]
-                curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
-                new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
-                stack.append(working_gs_false)
-                stack.append(working_gs_true)
-        self._evaluations_cache = new_evaluations_cache
-
-
-########################## NOTE: Temporarily call this updated until ready ################################
-    def _filter_cache_updated(self):
-        """
-        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
-        """
-        new_evaluations_cache = dict()
-        stack : list[Game_State] = [self.initial_game_state]
-        while stack:
-            curr_working_gs = stack.pop()
-            curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
-            if(
-                (curr_cache_gs not in new_evaluations_cache) and
+                (curr_working_gs not in new_evaluations_cache) and
                 (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
             ):
                 gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
@@ -389,5 +386,47 @@ class Solver_Nightmare(Solver):
                     curr_working_gs_minimal_vs_list,
                     force_set_intersect=True
                 ):
-                    pass
+                    if self._check_move_info(
+                        move_info,
+                        gs_evaluation_result,
+                        new_evaluations_cache,
+                        curr_cache_gs,
+                        stack,
+                        put_cache_gs_into_new_ev_cache=False,
+                        curr_working_gs=curr_working_gs
+                    ):
+                        break
+                else:
+                    early_new_round_curr_working_gs = Game_State(
+                        num_queries_this_round=0,
+                        proposal_used_this_round=None,
+                        cwa_set=curr_working_gs.cwa_set
+                    )
+                    early_new_round_gs_minimal_vs_list = _calculate_minimal_vs_list(
+                        self.num_rcs,
+                        early_new_round_curr_working_gs,
+                        self.full_cwas_list
+                    )
+                    for move_info in _nightmare_get_and_apply_moves(
+                        early_new_round_curr_working_gs,
+                        self.qs_dict,
+                        early_new_round_gs_minimal_vs_list,
+                        force_set_intersect=True
+                    ):
+                        if self._check_move_info(
+
+                            move_info,
+                            gs_evaluation_result,
+                            new_evaluations_cache,
+                            curr_cache_gs,
+                            stack,
+                            put_cache_gs_into_new_ev_cache=False,
+                            curr_working_gs=curr_working_gs
+                        ):
+                            break
+                    else:
+                        message = (
+                            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
+                        )
+                        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
         self._evaluations_cache = new_evaluations_cache
