@@ -303,7 +303,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
          triangle_lt_circle, triangle_eq_circle, triangle_gt_circle],
     44: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
          square_lt_circle, square_eq_circle, square_gt_circle],
-
+    45: [zero_1, one_1, two_1, zero_3, one_3, two_3],
     46: [zero_3, one_3, two_3, zero_4, one_4, two_4],
     47: [zero_1, one_1, two_1, zero_4, one_4, two_4],
     48: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
