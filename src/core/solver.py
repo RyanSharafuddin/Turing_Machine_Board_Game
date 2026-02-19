@@ -670,7 +670,7 @@ class Solver:
         self._evaluations_cache = new_evaluations_cache
 
 
-    def _evaluate_potential_state(self, cache_gs, working_gs):
+    def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
         """
         Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
         """
