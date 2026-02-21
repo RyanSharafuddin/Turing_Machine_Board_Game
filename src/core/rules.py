@@ -116,6 +116,8 @@ def one_even(triangle, square, circle):
     return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 1)
 def two_evens(triangle, square, circle):
     return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 2)
+def three_evens(triangle, square, circle):
+    return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 3)
 
 #rule 18
 def sum_digits_even(triangle, square, circle):
@@ -271,7 +273,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     14: [triangle_strict_min, square_strict_min, circle_strict_min],
     15: [triangle_strict_max, square_strict_max, circle_strict_max],
     16: [more_evens, more_odds],
-    17: [zero_evens, one_even, two_evens],
+    17: [zero_evens, one_even, two_evens, three_evens],
     18: [sum_digits_even, sum_digits_odd],
     19: [tri_plus_sq_lt_6, tri_plus_sq_eq_6, tri_plus_sq_gt_6],
     20: [triple_rep, double_rep, no_rep],
