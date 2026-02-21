@@ -218,6 +218,12 @@ def tri_plus_ci_4(triangle, square, circle):
 def sq_plus_ci_4(triangle, square, circle):
     return((square + circle) == 4)
 
+#rule 38
+def tri_plus_ci_eq_6(triangle, square, circle):
+    return((triangle + circle) == 6)
+def square_plus_ci_eq_6(triangle, square, circle):
+    return((square + circle) == 6)
+
 #rule 40
 #reuses all 6 rules from rule 2 and 3
 def circle_lt_3(triangle, square, circle):
@@ -286,7 +292,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
 
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
-
+    38: [tri_plus_sq_eq_6, tri_plus_ci_eq_6, square_plus_ci_eq_6],
 
     40: [
             triangle_lt_3, triangle_eq_3, triangle_gt_3,
