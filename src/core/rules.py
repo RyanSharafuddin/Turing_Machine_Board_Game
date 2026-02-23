@@ -288,7 +288,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     29: [triangle_eq_3, square_eq_3, circle_eq_3],
     30: [triangle_eq_4, square_eq_4, circle_eq_4],
     31: [triangle_gt_1, square_gt_1, circle_gt_1],
-
+    32: [triangle_gt_3, square_gt_3, circle_gt_3],
     33: [triangle_even, triangle_odd, square_even, square_odd, circle_even, circle_odd],
     34: [triangle_a_min, square_a_min, circle_a_min],
 
