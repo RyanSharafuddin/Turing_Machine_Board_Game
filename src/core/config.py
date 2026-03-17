@@ -103,7 +103,7 @@ ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = True # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
 # Change Whether Debugging Informations Is Displayed
-PRINT_POST_SOLVE_DEBUG_INFO = False  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
+PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
 

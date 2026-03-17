@@ -336,7 +336,12 @@ class Solver:
 
     # called_calculate = 0
     # cache_hits = 0
-    def _calculate_best_move(self, qs_dict, game_state: Game_State, depth=0):
+    def _calculate_best_move(
+            self,
+            qs_dict,
+            game_state: Game_State,
+            depth=0,
+        ):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
@@ -369,7 +374,19 @@ class Solver:
         move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
+            # TODO: pruning does slightly reduce both time and memory. Two improvements:
+            # MOST IMPORTANT:
+            #      1. Smarter pruning.
+            #      2. Instead of using _cost_calculator, use a cost calculator function that specifically only deals with the cost of 1 state, rather than use the 2-state cost calculator function and setting the second cost to 0.
+            #      3. Instead of pruning after calculating the false cost, try pruning after calculating the cost of the high probability state, or alternatively after calculating the cost of the low-probability state, and seeing which is better.
+            #     4. Implement pruning for nightmare mode and see if it helps with memory/time there too.
+            #     5. Maybe try a "killer heuristic", where you sort the moves by how close they are to having a probability of 50/50 and explore them in that order?
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)[1]
+            if (self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0))) >= best_node_cost):
+                # The false node alone would make this move not better than the best move, so don't need to search the true node.
+                if depth < self.num_concurrent_tasks:
+                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                continue
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)[1]
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
