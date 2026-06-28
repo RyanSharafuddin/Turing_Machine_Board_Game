@@ -204,6 +204,14 @@ def square_a_min(triangle, square, circle):
 def circle_a_min(triangle, square, circle):
     return((circle <= triangle) and (circle <= square))
 
+# rule 35
+def triangle_a_max(triangle, square, circle):
+    return((triangle >= square) and (triangle >= circle))
+def square_a_max(triangle, square, circle):
+    return((square >= triangle) and (square >= circle))
+def circle_a_max(triangle, square, circle):
+    return((circle >= triangle) and (circle >= square))
+
 # rule 36
 def sum_dig_3x(triangle, square, circle):
     return(((triangle + square + circle) % 3) == 0)
@@ -291,7 +299,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     32: [triangle_gt_3, square_gt_3, circle_gt_3],
     33: [triangle_even, triangle_odd, square_even, square_odd, circle_even, circle_odd],
     34: [triangle_a_min, square_a_min, circle_a_min],
-
+    35: [triangle_a_max, square_a_max, circle_a_max],
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
     38: [tri_plus_sq_eq_6, tri_plus_ci_eq_6, square_plus_ci_eq_6],
