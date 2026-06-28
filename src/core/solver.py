@@ -451,18 +451,30 @@ class Solver:
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
         from .display import Solver_Displayer
         sd = Solver_Displayer(self)
+
         if(config.PRINT_POST_SOLVE_DEBUG_INFO):
-            global asizeof
-            from pympler.asizeof import asizeof # only import this if printing post solve debug info.
-            # WARN: The line below itself uses up a lot of memory and time.
-            # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
-            self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
-            sd.print_eval_cache_size()
-            self.print_eval_cache_stats()
-            self.print_cache_by_size()
-            # console.print(f"{useless_queries:,} useless queries")
-            # console.print(f"{useful_queries:,} useful queries")
-            # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+            # global asizeof
+            # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+            # # WARN: The line below itself uses up a lot of memory and time.
+            # # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
+            # self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+            # sd.print_eval_cache_size()
+            # self.print_eval_cache_stats()
+            # self.print_cache_by_size()
+            # # console.print(f"{useless_queries:,} useless queries")
+            # # console.print(f"{useful_queries:,} useful queries")
+            # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+
+            gs: Game_State
+            num_begin_round_states = 0
+            for gs in self._evaluations_cache:
+                num_begin_round_states += (gs.proposal_used_this_round is None)
+            print(f"Number of begin round states: {num_begin_round_states:,}")
+            print(f"Total number of states: {len(self._evaluations_cache):,}")
+            print(
+                f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
+            )
+
         sys.stdout.flush()
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
