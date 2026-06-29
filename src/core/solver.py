@@ -344,7 +344,12 @@ class Solver:
 
     # called_calculate = 0
     # cache_hits = 0
-    def _calculate_best_move(self, qs_dict, game_state: Game_State, depth=0):
+    def _calculate_best_move(
+            self,
+            qs_dict,
+            game_state: Game_State,
+            depth=0,
+        ):
         """
         Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
         best_move_tup is a tup of (proposal, rc_index)
@@ -378,6 +383,12 @@ class Solver:
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
+            # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
+            if (self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0))) >= best_node_cost):
+                # The false node alone would make this move not better than the best move, so don't need to search the true node.
+                if depth < self.num_concurrent_tasks:
+                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                continue
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
@@ -444,18 +455,30 @@ class Solver:
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
         from .display import Solver_Displayer
         sd = Solver_Displayer(self)
+
         if(config.PRINT_POST_SOLVE_DEBUG_INFO):
-            global asizeof
-            from pympler.asizeof import asizeof # only import this if printing post solve debug info.
-            # WARN: The line below itself uses up a lot of memory and time.
-            # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
-            self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
-            sd.print_eval_cache_size()
-            self.print_eval_cache_stats()
-            self.print_cache_by_size()
-            # console.print(f"{useless_queries:,} useless queries")
-            # console.print(f"{useful_queries:,} useful queries")
-            # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+            # global asizeof
+            # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+            # # WARN: The line below itself uses up a lot of memory and time.
+            # # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
+            # self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+            # sd.print_eval_cache_size()
+            # self.print_eval_cache_stats()
+            # self.print_cache_by_size()
+            # # console.print(f"{useless_queries:,} useless queries")
+            # # console.print(f"{useful_queries:,} useful queries")
+            # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
+
+            gs: Game_State
+            num_begin_round_states = 0
+            for gs in self._evaluations_cache:
+                num_begin_round_states += (gs.proposal_used_this_round is None)
+            print(f"Number of begin round states: {num_begin_round_states:,}")
+            print(f"Total number of states: {len(self._evaluations_cache):,}")
+            print(
+                f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
+            )
+
         sys.stdout.flush()
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):

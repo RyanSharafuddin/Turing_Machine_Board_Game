@@ -153,7 +153,7 @@ def get_local_problem_by_id(problem_id: str):
         )
         return(None)
     if(len(problem_list) > 1):
-        print(f"There are multiple problems f{problem_id} could refer to. Here they are:\n")
+        print(f"There are multiple problems {problem_id} could refer to. Here they are:\n")
         for(index, problem) in enumerate(problem_list, start=1):
             console.print(index, ": ", problem, sep="", end="")
         a = int(input("\nWhich one would you like?\n> "))

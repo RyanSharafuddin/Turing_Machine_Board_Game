@@ -116,6 +116,8 @@ def one_even(triangle, square, circle):
     return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 1)
 def two_evens(triangle, square, circle):
     return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 2)
+def three_evens(triangle, square, circle):
+    return(len([i for i in (triangle, square, circle) if ((i % 2) == 0)]) == 3)
 
 #rule 18
 def sum_digits_even(triangle, square, circle):
@@ -202,6 +204,14 @@ def square_a_min(triangle, square, circle):
 def circle_a_min(triangle, square, circle):
     return((circle <= triangle) and (circle <= square))
 
+# rule 35
+def triangle_a_max(triangle, square, circle):
+    return((triangle >= square) and (triangle >= circle))
+def square_a_max(triangle, square, circle):
+    return((square >= triangle) and (square >= circle))
+def circle_a_max(triangle, square, circle):
+    return((circle >= triangle) and (circle >= square))
+
 # rule 36
 def sum_dig_3x(triangle, square, circle):
     return(((triangle + square + circle) % 3) == 0)
@@ -217,6 +227,12 @@ def tri_plus_ci_4(triangle, square, circle):
     return((triangle + circle) == 4)
 def sq_plus_ci_4(triangle, square, circle):
     return((square + circle) == 4)
+
+#rule 38
+def tri_plus_ci_eq_6(triangle, square, circle):
+    return((triangle + circle) == 6)
+def square_plus_ci_eq_6(triangle, square, circle):
+    return((square + circle) == 6)
 
 #rule 40
 #reuses all 6 rules from rule 2 and 3
@@ -265,7 +281,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     14: [triangle_strict_min, square_strict_min, circle_strict_min],
     15: [triangle_strict_max, square_strict_max, circle_strict_max],
     16: [more_evens, more_odds],
-    17: [zero_evens, one_even, two_evens],
+    17: [zero_evens, one_even, two_evens, three_evens],
     18: [sum_digits_even, sum_digits_odd],
     19: [tri_plus_sq_lt_6, tri_plus_sq_eq_6, tri_plus_sq_gt_6],
     20: [triple_rep, double_rep, no_rep],
@@ -280,13 +296,13 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     29: [triangle_eq_3, square_eq_3, circle_eq_3],
     30: [triangle_eq_4, square_eq_4, circle_eq_4],
     31: [triangle_gt_1, square_gt_1, circle_gt_1],
-
+    32: [triangle_gt_3, square_gt_3, circle_gt_3],
     33: [triangle_even, triangle_odd, square_even, square_odd, circle_even, circle_odd],
     34: [triangle_a_min, square_a_min, circle_a_min],
-
+    35: [triangle_a_max, square_a_max, circle_a_max],
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
-
+    38: [tri_plus_sq_eq_6, tri_plus_ci_eq_6, square_plus_ci_eq_6],
 
     40: [
             triangle_lt_3, triangle_eq_3, triangle_gt_3,
@@ -303,7 +319,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
          triangle_lt_circle, triangle_eq_circle, triangle_gt_circle],
     44: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
          square_lt_circle, square_eq_circle, square_gt_circle],
-
+    45: [zero_1, one_1, two_1, zero_3, one_3, two_3],
     46: [zero_3, one_3, two_3, zero_4, one_4, two_4],
     47: [zero_1, one_1, two_1, zero_4, one_4, two_4],
     48: [triangle_lt_square, triangle_eq_square, triangle_gt_square,

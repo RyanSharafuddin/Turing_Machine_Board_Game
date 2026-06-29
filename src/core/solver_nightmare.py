@@ -243,6 +243,11 @@ class Solver_Nightmare(Solver):
                 depth=depth + 1,
                 working_cwa_set_convert_cache=working_cwa_set_convert_cache,
             )
+            if (self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0))) >= best_node_cost):
+                # The false node alone would make this move not better than the best move, so don't need to search the true node.
+                if depth < self.num_concurrent_tasks:
+                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                continue
             gs_true_node_cost = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=gs_tup[1],
