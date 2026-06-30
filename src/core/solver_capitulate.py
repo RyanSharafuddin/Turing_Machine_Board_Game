@@ -9,6 +9,7 @@ class Solver_Capitulate(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.num_concurrent_tasks = 0
+        self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
 
     def _choose_best_move_depth_one(self, move_infos:list):
         # cwa_set representation_change TODO!!
@@ -36,13 +37,9 @@ class Solver_Capitulate(Solver):
     #       calculate_best_move(self.qs_dict, self.initial_game_state)
     def _calculate_best_move(self, qs_dict, game_state):
         """ A capitulation """
-        sd = testing_stuff(self)
-        from . import display
         stack = [game_state]
         while stack:
             current_gs = stack.pop()
-            sd.print_game_state(current_gs, "Current gs")
-            print(current_gs)
             if current_gs in self._evaluations_cache:
                 continue
             if not one_answer_left(self.full_cwas_list, current_gs.cwa_set):
@@ -53,22 +50,24 @@ class Solver_Capitulate(Solver):
                         num_queries_this_round=0,
                         cwa_set=current_gs.cwa_set
                     )
-                    move_infos = list(get_and_apply_moves(new_game_state, self.qs_dict))
+                    move_infos = list(
+                        get_and_apply_moves(new_game_state, self.qs_dict, force_set_intersect=True)
+                    )
                 answer = self._choose_best_move_depth_one(move_infos)
                 (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
-                console.print("Best move:", display.get_move_text(best_move))
                 self._evaluations_cache[current_gs] = (best_move, best_expected_result)
                 stack.append(best_gs_tup[0])
                 stack.append(best_gs_tup[1])
 
     def _calculate_actual_expected_for_capitulation(self, game_state: Game_State, new_ev_cache: dict):
-        sd = testing_stuff(self)
         if game_state in new_ev_cache:
             return new_ev_cache[game_state]
+        if not game_state.cwa_set:
+            print(game_state)
+            exit()
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return((None, (0, 0)))
         if game_state not in self._evaluations_cache:
-            sd.print_game_state(game_state, "State not in _evaluations_cache")
             print(game_state)
             exit()
         (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
