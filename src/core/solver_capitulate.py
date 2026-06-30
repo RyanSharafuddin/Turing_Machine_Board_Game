@@ -4,7 +4,6 @@ def fset_answers_from_cwa_set(all_cwas, cwa_set):
     # cwa_set representation_change TODO!!
     return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
 
-
 class Solver_Capitulate(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)

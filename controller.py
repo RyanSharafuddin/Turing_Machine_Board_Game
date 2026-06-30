@@ -112,8 +112,6 @@ def f_name_from_id(identity):
 
 def make_solver(problem: Problem, capitulate=False):
     """ Makes a solver and solve()s the problem. """
-    # if(args.capitulate): # args.capitulate should really be passed in as an argument to this function. At any rate, capitulate solver isn't working currently anyway.
-        # s = Solver_Capitulate(problem)
     if capitulate:
         s = Solver_Capitulate(problem)
     else:
@@ -325,7 +323,7 @@ def make_parser():
     parser.add_argument(
         "--capitulate","-c",
         action="store_true",
-        help="Note: capitulate mode is currently not implemented, so don't use this option. But, when it is implemented, this help text will say: Give up on being perfect. Choosing this turns on --no_pickles."
+        help="Give up on being perfect. Instead of playing perfectly, at each turn the computer will choose the move that gives the greatest expected reduction in (number answers remaining, number combos remaining). So, it's essentially playing with a lookahead of 1 move, instead of looking ahead to the end of the game. Use this to get results fast and/or to compare its result against the result obtained from playing perfectly. Choosing this turns on --no_pickles."
     )
     parser.add_argument(
         "--new_problem", "-n",
