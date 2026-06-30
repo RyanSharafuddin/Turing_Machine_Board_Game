@@ -110,14 +110,17 @@ def f_name_from_id(identity):
     f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
     return(f_name)
 
-def make_solver(problem: Problem):
+def make_solver(problem: Problem, capitulate=False):
     """ Makes a solver and solve()s the problem. """
     # if(args.capitulate): # args.capitulate should really be passed in as an argument to this function. At any rate, capitulate solver isn't working currently anyway.
         # s = Solver_Capitulate(problem)
-    if(problem.mode == NIGHTMARE):
-        s = Solver_Nightmare(problem)
+    if capitulate:
+        s = Solver_Capitulate(problem)
     else:
-        s = solver.Solver(problem)
+        if(problem.mode == NIGHTMARE):
+            s = Solver_Nightmare(problem)
+        else:
+            s = solver.Solver(problem)
     sd = display.Solver_Displayer(s)
     sd.print_problem(s.rcs_list, s.problem, active=DISPLAY)
     if(not(s.full_cwas_list)):
@@ -176,14 +179,17 @@ def get_or_make_solver(
         problem: Problem,
         pickle_entire=False,
         force_overwrite=True,
-        no_pickles=False
-    ) -> solver.Solver :
+        no_pickles=False,
+        capitulate=False
+    ) -> tuple[solver.Solver, bool] :
     """
     Given a `problem`, if the corresponding solver has been pickled, gets it, otherwise, makes it, pickles it.
     If pickle_entire is True, pickles the entire solver; otherwise, only pickles the parts of the evaluations cache needed to play the game perfectly.
     If force_overwrite is true, makes solver and writes it to file regardless of whether or not it existed before.
     If no_pickles is True, does not interact with pickles in any way. Makes solver from scratch, and does not pickle it nor change any existing pickles. Precludes force_overwrite and pickle_entire.
-    Returns a tuple (solver, a bool indicating whether or not the solver was made from scratch)
+    Returns:
+        (solver, made_from_scratch)
+        made_from_scratch: a bool indicating whether or not the solver was made from scratch
     """
     # display.cprint_if_active(DISPLAY, f"\nReturning solver for problem: {problem.identity}")
     if(DISABLE_GC):
@@ -191,7 +197,7 @@ def get_or_make_solver(
         gc.collect()
     if(no_pickles):
         display.cprint_if_active(DISPLAY, "No pickles. Making solver from scratch.")
-        s = make_solver(problem)
+        s = make_solver(problem, capitulate=capitulate)
         made_from_scratch = True
     else:
         f_name = f_name_from_id(problem.identity)
@@ -225,18 +231,23 @@ def display_problem_solution(
     problem: Problem,
     pickle_entire=False,
     force_overwrite=False,
-    no_pickles=False
+    no_pickles=False,
+    capitulate=False
 ):
     """
     Given a `problem`, gets or makes a solver for it (see get_or_make_solver), then prints the best move tree with the options that are currently set (SHOW_COMBOS_IN_TREE).
     """
-    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    (s, made_from_scatch) = get_or_make_solver(
+        problem, pickle_entire, force_overwrite, no_pickles, capitulate
+    )
     display_solution_from_solver(s, display_problem=not(made_from_scatch))
-def play(problem: Problem, pickle_entire=False, force_overwrite=False, no_pickles=False):
+def play(problem: Problem, pickle_entire=False, force_overwrite=False, no_pickles=False, capitulate=False):
     """
     Given a `problem`, gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
     """
-    (s, made_from_scatch) = get_or_make_solver(problem, pickle_entire, force_overwrite, no_pickles)
+    (s, made_from_scatch) = get_or_make_solver(
+        problem, pickle_entire, force_overwrite, no_pickles, capitulate
+    )
     play_from_solver(s, display_problem=not(made_from_scatch))
 
 def get_web_problem(p_id, raw_mode, level, num_verifiers):
@@ -420,9 +431,10 @@ if(__name__ == "__main__"):
             play,
             problem,
             no_pickles=args.no_pickles,
-            force_overwrite=args.force_overwrite
+            force_overwrite=args.force_overwrite,
+            capitulate=args.capitulate
         )
-        if(not(args.play or args.display)):
+        if(not(args.play or args.display) and not(args.capitulate)):
             s = get_or_make_solver(
                 problem, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
             )[0]

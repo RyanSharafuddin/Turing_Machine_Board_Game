@@ -1,68 +1,91 @@
 from .solver import *
 
-def fset_answers_from_cwa_set(cwa_set):
+def fset_answers_from_cwa_set(all_cwas, cwa_set):
     # cwa_set representation_change TODO!!
-    return(frozenset([cwa[-1] for cwa in cwa_set]))
+    return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
 
-def _choose_best_move_depth_one(moves_list):
-    # cwa_set representation_change TODO!!
-    best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
-    for(move, mcost, gs_tuple, p_tuple) in moves_list:
-        (p_false, p_true) = p_tuple
-        (gs_false_answers_left, gs_true_answers_left) = [
-            len(fset_answers_from_cwa_set(gs.fset_cwa_indexes_remaining)) for gs in gs_tuple
-        ]
-        (gs_false_combos_left, gs_true_combos_left) = [
-            len(gs.fset_cwa_indexes_remaining) for gs in gs_tuple
-        ]
-        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
-        expected_result = (expected_answers_left, expected_combos_left)
-        if(expected_result < best_expected_result):
-            best_expected_result = expected_result
-            best_move = move
-            best_mcost = mcost
-            best_gs_tup = gs_tuple
-    answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
-    return(answer)
-
-def _calculate_actual_expected_for_capitulation(evaluations_cache, game_state: Game_State):
-    # cwa_set representation_change TODO!!
-    if(not game_state in evaluations_cache):
-        return((0, 0))
-    (best_move, best_mcost, best_gs_tup, answer_combo_cost) = evaluations_cache[game_state]
-    (gs_false, gs_true) = best_gs_tup
-    p_false = len(gs_false.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
-    p_true = len(gs_true.fset_cwa_indexes_remaining) / len(game_state.fset_cwa_indexes_remaining)
-    cost_false = _calculate_actual_expected_for_capitulation(evaluations_cache, gs_false)
-    cost_true = _calculate_actual_expected_for_capitulation(evaluations_cache, gs_true)
-    actual_expected_cost = solver_utils.calculate_expected_cost(best_mcost, (p_false, p_true), (cost_false, cost_true))
-    evaluations_cache[game_state] = (best_move, best_mcost, best_gs_tup, actual_expected_cost)
-    return(actual_expected_cost)
 
 class Solver_Capitulate(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
+        self.num_concurrent_tasks = 0
+
+    def _choose_best_move_depth_one(self, move_infos:list):
+        # cwa_set representation_change TODO!!
+        best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
+        for(move, mcost, gs_tuple, p_tuple) in move_infos:
+            (p_false, p_true) = p_tuple
+            (gs_false_answers_left, gs_true_answers_left) = [
+                len(fset_answers_from_cwa_set(self.full_cwas_list, gs.cwa_set)) for gs in gs_tuple
+            ]
+            (gs_false_combos_left, gs_true_combos_left) = [
+                len(gs.cwa_set) for gs in gs_tuple
+            ]
+            expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
+            expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
+            expected_result = (expected_answers_left, expected_combos_left)
+            if(expected_result < best_expected_result):
+                best_expected_result = expected_result
+                best_move = move
+                best_mcost = mcost
+                best_gs_tup = gs_tuple
+        answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
+        return answer
 
     # NOTE: calculate_best_move must be able to be started with
     #       calculate_best_move(self.qs_dict, self.initial_game_state)
     def _calculate_best_move(self, qs_dict, game_state):
         """ A capitulation """
-        stack = [self.initial_game_state]
-        while(stack):
+        sd = testing_stuff(self)
+        from . import display
+        stack = [game_state]
+        while stack:
             current_gs = stack.pop()
-            if not(one_answer_left(self.full_cwas_list, current_gs.fset_cwa_indexes_remaining)):
-                moves_list = list(get_and_apply_moves(current_gs, self.qs_dict))
-                if not(moves_list):
+            sd.print_game_state(current_gs, "Current gs")
+            print(current_gs)
+            if current_gs in self._evaluations_cache:
+                continue
+            if not one_answer_left(self.full_cwas_list, current_gs.cwa_set):
+                move_infos = list(get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
+                if not move_infos:
                     new_game_state = Game_State(
                         proposal_used_this_round=None,
                         num_queries_this_round=0,
-                        fset_cwa_indexes_remaining=current_gs.fset_cwa_indexes_remaining
+                        cwa_set=current_gs.cwa_set
                     )
-                    moves_list = list(get_and_apply_moves(new_game_state, self.qs_dict))
-                answer = _choose_best_move_depth_one(moves_list)
-                self._evaluations_cache[current_gs] = answer
+                    move_infos = list(get_and_apply_moves(new_game_state, self.qs_dict))
+                answer = self._choose_best_move_depth_one(move_infos)
                 (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
+                console.print("Best move:", display.get_move_text(best_move))
+                self._evaluations_cache[current_gs] = (best_move, best_expected_result)
                 stack.append(best_gs_tup[0])
                 stack.append(best_gs_tup[1])
-        _calculate_actual_expected_for_capitulation(self._evaluations_cache, self.initial_game_state)
+
+    def _calculate_actual_expected_for_capitulation(self, game_state: Game_State, new_ev_cache: dict):
+        sd = testing_stuff(self)
+        if game_state in new_ev_cache:
+            return new_ev_cache[game_state]
+        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+            return((None, (0, 0)))
+        if game_state not in self._evaluations_cache:
+            sd.print_game_state(game_state, "State not in _evaluations_cache")
+            print(game_state)
+            exit()
+        (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
+        (gs_false, gs_true) = self.apply_move_to_state(best_move, game_state)
+        p_false = len(gs_false.cwa_set) / len(game_state.cwa_set)
+        p_true = len(gs_true.cwa_set) / len(game_state.cwa_set)
+        (_, cost_false) = self._calculate_actual_expected_for_capitulation(gs_false, new_ev_cache)
+        (_, cost_true) = self._calculate_actual_expected_for_capitulation(gs_true, new_ev_cache)
+        move_cost = (Solver.does_move_cost_round(best_move, game_state), 1)
+        actual_expected_cost = solver_utils.calculate_expected_cost(
+            move_cost, (p_false, p_true), (cost_false, cost_true)
+        )
+        answer = (best_move, actual_expected_cost)
+        new_ev_cache[game_state] = answer
+        return answer
+
+    def _filter_cache(self):
+        new_ev_cache = dict()
+        self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
+        self._evaluations_cache = new_ev_cache

@@ -175,6 +175,7 @@ def testing_stuff(self):
     from . import display
     global sd
     sd = display.Solver_Displayer(self)
+    return sd
 
 progress = solver_utils.progress_initialize()
 
