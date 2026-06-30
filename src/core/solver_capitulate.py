@@ -83,6 +83,16 @@ class Solver_Capitulate(Solver):
         new_ev_cache[game_state] = answer
         return answer
 
+    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
+        """
+        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
+
+        Returns
+        -------
+        (best_move, node_evaluation)
+        """
+        return self._evaluations_cache.get(working_game_state, default)
+
     def _filter_cache(self):
         new_ev_cache = dict()
         self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
