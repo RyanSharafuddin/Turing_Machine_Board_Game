@@ -476,9 +476,10 @@ class Solver:
                 num_begin_round_states += (gs.proposal_used_this_round is None)
             print(f"Number of begin round states: {num_begin_round_states:,}")
             print(f"Total number of states: {len(self._evaluations_cache):,}")
-            print(
-                f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
-            )
+            if len(self._evaluations_cache):
+                print(
+                    f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
+                )
 
         sys.stdout.flush()
 
