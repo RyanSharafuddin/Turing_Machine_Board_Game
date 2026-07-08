@@ -293,7 +293,7 @@ class Solver_Nightmare(Solver):
             dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
-        )[0]
+        )[0] # TODO: delete the '[0]' when update to not calculate permutation anymore.
         return cache_gs
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -305,53 +305,10 @@ class Solver_Nightmare(Solver):
         (best_move, node_evaluation)
         """
         return self._evaluations_cache.get(working_game_state, default)
-        # (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
-        #     working_game_state,
-        #     self.all_cwa_bitsets,
-        #     dict(),
-        #     self.shift_amounts,
-        #     self.int_verifier_bit_mask
-        # )
-        # if cache_game_state not in self._evaluations_cache:
-        #     return default
-        # evaluation_result = self._evaluations_cache[cache_game_state]
-        # (best_move_on_canonical, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
-        # (best_proposal, best_v_index_on_canonical) = best_move_on_canonical
-        # best_move = (best_proposal, permutation[best_v_index_on_canonical])
-        # return (best_move, node_evaluation)
 
-    # def _filter_cache(self):
-    #     """
-    #     Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
-    #     """
-    #     new_evaluations_cache = dict()
-    #     stack : list[Game_State] = [self.initial_game_state]
-    #     while stack:
-    #         curr_working_gs = stack.pop()
-    #         curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
-    #         if(
-    #             (curr_cache_gs not in new_evaluations_cache) and
-    #             (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
-    #         ):
-    #             gs_evaluation_result = self.get_move_mcost_gs_ncost_from_cache(curr_working_gs)
-    #             if(gs_evaluation_result is None):
-    #                 console.print("Huh. Why is the evaluation result of the following game state None?")
-    #                 console.print("Working game state: ", curr_working_gs)
-    #                 console.print("Cache game state: ", curr_cache_gs)
-    #                 console.print("Exiting.")
-    #                 exit()
-    #             (working_gs_false, working_gs_true) = gs_evaluation_result[2]
-    #             curr_cache_gs_result = self._evaluations_cache[curr_cache_gs]
-    #             new_evaluations_cache[curr_cache_gs] = curr_cache_gs_result
-    #             stack.append(working_gs_false)
-    #             stack.append(working_gs_true)
-    #     self._evaluations_cache = new_evaluations_cache
-
-
-########################## NOTE: Temporarily call this updated until ready ################################
     def _filter_cache(self):
         """
-        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+        Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
         """
         new_evaluations_cache = dict()
         stack : list[Game_State] = [self.initial_game_state]
@@ -369,17 +326,6 @@ class Solver_Nightmare(Solver):
                     sd.print_cache_game_state(curr_cache_gs, "Cache game state")
                     console.print("Exiting.")
                     exit()
-                # TODO:
-                # 1. Make sure the curr_working_gs_minimal_vs_list works correctly.
-                # 2. Add a force_set_intersect optional argument to _nightmare_get_and_apply_moves,
-                #    and use it correctly.
-                # 3. Fill out the rest of this function, including calculating get moves on a
-                #    a new working game state if no moves were found on the original.
-                # 4. Decide whether to put cache game states or working game states into the new
-                #    evaluations cache, and its implications for functions like
-                #    _get_best_move_and_ncost_from_cache and calculating permutations during the game.
-                #    Leaning towards putting working game states into the new cache for simplicity, so that
-                #    you don't have to deal with calculating permutations ever.
                 curr_working_gs_minimal_vs_list = _calculate_minimal_vs_list(
                     self.num_rcs,
                     curr_working_gs,
@@ -419,7 +365,6 @@ class Solver_Nightmare(Solver):
                         force_set_intersect=True
                     ):
                         if self._check_move_info(
-
                             move_info,
                             gs_evaluation_result,
                             new_evaluations_cache,
@@ -434,4 +379,4 @@ class Solver_Nightmare(Solver):
                             f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
                         )
                         self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-        self._evaluations_cache = new_evaluations_cache
+        return new_evaluations_cache

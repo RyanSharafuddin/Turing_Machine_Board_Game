@@ -144,7 +144,6 @@ def make_solver(problem: Problem, capitulate=False):
     )
     print("\nSolving . . .")
     s.solve()
-    s.post_solve_printing()
     return s
 
 def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):

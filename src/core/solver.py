@@ -436,21 +436,19 @@ class Solver:
             progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
-        # console.print("Evaluations cache BEFORE filter:")
-        # console.print(self._evaluations_cache)
         print("Cleaning up evaluations dictionary . . .")
-        self._filter_cache()
-        # console.print("Evaluations cache AFTER filter:")
-        # console.print(self._evaluations_cache)
+        filtered_cache = self._filter_cache()
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
         if self.num_concurrent_tasks:
             progress.stop()
+        self.post_solve_printing()
+        self._evaluations_cache = filtered_cache
+        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
 
     def post_solve_printing(self):
         """
-        Define what you would like controller to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers.
+        Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers.
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
@@ -458,6 +456,7 @@ class Solver:
         sd = Solver_Displayer(self)
 
         if(config.PRINT_POST_SOLVE_DEBUG_INFO):
+            # NOTE: post solve debug info is based on original (pre-filter) cache.
             # global asizeof
             # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
             # # WARN: The line below itself uses up a lot of memory and time.
@@ -469,7 +468,7 @@ class Solver:
             # # console.print(f"{useless_queries:,} useless queries")
             # # console.print(f"{useful_queries:,} useful queries")
             # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
-
+            print("Calculating post-solve debug information.")
             gs: Game_State
             num_begin_round_states = 0
             for gs in self._evaluations_cache:
@@ -480,7 +479,6 @@ class Solver:
                 print(
                     f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
                 )
-
         sys.stdout.flush()
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -652,7 +650,7 @@ class Solver:
 
     def _filter_cache(self):
         """
-        Replace the current self._evaluations_cache with one that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
+        Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
         """
         new_evaluations_cache = dict()
         stack : list[Game_State] = [self.initial_game_state]
@@ -692,7 +690,7 @@ class Solver:
                             f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
                         )
                         self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-        self._evaluations_cache = new_evaluations_cache
+        return new_evaluations_cache
 
 
     def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :

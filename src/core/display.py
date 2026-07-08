@@ -1262,7 +1262,7 @@ class Solver_Displayer:
         """
         Print out the memory usage of the evaluation cache of the solver, if the solver has chosen to record it.
         """
-        if not(hasattr(self.solver, "size_of_evaluations_cache_in_bytes")):
+        if (self.solver.size_of_evaluations_cache_in_bytes < 0):
             console.print("This solver did not record the size of its evaluations cache.")
             return
         size = self.solver.size_of_evaluations_cache_in_bytes
