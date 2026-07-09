@@ -378,5 +378,5 @@ class Solver_Nightmare(Solver):
                         message = (
                             f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
                         )
-                        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+                        self._filter_cache_warn_show(curr_working_gs, curr_cache_gs, message)
         return new_evaluations_cache
