@@ -436,12 +436,12 @@ class Solver:
             progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        if self.num_concurrent_tasks:
+            progress.stop()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        if self.num_concurrent_tasks:
-            progress.stop()
         self.post_solve_printing()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
@@ -468,17 +468,19 @@ class Solver:
             # # console.print(f"{useless_queries:,} useless queries")
             # # console.print(f"{useful_queries:,} useful queries")
             # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
-            print("Calculating post-solve debug information.")
-            gs: Game_State
-            num_begin_round_states = 0
-            for gs in self._evaluations_cache:
-                num_begin_round_states += (gs.proposal_used_this_round is None)
-            print(f"Number of begin round states: {num_begin_round_states:,}")
-            print(f"Total number of states: {len(self._evaluations_cache):,}")
-            if len(self._evaluations_cache):
-                print(
-                    f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
-                )
+            pass
+            # below printing outdated after implementing light cache
+            # print("Calculating post-solve debug information.")
+            # gs: Game_State
+            # num_begin_round_states = 0
+            # for gs in self._evaluations_cache:
+            #     num_begin_round_states += (gs.proposal_used_this_round is None)
+            # print(f"Number of begin round states: {num_begin_round_states:,}")
+            # print(f"Total number of states: {len(self._evaluations_cache):,}")
+            # if len(self._evaluations_cache):
+            #     print(
+            #         f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
+            #     )
         sys.stdout.flush()
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -691,7 +693,6 @@ class Solver:
                         )
                         self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
         return new_evaluations_cache
-
 
     def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
         """

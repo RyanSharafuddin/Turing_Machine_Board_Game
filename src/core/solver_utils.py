@@ -318,7 +318,7 @@ def _convert_cache_bitset_to_canonical_int(
     Returns
     -------
     (canonical_form, permutation)
-        A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
+        A move on verifier index V of the canonical is equivalent to a move on verifier index permutation[V] of the original form.
     """
     bitset_ints_by_verifier_with_indices = [
         ((cache_bitset >> shift_amount) & int_verifier_bit_mask, index)
