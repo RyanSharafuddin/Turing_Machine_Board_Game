@@ -45,6 +45,7 @@ COLORS = [
 # Displaying
 # TREE_BACKGROUND_COLOR      = "#690969"
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
+NEW_ROUND_BACKGROUND_COLOR = "#D102D1" #"#FF0048"
 SHOW_RC_NUMS_IN_PROBLEM    = True          # Display rule card numbers when displaying a problem?
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
