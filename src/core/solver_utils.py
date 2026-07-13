@@ -597,15 +597,15 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
     # math.isclose(node_rounds, threshold_rounds, rel_tol=0, abs_tol=A_TOL). They are different.
     # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand exactly how they differ.
     # Also, if you use one of those, consider setting relative_tolerance to 1e-9 instead of 0.
-    values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
-    (rounds_close_np, queries_close_np) = values_close
+    # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
+    # (rounds_close_np, queries_close_np) = values_close
     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
     queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
     # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
-    assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
-    if rounds_close_np:
+    # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
+    if rounds_close_py:
         # the round costs are 'equal'
-        if queries_close_np:
+        if queries_close_py:
             # query costs are 'equal'
             return True
         return (node_queries > threshold_queries)
@@ -615,7 +615,7 @@ def fp_lt(a, b):
     """
     Returns True if a is *strictly floating point less* than b. Note that if they are equal or 'close', returns False.
     """
-    if np.isclose(a, b, rtol=REL_TOL, atol=A_TOL):
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
         return False
     return (a < b)
 
@@ -623,18 +623,22 @@ def fp_eq(a, b):
     """
     Returns True iff a is 'equal' to b.
     """
-    return np.isclose(a, b, rtol=REL_TOL, atol=A_TOL)
+    return math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL)
 
 def fp_eq_tup(a, b):
     """
     Returns True if all the elements of a are 'equal' to the corresponding element of b.
     """
-    return np.allclose(a, b, rtol=REL_TOL, atol=A_TOL)
+    return (
+        math.isclose(a[0], b[0], rel_tol=REL_TOL, abs_tol=A_TOL) and
+        math.isclose(a[1], b[1], rel_tol=REL_TOL, abs_tol=A_TOL)
+    )
+    # return np.allclose(a, b, rtol=REL_TOL, atol=A_TOL)
 
 def fp_leq(a, b):
     """
     floating point less than or equal
     """
-    if np.isclose(a, b, rtol=REL_TOL, atol=A_TOL):
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
         return True
     return (a < b)
