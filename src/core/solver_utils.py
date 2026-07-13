@@ -2,6 +2,7 @@ import math, itertools, copy
 import numpy as np
 from rich import progress
 from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
+from .config import A_TOL, REL_TOL
 from .hashable_numpy_array import Hashable_Numpy_Array
 
 ############################## PRIVATE FUNCTIONS #################################################
@@ -583,3 +584,57 @@ def calculate_worst_case_cost(move_cost, probs, gss_costs):
     # return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1, tie_breaker))
     # Using a tiebreaker to differentiate b/t nodes with the same worst case costs is pretty interesting, but rather expensive, as it adds +10% total time.
     return((bigger_cost_tup[0] + move_cost[0], bigger_cost_tup[1] + 1))
+def divide_cost_by_probability(cost, p):
+    return (cost[0] / p, cost[1] / p)
+def roughly_geq_2tup(node_cost, corresponding_threshold):
+    """
+    Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+    """
+    (node_rounds, node_queries) = node_cost
+    (threshold_rounds, threshold_queries) = corresponding_threshold
+    # NOTE: consider using np.isclose(node_cost, corresponding_threshold, rtol=0, atol=A_TOL)
+    # instead of what currently doing. Alternatively, consider using Python's built in
+    # math.isclose(node_rounds, threshold_rounds, rel_tol=0, abs_tol=A_TOL). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand exactly how they differ.
+    # Also, if you use one of those, consider setting relative_tolerance to 1e-9 instead of 0.
+    values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
+    (rounds_close_np, queries_close_np) = values_close
+    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+    queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+    # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
+    assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
+    if rounds_close_np:
+        # the round costs are 'equal'
+        if queries_close_np:
+            # query costs are 'equal'
+            return True
+        return (node_queries > threshold_queries)
+    return (node_rounds > threshold_rounds)
+
+def fp_lt(a, b):
+    """
+    Returns True if a is *strictly floating point less* than b. Note that if they are equal or 'close', returns False.
+    """
+    if np.isclose(a, b, rtol=REL_TOL, atol=A_TOL):
+        return False
+    return (a < b)
+
+def fp_eq(a, b):
+    """
+    Returns True iff a is 'equal' to b.
+    """
+    return np.isclose(a, b, rtol=REL_TOL, atol=A_TOL)
+
+def fp_eq_tup(a, b):
+    """
+    Returns True if all the elements of a are 'equal' to the corresponding element of b.
+    """
+    return np.allclose(a, b, rtol=REL_TOL, atol=A_TOL)
+
+def fp_leq(a, b):
+    """
+    floating point less than or equal
+    """
+    if np.isclose(a, b, rtol=REL_TOL, atol=A_TOL):
+        return True
+    return (a < b)

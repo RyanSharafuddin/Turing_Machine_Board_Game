@@ -74,9 +74,11 @@ DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
 # Solver workings
-DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
-CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
-S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
+A_TOL                     = 1e-13 # should be a positive number close to 0, but > 3e-16
+REL_TOL                   = 1e-9
+DISABLE_GC                = True  # disable the garbage collector while solve()ing.
+CACHE_END_STATES          = False # whether to cache the end states into the evaluations_cache
+S_MODE_PROGRESS_BARS_DICT = {     # dictionary of num_verifiers : num_progress_bars in standard mode
 
 }
 S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
@@ -108,6 +110,6 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY      = "src/problems/Pickles/no_store_moves" # Where all pickled solvers go.
+PICKLE_DIRECTORY      = "src/problems/Pickles/Vertical_Pruning" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

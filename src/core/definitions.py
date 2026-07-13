@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.traceback import install
 
 console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
-install(show_locals=True)              # See https://rich.readthedocs.io/en/stable/traceback.html
+install(show_locals=False)              # See https://rich.readthedocs.io/en/stable/traceback.html
 
 def get_digit(n, index, base=10):
     """

@@ -1,5 +1,6 @@
 .vscode/
 __pycache__/
+Supporting_Documents/
 **/fil-result/
 **/Pickles/
 **/profiler_output/
