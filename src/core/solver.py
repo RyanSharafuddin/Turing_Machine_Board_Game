@@ -658,6 +658,9 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
+
+
+
     def _filter_cache(self, alternate_first_move=None):
         """
         Return a new cache that *only* contains the information needed to play the problem perfectly i.e. `cache[state] = (best_move, (avg_rounds, avg_queries))`. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
@@ -802,6 +805,7 @@ class Solver:
                 return True
         return False
 
+    # TODO: changes when evaluations cache store format changes
     @staticmethod
     def _new_res_to_og_res(new_cache_result):
         """
@@ -823,7 +827,6 @@ class Solver:
             console.print(cache_gs)
         console.print("Exiting.")
         exit()
-
 
 
 
@@ -851,6 +854,7 @@ class Solver:
     def total_cost_to_str(total_cost):
         return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f}), max_depth: {total_cost[2]:>3}"
 
+    # TODO: change move cost tup given to print_table and calculate min depth warning once store depth evaluated to. And change input to total_cost_to_str (and maybe change name of that function too)
     def _experiment(self):
         from .solver_capitulate import Solver_Capitulate
         if isinstance(self, Solver_Capitulate):
@@ -922,8 +926,6 @@ class Solver:
             console.print(t)
             return actual_problem
         return False
-
-
     def _print_table_move_cost_tups(self, move_cost_tups):
         print()
         t = display.Table(
@@ -950,7 +952,6 @@ class Solver:
                 (f"{cost[2]}"),
                 style= "on #4953da" if (index == min_query_index) else ""
             )
-            # console.print(f"{index:>3}:", display.get_move_text(move), Solver.total_cost_to_str(cost))
         console.print(t)
 
 # best move tree problems to print:
