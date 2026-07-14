@@ -18,9 +18,6 @@ BIT_ONE_TEXT = Text('1', style="bright_green")
 BIT_ZERO_TEXT = Text('0', style="bright_red")
 
 letters = string.ascii_uppercase
-def _r_names_perm_order(rl, permutation, permutation_order):
-    permutation = permutation if(permutation_order) else range(len(rl))
-    return([rl[i].name for i in permutation])
 def _rules_list_to_names_list(rl, permutation=None):
     """
     Input: rl: the rule list of an answer combination.
@@ -250,15 +247,17 @@ def center_print(*args, **kwargs):
 def mov_to_str(move: tuple):
     """ Return a move string like 123 A"""
     return(f"{move[0]} {letters[move[1]]}")
-def get_move_text(move: tuple):
+def get_move_text(move: tuple, verifier_style=None):
     """
-    Return a move Text object like 152 A, where the proposal and verifier are colored with colors set in config.py.
+    Return a move Text object like 152 A, where the proposal and verifier are colored with colors set in config.py. If `verifier_style` is None, the verifier style will be the default; otherwise use the supplied verifier style
     """
+    if (verifier_style is None):
+        verifier_style = VERIFIER_COLORS[move[1] % len(VERIFIER_COLORS)]
     return(
         Text.assemble(
             (f'{move[0]}', PROPOSAL_COLOR),
             " ",
-            (letters[move[1]], VERIFIER_COLORS[move[1] % len(VERIFIER_COLORS)])
+            (letters[move[1]], verifier_style)
         )
     )
 def get_filename_text(filename: str):

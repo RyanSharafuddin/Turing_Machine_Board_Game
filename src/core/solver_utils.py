@@ -3,6 +3,7 @@ import numpy as np
 from rich import progress
 from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
 from .hashable_numpy_array import Hashable_Numpy_Array
+from .config import A_TOL
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
@@ -583,3 +584,26 @@ def calculate_worst_case_cost(move_cost, probs, gss_costs):
     # return((bigger_cost_tup[0] + mcost[0], bigger_cost_tup[1] + 1, tie_breaker))
     # Using a tiebreaker to differentiate b/t nodes with the same worst case costs is pretty interesting, but rather expensive, as it adds +10% total time.
     return((bigger_cost_tup[0] + move_cost[0], bigger_cost_tup[1] + 1))
+def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
+    """
+    Return a triplet (average round cost, average query cost, worst case round depth).
+    """
+    (mcost_rounds, mcost_queries) = move_cost
+    (p_false, p_true) = probs
+    ((gsf_round_cost, gsf_query_cost, gsf_depth), (gst_round_cost, gst_query_cost, gst_depth)) = gss_costs
+    expected_r_cost = mcost_rounds + (p_false * gsf_round_cost) + (p_true * gst_round_cost)
+    expected_q_cost = mcost_queries + (p_false * gsf_query_cost) + (p_true * gst_query_cost)
+    worst_depth = mcost_rounds + max(gsf_depth, gst_depth)
+    return (expected_r_cost, expected_q_cost, worst_depth)
+
+def fp_2tup_gt(a, b):
+    """
+    Return True if 2-tuple a > b by A_TOL.
+    """
+    if (abs(a[0] - b[0]) < A_TOL):
+        # rounds roughly equal
+        if (abs(a[1] - b[1]) < A_TOL):
+            # queries roughly equal
+            return False
+        return (a[1] > b[1])
+    return (a[0] > b[0])

@@ -181,7 +181,10 @@ progress = solver_utils.progress_initialize()
 
 class Solver:
     double_zero = (0, 0)
-    null_answer = (None, double_zero)
+    triple_zero = (0, 0, 0)
+    inf = float("inf")
+    triple_inf = (inf, inf, inf)
+    initial_best_cost = (inf, inf)
     __slots__ = (
         "problem",
         "n_mode",
@@ -207,13 +210,13 @@ class Solver:
         "max_hex_length", # a bit janky to store a display detail here rather than Solver_Displayer, but oh well.
         "max_decimal_length",
     )
-    initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
         self._evaluations_cache = dict()
-        self._cost_calculator   = solver_utils.calculate_expected_cost # can also be worst_case_cost
-        # self._cost_calculator   = solver_utils.calculate_worst_case_cost # can also be worst_case_cost
+        # self._cost_calculator   = solver_utils.calculate_expected_cost
+        # self._cost_calculator   = solver_utils.calculate_worst_case_cost
+        self._cost_calculator   = solver_utils.calculate_expected_with_depth_cost
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
@@ -343,7 +346,15 @@ class Solver:
         )
         console.rule()
         return
-
+    def _qs_dict_debugging(self, original_qs_dict, current_qs_dict, gs: Game_State):
+        len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
+        len_now = solver_utils.get_num_queries_in_qs_dict(current_qs_dict)
+        self._print_debug_info(
+            len_now < len_before,
+            gs,
+            qs_dict_1=current_qs_dict,
+            qs_dict_2=original_qs_dict,
+        )
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(
@@ -351,10 +362,10 @@ class Solver:
             qs_dict,
             game_state: Game_State,
             depth=0,
+
         ):
         """
-        Returns a tuple (best move in this state, expected cost to win from game_state (this is a tuple of (expected rounds, expected total queries))).
-        best_move_tup is a tup of (proposal, rc_index)
+        Return (cost_tup, worst_round_depth)
         """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
@@ -365,28 +376,23 @@ class Solver:
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             if config.CACHE_END_STATES:
                 self._evaluations_cache[cache_game_state] = Solver.double_zero
-            return Solver.double_zero
+            return Solver.triple_zero
         if game_state.proposal_used_this_round is None:
-            # original_qs_dict = qs_dict # COMMENT OUT THIS LINE WHEN NOT DEBUGGING ##########################
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # KEEP this line always
-            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
-            # len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
-            # len_now = solver_utils.get_num_queries_in_qs_dict(qs_dict)
-            # self._print_debug_info(
-            #     len_now < len_before,
-            #     game_state,
-            #     qs_dict_1=qs_dict,
-            #     qs_dict_2=original_qs_dict,
-            # )
-            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
-        best_node_cost = Solver.initial_best_cost
+            # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
+            # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
+        best_node_cost = Solver.triple_inf
         found_moves = False
         move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
             # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
-            if (self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0))) >= best_node_cost):
+            if (
+                self._cost_calculator(
+                    mcost, p_tup, (gs_false_node_cost, Solver.triple_zero)
+                ) >= best_node_cost
+                ):
                 # The false node alone would make this move not better than the best move, so don't need to search the true node.
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -398,9 +404,9 @@ class Solver:
                 found_moves = True
                 best_node_cost = node_cost_tup
                 if(
-                    (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
-                ):
+                    (node_cost_tup == (0, 1, 0)) or
+                    ((node_cost_tup == (1, 1, 1)) and (game_state.proposal_used_this_round is None))
+                    ):
                     # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                     break
             if depth < self.num_concurrent_tasks:
@@ -440,6 +446,7 @@ class Solver:
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
+        # filtered_cache = self._filter_cache(alternate_first_move=(512, B))
         end = time.time()
         self.seconds_to_solve = int(end - start)
         if self.num_concurrent_tasks:
@@ -484,7 +491,7 @@ class Solver:
                 )
         sys.stdout.flush()
 
-    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
+    def _get_best_move_and_ncost_from_cache(self, working_gs: Game_State, default=(None, None)):
         """
         Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
 
@@ -493,7 +500,7 @@ class Solver:
         (best_move, node_evaluation)
         """
         #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
+        cache_game_state = self.convert_working_gs_to_cache_gs(working_gs, self.all_cwa_bitsets)
         if cache_game_state not in self._evaluations_cache:
             return default
         evaluation_result = self._evaluations_cache[cache_game_state]
@@ -651,56 +658,96 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
-    def _filter_cache(self):
+    def _filter_cache(self, alternate_first_move=None):
         """
-        Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
+        Return a new cache that *only* contains the information needed to play the problem perfectly i.e. `cache[state] = (best_move, (avg_rounds, avg_queries))`. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
         """
         new_evaluations_cache = dict()
-        stack : list[Game_State] = [self.initial_game_state]
+        if not alternate_first_move:
+            stack : list[Game_State] = [self.initial_game_state]
+        else:
+            move_info = create_move_info(
+                len(self.initial_game_state.cwa_set),
+                self.initial_game_state,
+                1,
+                self.qs_dict[alternate_first_move[0]][alternate_first_move[1]],
+                alternate_first_move,
+                (1, 1),
+                True
+            )
+            (_, total_cost_this_move) = self._get_move_and_total_cost_from_move_info(move_info)
+            (gsf, gst) = self.apply_move_to_state(alternate_first_move, self.initial_game_state)
+            stack : list[Game_State] = [gsf, gst]
+            new_evaluations_cache[self._easy_working_gs_to_cache_gs(self.initial_game_state)] = (
+                alternate_first_move, self._new_res_to_og_res(total_cost_this_move)
+            )
         while stack:
             curr_working_gs = stack.pop()
             curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
             if(
-                (curr_cache_gs not in new_evaluations_cache) and
-                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
+                (curr_cache_gs in new_evaluations_cache) or
+                one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set)
+                ):
+                continue
+            gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
+            if gs_evaluation_result is None:
+                message = (
+                    "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache."
+                )
+                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+            if not self._handle_working_gs_filtering(
+                curr_working_gs,
+                curr_cache_gs,
+                gs_evaluation_result,
+                new_evaluations_cache,
+                stack
             ):
-                gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
-                # above is just a tuple (rounds, queries)
-                if gs_evaluation_result is None:
-                    message = "The following game state should be on the path" \
-                        + " of the best game tree, but it is not present in the evaluations_cache."
-                    self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-                for move_info in get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
-                    if self._check_move_info(
-                        move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
-                    ):
-                        break
-                else:
-                    early_new_round_curr_working_gs = Game_State(
-                        num_queries_this_round=0,
-                        proposal_used_this_round=None,
-                        cwa_set=curr_working_gs.cwa_set
+                early_new_round_curr_working_gs = Game_State(
+                    num_queries_this_round=0,
+                    proposal_used_this_round=None,
+                    cwa_set=curr_working_gs.cwa_set
+                )
+                if not self._handle_working_gs_filtering(
+                    early_new_round_curr_working_gs,
+                    curr_cache_gs, # Note: not an error. Should be the original cache_gs
+                    gs_evaluation_result,
+                    new_evaluations_cache,
+                    stack
+                ):
+                    message = (
+                        f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
                     )
-                    for move_info in get_and_apply_moves(
-                        early_new_round_curr_working_gs, self.qs_dict, force_set_intersect=True
-                    ):
-                        if self._check_move_info(
-                            move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
-                        ):
-                            break
-                    else:
-                        message = (
-                            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
-                        )
-                        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+                    self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
         return new_evaluations_cache
+
+    def _handle_working_gs_filtering(
+            self,
+            working_gs: Game_State,
+            cache_gs,
+            eval_result,
+            new_cache,
+            stack
+        ):
+        """
+        Use this in filter_cache to handle each working_gs encountered in the best move tree that does not have one answer left and is not already in the new cache. Return True if it's handled successfully, or False if not handled succesfully.
+        """
+        for move_info in get_and_apply_moves(working_gs, self.qs_dict, force_set_intersect=True):
+            if self._check_move_info(
+                move_info,
+                eval_result,
+                new_cache,
+                cache_gs,
+                stack
+                ):
+                return True
+        return False
 
     def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
         """
         Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
         """
         if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
-            return Solver.double_zero
+            return Solver.triple_zero
         return self._evaluations_cache.get(cache_gs)
 
     def _check_move_info(
@@ -713,6 +760,9 @@ class Solver:
             put_cache_gs_into_new_ev_cache=True,
             curr_working_gs=None
         ):
+        """
+        See if the given `move_info` leads to the `desired_evaluation_result`. If so, update the `new_ev_cache` and `stack` accordingly and return True; otherwise return False.
+        """
         (move, mcost, working_gs_tuple, p_tuple) = move_info
         (working_gs_false, working_gs_true) = working_gs_tuple
         (cache_gs_false, cache_gs_true) = (
@@ -726,13 +776,16 @@ class Solver:
             )
             if (curr_gs_cost_with_this_move == desired_evaluation_result):
                 gs_to_put_in_new_ev = curr_cache_gs if put_cache_gs_into_new_ev_cache else curr_working_gs
-                new_ev_cache[gs_to_put_in_new_ev] = (move, desired_evaluation_result)
+                new_ev_cache[gs_to_put_in_new_ev] = (move, self._new_res_to_og_res(desired_evaluation_result))
                 stack.append(working_gs_false)
                 stack.append(working_gs_true)
                 return True
         return False
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message):
+        """
+        Print the states, show an error message, and exit.
+        """
         console.print(message)
         sd.print_game_state(working_gs, "Working Game State")
         try:
@@ -743,13 +796,19 @@ class Solver:
         console.print("Exiting.")
         exit()
 
-
     def _get_state_cost(self, gs: Game_State):
         if one_answer_left(self.full_cwas_list, gs.cwa_set):
-            return Solver.double_zero
-        return self._evaluations_cache.get(self._easy_working_gs_to_cache_gs(gs), Solver.initial_best_cost)
+            return Solver.triple_zero
+        return self._evaluations_cache.get(self._easy_working_gs_to_cache_gs(gs), Solver.triple_inf)
 
     def _get_move_and_total_cost_from_move_info(self, move_info):
+        """
+        If the move mentioned isn't in the evaluations cache (either of the resulting states aren't in the cache and also aren't one answer left), the move cost will be infinite.
+
+        Returns
+        -------
+        (move, total_cost_this_move)
+        """
         (move, mcost, gs_tup, p_tup) = move_info
         (false_gs, true_gs) = gs_tup
         false_cost = self._get_state_cost(false_gs)
@@ -759,7 +818,15 @@ class Solver:
 
     @staticmethod
     def total_cost_to_str(total_cost):
-        return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f})"
+        return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f}), max_depth: {total_cost[2]:>3}"
+
+    @staticmethod
+    def _new_res_to_og_res(new_cache_result):
+        """
+        Converts a cost tuple as stored in self._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
+        """
+        (avg_rounds, avg_queries, worst_case_depth) = new_cache_result
+        return (avg_rounds, avg_queries)
 
     def _experiment(self):
         from .solver_capitulate import Solver_Capitulate
@@ -774,15 +841,90 @@ class Solver:
             cost = move_cost_tup[1]
             tc_str = Solver.total_cost_to_str(cost)
             if (
-                (cost != Solver.initial_best_cost) and
+                (cost != Solver.triple_inf) and
                 (tc_str not in seen_costs)
             ):
                 move_cost_tups.append(move_cost_tup)
                 seen_costs.add(tc_str)
         move_cost_tups.sort(key=lambda mct: mct[1])
+        self._print_table_move_cost_tups(move_cost_tups)
+        self._calculate_min_depth_warning(move_cost_tups)
+
+    def _calculate_min_depth_warning(self, sorted_move_cost_tups):
+        """
+        Parameters
+        ----------
+        sorted_move_cost_tups
+            A list of (move, cost) tuples that are SORTED by ascending cost tuple.
+        """
+        if not sorted_move_cost_tups:
+            return
+        min_depth = min([mct[1][2] for mct in sorted_move_cost_tups])
+        min_depth_index = min(range(len(sorted_move_cost_tups)), key=lambda i:sorted_move_cost_tups[i][1][2])
+        lowest_cost_move = sorted_move_cost_tups[0][0]
+        (lcm_rounds, lcm_qs, lcm_depth) = sorted_move_cost_tups[0][1]
+        min_depth_move = sorted_move_cost_tups[min_depth_index][0]
+        (md_rounds, md_qs, md_depth) = sorted_move_cost_tups[min_depth_index][1]
+        if lcm_depth > min_depth:
+            console.print(
+                "\nIt appears you may have gotten a better result by searching deeper than the minimum depth solution."
+            )
+            if solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs)):
+                console.print(
+                    f"[red]WARN![/red] The smallest depth is {min_depth}, but the lowest cost move has a depth of {lcm_depth}!"
+                )
+            else:
+                print("False alarm. Floating point error.")
+            t = display.Table(
+                box=display.box.SQUARE
+            )
+            t.add_column()
+            t.add_column("Move")
+            t.add_column("Rounds", justify="left")
+            t.add_column("Queries", justify="left")
+            t.add_column("Depth", justify="right")
+            t.add_row(
+                "Lowest Cost Move",
+                display.get_move_text(lowest_cost_move), f"{lcm_rounds}", f"{lcm_qs}", f"{lcm_depth}"
+            )
+            t.add_row(
+                "Min Depth Move",
+                display.get_move_text(min_depth_move), f"{md_rounds}", f"{md_qs}", f"{md_depth}"
+            )
+            t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", "")
+            console.print(t)
+
+    def _print_table_move_cost_tups(self, move_cost_tups):
         print()
-        for (index, (move, cost)) in enumerate(move_cost_tups, start=1):
-            console.print(f"{index:>3}:", display.get_move_text(move), Solver.total_cost_to_str(cost))
+        t = display.Table(
+            title="Initial Moves And Costs",
+            title_style="",
+            box=display.box.SQUARE,
+            header_style=""
+        )
+        t.add_column(justify="right")
+        t.add_column("Move")
+        t.add_column("Rounds", justify="right")
+        t.add_column("Queries", justify="right")
+        t.add_column("Depth", justify="right")
+        min_query_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][1])
+        for (index, (move, cost)) in enumerate(move_cost_tups):
+            (rounds, queries, depth) = cost
+            # if ((index > 0) and (depth < move_cost_tups[index-1][1][2])):
+            #     style = "on red"
+            t.add_row(
+                f"{index+1}",
+                display.get_move_text(move, verifier_style="white" if (index == min_query_index) else None),
+                f"{cost[0]:0.3f}",
+                f"{cost[1]:0.3f}",
+                (f"{cost[2]}"),
+                style= "on #4953da" if (index == min_query_index) else ""
+            )
+            # console.print(f"{index:>3}:", display.get_move_text(move), Solver.total_cost_to_str(cost))
+        console.print(t)
 
 # best move tree problems to print:
 # 2, c51, c52
+
+# draw a best move tree centered on a different first move
+# see if solution for *any state* (not just initial state) that has the lowest average cost does *not* have the lowest worst depth.
