@@ -695,30 +695,49 @@ class Solver:
                     "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache."
                 )
                 self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            if not self._handle_working_gs_filtering(
+            self._full_handle_working_gs_filtering(
                 curr_working_gs,
                 curr_cache_gs,
                 gs_evaluation_result,
                 new_evaluations_cache,
                 stack
-            ):
-                early_new_round_curr_working_gs = Game_State(
-                    num_queries_this_round=0,
-                    proposal_used_this_round=None,
-                    cwa_set=curr_working_gs.cwa_set
-                )
-                if not self._handle_working_gs_filtering(
-                    early_new_round_curr_working_gs,
-                    curr_cache_gs, # Note: not an error. Should be the original cache_gs
-                    gs_evaluation_result,
-                    new_evaluations_cache,
-                    stack
-                ):
-                    message = (
-                        f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
-                    )
-                    self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+            )
         return new_evaluations_cache
+
+    def _full_handle_working_gs_filtering(
+            self,
+            curr_working_gs: Game_State,
+            curr_cache_gs: Game_State,
+            gs_evaluation_result,
+            new_evaluations_cache,
+            stack
+        ):
+        if self._handle_working_gs_filtering(
+            curr_working_gs,
+            curr_cache_gs,
+            gs_evaluation_result,
+            new_evaluations_cache,
+            stack
+        ):
+            return # success
+        early_new_round_curr_working_gs = Game_State(
+            num_queries_this_round=0,
+            proposal_used_this_round=None,
+            cwa_set=curr_working_gs.cwa_set
+        )
+        if self._handle_working_gs_filtering(
+            early_new_round_curr_working_gs,
+            curr_cache_gs, # Note: not an error. Should be the original cache_gs
+            gs_evaluation_result,
+            new_evaluations_cache,
+            stack
+        ):
+            return # success after starting a new round early
+        # failure
+        message = (
+            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
+        )
+        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
 
     def _handle_working_gs_filtering(
             self,
@@ -750,6 +769,7 @@ class Solver:
             return Solver.triple_zero
         return self._evaluations_cache.get(cache_gs)
 
+    # TODO: replace evaluation comparison below with a function so handle depth stored at >=.
     def _check_move_info(
             self,
             move_info,
@@ -782,6 +802,14 @@ class Solver:
                 return True
         return False
 
+    @staticmethod
+    def _new_res_to_og_res(new_cache_result):
+        """
+        Converts a cost tuple as stored in self._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
+        """
+        (avg_rounds, avg_queries, worst_case_depth) = new_cache_result
+        return (avg_rounds, avg_queries)
+
     def _filter_cache_error_show(self, working_gs, cache_gs, message):
         """
         Print the states, show an error message, and exit.
@@ -795,6 +823,9 @@ class Solver:
             console.print(cache_gs)
         console.print("Exiting.")
         exit()
+
+
+
 
     def _get_state_cost(self, gs: Game_State):
         if one_answer_left(self.full_cwas_list, gs.cwa_set):
@@ -820,14 +851,6 @@ class Solver:
     def total_cost_to_str(total_cost):
         return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f}), max_depth: {total_cost[2]:>3}"
 
-    @staticmethod
-    def _new_res_to_og_res(new_cache_result):
-        """
-        Converts a cost tuple as stored in self._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
-        """
-        (avg_rounds, avg_queries, worst_case_depth) = new_cache_result
-        return (avg_rounds, avg_queries)
-
     def _experiment(self):
         from .solver_capitulate import Solver_Capitulate
         if isinstance(self, Solver_Capitulate):
@@ -848,9 +871,9 @@ class Solver:
                 seen_costs.add(tc_str)
         move_cost_tups.sort(key=lambda mct: mct[1])
         self._print_table_move_cost_tups(move_cost_tups)
-        self._calculate_min_depth_warning(move_cost_tups)
+        self._calculate_min_depth_warning(move_cost_tups, show_false_alarm=True)
 
-    def _calculate_min_depth_warning(self, sorted_move_cost_tups):
+    def _calculate_min_depth_warning(self, sorted_move_cost_tups, show_false_alarm=True):
         """
         Parameters
         ----------
@@ -866,15 +889,19 @@ class Solver:
         min_depth_move = sorted_move_cost_tups[min_depth_index][0]
         (md_rounds, md_qs, md_depth) = sorted_move_cost_tups[min_depth_index][1]
         if lcm_depth > min_depth:
-            console.print(
-                "\nIt appears you may have gotten a better result by searching deeper than the minimum depth solution."
-            )
-            if solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs)):
+            actual_problem = solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
+            if actual_problem or show_false_alarm:
+                console.print(
+                    "\nIt appears you may have gotten a better result by searching deeper than the minimum depth solution."
+                )
+            if actual_problem:
                 console.print(
                     f"[red]WARN![/red] The smallest depth is {min_depth}, but the lowest cost move has a depth of {lcm_depth}!"
                 )
-            else:
+            elif show_false_alarm:
                 print("False alarm. Floating point error.")
+            if not (actual_problem or show_false_alarm):
+                return
             t = display.Table(
                 box=display.box.SQUARE
             )
@@ -893,6 +920,9 @@ class Solver:
             )
             t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", "")
             console.print(t)
+            return actual_problem
+        return False
+
 
     def _print_table_move_cost_tups(self, move_cost_tups):
         print()
@@ -927,4 +957,3 @@ class Solver:
 # 2, c51, c52
 
 # draw a best move tree centered on a different first move
-# see if solution for *any state* (not just initial state) that has the lowest average cost does *not* have the lowest worst depth.
