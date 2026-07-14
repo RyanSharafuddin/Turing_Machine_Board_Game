@@ -98,9 +98,9 @@ def create_move_info(
 
     # this is a useful query.
     # cwa_set representation_change Will need a function to get the length of a set.
-    num_combos_remaining_true = len(cwa_set_if_true)
-    p_true = num_combos_remaining_true / num_combos_currently
+    p_true = len(cwa_set_if_true) / num_combos_currently
     p_false = 1 - p_true
+    # p_false = len(cwa_set_if_false) / num_combos_currently
     p_tuple = (p_false, p_true)
     proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
     game_state_false = Game_State(
@@ -213,6 +213,7 @@ class Solver:
         self.n_mode             = (problem.mode == NIGHTMARE)
         self._evaluations_cache = dict()
         self._cost_calculator   = solver_utils.calculate_expected_cost # can also be worst_case_cost
+        # self._cost_calculator   = solver_utils.calculate_worst_case_cost # can also be worst_case_cost
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
@@ -412,17 +413,18 @@ class Solver:
             )
             best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
 
-        # comment out if not block above and uncomment this to try starting new rounds early as well.
+        # # comment out if not block above and uncomment this to try starting new rounds early as well.
         # if(game_state.num_queries_this_round != 0):
         #     new_gs = Game_State(
         #         num_queries_this_round=0,
         #         proposal_used_this_round=None,
         #         cwa_set=game_state.cwa_set
         #     )
-        #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
+        #     end_round_early_result = self._calculate_best_move(qs_dict, new_gs, depth+1)
         #     if(end_round_early_result < best_node_cost):
         #         # breakpoint here to see if there are situations where ending the round early is better.
-        #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
+        #         # can even label the evaluations result with this info, 
+        #         # and see if that node makes it into the best move tree.
         #         best_node_cost = end_round_early_result
 
         self._evaluations_cache[cache_game_state] = best_node_cost
@@ -443,6 +445,7 @@ class Solver:
         if self.num_concurrent_tasks:
             progress.stop()
         self.post_solve_printing()
+        self._experiment()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
 
@@ -692,7 +695,6 @@ class Solver:
                         self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
         return new_evaluations_cache
 
-
     def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
         """
         Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
@@ -740,3 +742,47 @@ class Solver:
             console.print(cache_gs)
         console.print("Exiting.")
         exit()
+
+
+    def _get_state_cost(self, gs: Game_State):
+        if one_answer_left(self.full_cwas_list, gs.cwa_set):
+            return Solver.double_zero
+        return self._evaluations_cache.get(self._easy_working_gs_to_cache_gs(gs), Solver.initial_best_cost)
+
+    def _get_move_and_total_cost_from_move_info(self, move_info):
+        (move, mcost, gs_tup, p_tup) = move_info
+        (false_gs, true_gs) = gs_tup
+        false_cost = self._get_state_cost(false_gs)
+        true_cost = self._get_state_cost(true_gs)
+        total_cost_this_move = self._cost_calculator(mcost, p_tup, (false_cost, true_cost))
+        return (move, total_cost_this_move)
+
+    @staticmethod
+    def total_cost_to_str(total_cost):
+        return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f})"
+
+    def _experiment(self):
+        from .solver_capitulate import Solver_Capitulate
+        if isinstance(self, Solver_Capitulate):
+            return # don't apply this to capitulate solvers.
+        sd = testing_stuff(self)
+        initial_qs_dict = solver_utils.full_filter(self.qs_dict, self.initial_game_state.cwa_set)
+        move_cost_tups = []
+        seen_costs = set()
+        for move_info in get_and_apply_moves(self.initial_game_state, initial_qs_dict):
+            move_cost_tup = self._get_move_and_total_cost_from_move_info(move_info)
+            cost = move_cost_tup[1]
+            tc_str = Solver.total_cost_to_str(cost)
+            if (
+                (cost != Solver.initial_best_cost) and
+                (tc_str not in seen_costs)
+            ):
+                move_cost_tups.append(move_cost_tup)
+                seen_costs.add(tc_str)
+        move_cost_tups.sort(key=lambda mct: mct[1])
+        print()
+        for (index, (move, cost)) in enumerate(move_cost_tups, start=1):
+            console.print(f"{index:>3}:", display.get_move_text(move), Solver.total_cost_to_str(cost))
+
+# best move tree problems to print:
+# 2, c51, c52
