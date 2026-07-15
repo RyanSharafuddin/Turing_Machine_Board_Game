@@ -220,7 +220,8 @@ class Solver:
         "biggest_avg_difference_info",
         "biggest_begin_round_avg_difference_info",
         "biggest_depth_difference_info",
-        "cache_gs_in_post_filter_cache"
+        "cache_gs_in_post_filter_cache",
+        "nothing_changed",
     )
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -299,6 +300,7 @@ class Solver:
         self.biggest_begin_round_avg_difference_info = self.biggest_avg_difference_info
         self.biggest_depth_difference_info        =  (self.ninf,) + (None,) * 3
         self.cache_gs_in_post_filter_cache        = True
+        self.nothing_changed                      = True
 
     def tasks_initialize(self, depth, move_generator):
         if(depth < self.num_concurrent_tasks):
@@ -396,31 +398,32 @@ class Solver:
             if config.CACHE_END_STATES:
                 self._evaluations_cache[cache_game_state] = self.end_game_eval
             return self.end_game_eval
+        self.nothing_changed = False
         if game_state.proposal_used_this_round is None:
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
             # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
         best_node_cost = self.worst_eval
         found_moves = False
-        move_cost_tups = [] # TODO: delete
+        # move_cost_tups = [] # TODO: delete
         move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
-            # # TODO: uncomment.
-            # # comment out pruning for purpose of lowest cost move not having lowest depth test. b/c this might prune something out that has a lower depth but a higher cost.
-            # # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
-            # # cost[0] = (rounds, queries, depth)
-            # if (
-            #     self._cost_calculator(
-            #         mcost, p_tup, (gs_false_node_cost, self.end_game_eval)
-            #     )[0][0:2] >= best_node_cost[0][0:2] # only compare (rounds, queries) for pruning purposes
-            #     ):
-            #     # TODO: breakpoint this to make sure it actually happens and helps. See timings.
-            #     # The false node alone would make this move not better than the best move, so don't need to search the true node.
-            #     if depth < self.num_concurrent_tasks:
-            #         progress.update(self.depth_to_tasks_l[depth], advance=1)
-            #     continue
+            # TODO: uncomment.
+            # comment out pruning for purpose of lowest cost move not having lowest depth test. b/c this might prune something out that has a lower depth but a higher cost.
+            # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
+            # cost[0] = (rounds, queries, depth)
+            if (
+                self._cost_calculator(
+                    mcost, p_tup, (gs_false_node_cost, self.end_game_eval)
+                )[0][0:2] >= best_node_cost[0][0:2] # only compare (rounds, queries) for pruning purposes
+                ):
+                # TODO: breakpoint this to make sure it actually happens and helps. See timings.
+                # The false node alone would make this move not better than the best move, so don't need to search the true node.
+                if depth < self.num_concurrent_tasks:
+                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                continue
             gs_true_node_cost = self._calculate_best_move(qs_dict, gs_tup[1], depth+1)
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
@@ -439,7 +442,7 @@ class Solver:
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-            move_cost_tups.append((move, node_cost_tup)) # TODO: delete
+            # move_cost_tups.append((move, node_cost_tup)) # TODO: delete
 
         if not found_moves:
             new_gs = Game_State(
@@ -462,7 +465,7 @@ class Solver:
         #         # can even label the evaluations result with this info,
         #         # and see if that node makes it into the best move tree.
         #         best_node_cost = end_round_early_result
-        self.update_biggest_counterexamples(move_cost_tups, game_state) # TODO: delete if not visualizing
+        # self.update_biggest_counterexamples(move_cost_tups, game_state) # TODO: delete if not visualizing
         self._evaluations_cache[cache_game_state] = best_node_cost # NOTE: keep this
         return best_node_cost
 
