@@ -110,6 +110,6 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY      = "src/problems/Pickles/no_store_moves" # Where all pickled solvers go.
+PICKLE_DIRECTORY      = "src/problems/Pickles/Depth_Storing" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
 TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"

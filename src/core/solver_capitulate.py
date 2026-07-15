@@ -5,6 +5,7 @@ def fset_answers_from_cwa_set(all_cwas, cwa_set):
     return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
 
 class Solver_Capitulate(Solver):
+    worst_eval = (Solver.inf, Solver.inf)
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.num_concurrent_tasks = 0
@@ -12,7 +13,7 @@ class Solver_Capitulate(Solver):
 
     def _choose_best_move_depth_one(self, move_infos:list):
         # cwa_set representation_change TODO!!
-        best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
+        best_expected_result = self.worst_eval # number of answers left, number of combos left.
         for(move, mcost, gs_tuple, p_tuple) in move_infos:
             (p_false, p_true) = p_tuple
             (gs_false_answers_left, gs_true_answers_left) = [

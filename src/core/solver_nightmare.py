@@ -115,6 +115,7 @@ def testing_stuff(self):
     sd = display.Solver_Displayer(self)
 
 class Solver_Nightmare(Solver):
+    worst_eval = (Solver.inf, Solver.inf)
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -219,7 +220,7 @@ class Solver_Nightmare(Solver):
             if config.CACHE_END_STATES:
                 self._evaluations_cache[cache_game_state] = Solver.double_zero
             return Solver.double_zero
-        best_node_cost = Solver.initial_best_cost
+        best_node_cost = self.worst_eval
         if game_state.proposal_used_this_round is None:
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
