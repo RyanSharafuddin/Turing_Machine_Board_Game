@@ -188,10 +188,10 @@ class Solver:
     triple_inf = (inf, inf, inf)
     double_inf = (inf, inf)
 
-    end_game_eval = triple_zero
-    worst_eval = triple_inf
-    one_q_zero_r_eval = (0, 1, 0) # (0 rounds, 1 query, 0 max depth)
-    one_q_one_r_eval = (1, 1, 1) # (1 round, 1 query, 1 max depth)
+    end_game_eval = (triple_zero, inf) # ((avg rounds, avg queries, max depth), depth eval'd to)
+    worst_eval = (triple_inf, ninf)
+    one_q_zero_r_eval = ((0, 1, 0), inf) # ((0 rounds, 1 query, 0 max depth), infinite evald depth)
+    one_q_one_r_eval = ((1, 1, 1), inf) # ((1 round, 1 query, 1 max depth) inf evald depth)
     __slots__ = (
         "problem",
         "n_mode",
@@ -219,7 +219,8 @@ class Solver:
 
         "biggest_avg_difference_info",
         "biggest_begin_round_avg_difference_info",
-        "biggest_depth_difference_info"
+        "biggest_depth_difference_info",
+        "cache_gs_in_post_filter_cache"
     )
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -227,7 +228,8 @@ class Solver:
         self._evaluations_cache = dict()
         # self._cost_calculator   = solver_utils.calculate_expected_cost
         # self._cost_calculator   = solver_utils.calculate_worst_case_cost
-        self._cost_calculator   = solver_utils.calculate_expected_with_depth_cost
+        # self._cost_calculator   = solver_utils.calculate_expected_with_depth_cost
+        self._cost_calculator   = solver_utils.calculate_expected_with_depth_and_evald_cost
         self.rcs_list           = rules.make_rcs_list(problem)
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
@@ -296,6 +298,7 @@ class Solver:
         self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3
         self.biggest_begin_round_avg_difference_info = self.biggest_avg_difference_info
         self.biggest_depth_difference_info        =  (self.ninf,) + (None,) * 3
+        self.cache_gs_in_post_filter_cache        = True
 
     def tasks_initialize(self, depth, move_generator):
         if(depth < self.num_concurrent_tasks):
@@ -385,7 +388,7 @@ class Solver:
         """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
-        result = self._evaluations_cache.get(cache_game_state, None)
+        result = self._evaluations_cache.get(cache_game_state, None) # TODO: use depth eval'd to
         if result is not None:
             # self.cache_hits += 1
             return result
@@ -404,14 +407,16 @@ class Solver:
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
-            # TODO: uncomment.
-            # comment out pruning for purpose of lowest cost move not having lowest depth test. b/c this might prune something out that has a lower depth but a higher cost.
-            # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
+            # # TODO: uncomment.
+            # # comment out pruning for purpose of lowest cost move not having lowest depth test. b/c this might prune something out that has a lower depth but a higher cost.
+            # # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
+            # # cost[0] = (rounds, queries, depth)
             # if (
             #     self._cost_calculator(
             #         mcost, p_tup, (gs_false_node_cost, self.end_game_eval)
-            #     ) >= best_node_cost
+            #     )[0][0:2] >= best_node_cost[0][0:2] # only compare (rounds, queries) for pruning purposes
             #     ):
+            #     # TODO: breakpoint this to make sure it actually happens and helps. See timings.
             #     # The false node alone would make this move not better than the best move, so don't need to search the true node.
             #     if depth < self.num_concurrent_tasks:
             #         progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -420,7 +425,7 @@ class Solver:
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             # TODO: change to account for depth solved to
-            if(node_cost_tup < best_node_cost):
+            if(node_cost_tup[0] < best_node_cost[0]):
                 found_moves = True
                 best_node_cost = node_cost_tup
                 if(
@@ -799,13 +804,12 @@ class Solver:
 
     def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
         """
-        Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
+        Given a cache game state and its corresponding working game state, if the cache gs is in the *pre-filter* evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
         """
         if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
             return self.end_game_eval
         return self._evaluations_cache.get(cache_gs)
 
-    # TODO: replace evaluation == comparison below with a function so handle depth stored at >=.
     def _check_move_info(
             self,
             move_info,
@@ -817,7 +821,7 @@ class Solver:
             curr_working_gs=None
         ):
         """
-        See if the given `move_info` leads to the `desired_evaluation_result`. If so, update the `new_ev_cache` and `stack` accordingly and return True; otherwise return False.
+        See if the given `move_info` leads to the `desired_evaluation_result`. If so, update the `new_ev_cache` and `stack` accordingly and return True; otherwise return False. *pre-filter* cache.
         """
         (move, mcost, working_gs_tuple, p_tuple) = move_info
         (working_gs_false, working_gs_true) = working_gs_tuple
@@ -830,7 +834,7 @@ class Solver:
             curr_gs_cost_with_this_move = self._cost_calculator(
                 mcost, p_tuple, (false_evaluation, true_evaluation)
             )
-            if (curr_gs_cost_with_this_move == desired_evaluation_result):
+            if self.check_total_cost_matches(curr_gs_cost_with_this_move, desired_evaluation_result):
                 gs_to_put_in_new_ev = curr_cache_gs if put_cache_gs_into_new_ev_cache else curr_working_gs
                 new_ev_cache[gs_to_put_in_new_ev] = (move, self._new_res_to_og_res(desired_evaluation_result))
                 stack.append(working_gs_false)
@@ -838,13 +842,22 @@ class Solver:
                 return True
         return False
 
+    # TODO: change for evald depth
+    def check_total_cost_matches(self, tc_actual, tc_expected):
+        """
+        Expects cost tuples in form: ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
+        """
+        if not (np.allclose(tc_actual[0], tc_expected[0], rtol=0, atol=config.A_TOL)):
+            return False
+        return (tc_actual[1] == tc_expected[1]) # nothing changes
+
     # TODO: changes when evaluations cache store format changes
     @staticmethod
     def _new_res_to_og_res(new_cache_result):
         """
         Converts a cost tuple as stored in self._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
         """
-        (avg_rounds, avg_queries, worst_case_depth) = new_cache_result
+        ((avg_rounds, avg_queries, worst_case_depth), evald_depth) = new_cache_result
         return (avg_rounds, avg_queries)
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message):
@@ -864,13 +877,16 @@ class Solver:
 
 
     def _get_state_cost(self, gs: Game_State):
+        """
+        Used on *pre-filter* cache.
+        """
         if one_answer_left(self.full_cwas_list, gs.cwa_set):
             return self.end_game_eval
         return self._evaluations_cache.get(self._easy_working_gs_to_cache_gs(gs), self.worst_eval)
 
     def _get_move_and_total_cost_from_move_info(self, move_info):
         """
-        If the move mentioned isn't in the evaluations cache (either of the resulting states aren't in the cache and also aren't one answer left), the move cost will be infinite.
+        If the move mentioned isn't in the evaluations cache (either of the resulting states aren't in the cache and also aren't one answer left), the move cost will be infinite. Used on *pre-filter* cache.
 
         Returns
         -------
@@ -886,9 +902,10 @@ class Solver:
     # TODO: deals directly with cost tups
     @staticmethod
     def total_cost_to_str(total_cost):
-        return f"({total_cost[0]:0.3f}, {total_cost[1]:0.3f}), max_depth: {total_cost[2]:>3}"
+        rqd = total_cost[0]
+        return f"({rqd[0]:0.3f}, {rqd[1]:0.3f}), max_depth: {rqd[2]:>3}"
 
-    # TODO: change move cost tup given to print_table and display min depth warning once store depth evaluated to. And change input to total_cost_to_str (and maybe change name of that function too)
+    # TODO: change get_and_apply_moves for nightmare mode
     def _experiment(self):
         from .solver_capitulate import Solver_Capitulate
         if isinstance(self, Solver_Capitulate):
@@ -907,7 +924,7 @@ class Solver:
             ):
                 move_cost_tups.append(move_cost_tup)
                 seen_costs.add(tc_str)
-        move_cost_tups.sort(key=lambda mct: mct[1]) # TODO: change sort once record depth evaluated to. make sort function
+        move_cost_tups.sort(key=lambda mct: mct[1])
         self._print_table_move_cost_tups(move_cost_tups)
         console.print("Lowest expected query move highlighted in light blue.")
         message = "\nTop-level depth counterexamples:"
@@ -927,12 +944,12 @@ class Solver:
         """
         if not sorted_move_cost_tups:
             return
-        min_depth = min([mct[1][2] for mct in sorted_move_cost_tups])
-        min_depth_index = min(range(len(sorted_move_cost_tups)), key=lambda i:sorted_move_cost_tups[i][1][2])
+        min_depth = min([mct[1][0][2] for mct in sorted_move_cost_tups])
+        min_depth_index = min(range(len(sorted_move_cost_tups)), key=lambda i:sorted_move_cost_tups[i][1][0][2])
         lowest_cost_move = sorted_move_cost_tups[0][0]
-        (lcm_rounds, lcm_qs, lcm_depth) = sorted_move_cost_tups[0][1]
+        ((lcm_rounds, lcm_qs, lcm_depth), lcm_evald_depth) = sorted_move_cost_tups[0][1]
         min_depth_move = sorted_move_cost_tups[min_depth_index][0]
-        (md_rounds, md_qs, md_depth) = sorted_move_cost_tups[min_depth_index][1]
+        ((md_rounds, md_qs, md_depth), md_evald_depth) = sorted_move_cost_tups[min_depth_index][1]
         if lcm_depth > min_depth:
             actual_problem = solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
             if actual_problem or show_false_alarm:
@@ -955,16 +972,19 @@ class Solver:
             t.add_column("Move")
             t.add_column("Rounds", justify="left")
             t.add_column("Queries", justify="left")
-            t.add_column("Depth", justify="right")
+            t.add_column("Worst Depth", justify="right")
+            t.add_column("Eval'd Depth", justify="right")
             t.add_row(
                 "Lowest Cost Move",
-                display.get_move_text(lowest_cost_move), f"{lcm_rounds}", f"{lcm_qs}", f"{lcm_depth}"
+                display.get_move_text(lowest_cost_move), f"{lcm_rounds}", f"{lcm_qs}", f"{lcm_depth}",
+                f"{lcm_evald_depth}"
             )
             t.add_row(
                 "Min Depth Move",
-                display.get_move_text(min_depth_move), f"{md_rounds}", f"{md_qs}", f"{md_depth}"
+                display.get_move_text(min_depth_move), f"{md_rounds}", f"{md_qs}", f"{md_depth}",
+                f"{md_evald_depth}"
             )
-            t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", "")
+            t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", f"{lcm_depth - md_depth}", "")
             console.print(t)
             return actual_problem
         return False
@@ -980,18 +1000,20 @@ class Solver:
         t.add_column("Move")
         t.add_column("Rounds", justify="right")
         t.add_column("Queries", justify="right")
-        t.add_column("Depth", justify="right")
-        min_query_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][1])
+        t.add_column("Worst Depth", justify="right")
+        t.add_column("Eval'd Depth", justify="right")
+        min_query_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][0][1])
         for (index, (move, cost)) in enumerate(move_cost_tups):
-            (rounds, queries, depth) = cost
+            ((rounds, queries, worst_depth), evald_depth) = cost
             # if ((index > 0) and (depth < move_cost_tups[index-1][1][2])):
             #     style = "on red"
             t.add_row(
                 f"{index+1}",
                 display.get_move_text(move, verifier_style="white" if (index == min_query_index) else None),
-                f"{cost[0]:0.3f}",
-                f"{cost[1]:0.3f}",
-                (f"{cost[2]}"),
+                f"{rounds:0.3f}",
+                f"{queries:0.3f}",
+                f"{worst_depth}",
+                f"{evald_depth}",
                 style= "on #4953da" if (index == min_query_index) else ""
             )
         console.print(t)
@@ -1016,13 +1038,14 @@ class Solver:
         first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
         self.validate_fcache_helper(filtered_cache, first_state)
 
+
     def validate_fcache_helper(self, fcache: dict, gs: Game_State):
         """
         Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
         """
         if one_answer_left(self.full_cwas_list, gs.cwa_set):
             return Solver.double_zero # do not change
-        cache_gs = self._easy_working_gs_to_cache_gs(gs)
+        cache_gs = self._easy_working_gs_to_cache_gs(gs) if self.cache_gs_in_post_filter_cache else gs
         (best_move, purported_cost) = fcache.get(cache_gs, Solver.double_inf)
         (gs_false, gs_true) = self.apply_move_to_state(best_move, gs)
         gsf_prob = len(gs_false.cwa_set) / len(gs.cwa_set)
@@ -1057,14 +1080,14 @@ class Solver:
         d:
             the difference in average cost
         """
-        move_cost_tups.sort(key = lambda mct: mct[1]) # use sort function
+        move_cost_tups.sort(key = lambda mct: mct[1])
         if not move_cost_tups:
             return (False, None, None, None)
-        min_depth_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][2])
-        min_depth = move_cost_tups[min_depth_index][1][2]
+        min_depth_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][0][2])
+        min_depth = move_cost_tups[min_depth_index][1][0][2]
         min_depth_move = move_cost_tups[min_depth_index][0]
-        (lcm_rounds, lcm_qs, lcm_depth) = move_cost_tups[0][1]
-        (md_rounds, md_qs, md_depth) = move_cost_tups[min_depth_index][1]
+        ((lcm_rounds, lcm_qs, lcm_depth), lcm_evald_depth) = move_cost_tups[0][1]
+        ((md_rounds, md_qs, md_depth), lcm_evald_depth) = move_cost_tups[min_depth_index][1]
         if lcm_depth > min_depth:
             is_counterexample = solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
             if not is_counterexample:

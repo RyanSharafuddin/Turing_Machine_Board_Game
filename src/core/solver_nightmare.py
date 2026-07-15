@@ -154,6 +154,8 @@ class Solver_Nightmare(Solver):
         testing_stuff(self) # TODO: delete
         sd = display.Solver_Displayer(self)
         sd.print_cache_game_state(initial_cache_gs, "Initial State")
+        self.cache_gs_in_post_filter_cache        = False
+
 
     def _print_canonical_form_info(self, game_state, cache_game_state, permutation, max_num_forms):
         if ('num_forms' not in globals()):
