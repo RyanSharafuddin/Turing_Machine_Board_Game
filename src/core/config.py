@@ -76,6 +76,7 @@ PRINT_COMBOS          = True  # print remaining combos after every query in play
 
 # Solver workings
 A_TOL                        = 1e-8
+INITIAL_EVAL_DEPTH           = 10
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
 S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode

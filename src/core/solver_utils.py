@@ -593,23 +593,24 @@ def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
     ((gsf_round_cost, gsf_query_cost, gsf_depth), (gst_round_cost, gst_query_cost, gst_depth)) = gss_costs
     expected_r_cost = mcost_rounds + (p_false * gsf_round_cost) + (p_true * gst_round_cost)
     expected_q_cost = mcost_queries + (p_false * gsf_query_cost) + (p_true * gst_query_cost)
-    worst_depth = mcost_rounds + max(gsf_depth, gst_depth)
+    # TODO: is the below line faster than using the max() function?
+    worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
     return (expected_r_cost, expected_q_cost, worst_depth)
-def calculate_expected_with_depth_and_evald_cost(move_cost, probs, gss_costs):
-    """
-    Expects and returns cost tuples in form: ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
-    """
-    (mcost_rounds, mcost_queries) = move_cost
-    (p_false, p_true) = probs
-    (
-        ((gsf_round_cost, gsf_query_cost, gsf_depth), gsf_evald_depth),
-        ((gst_round_cost, gst_query_cost, gst_depth), gst_evald_depth)
-    ) = gss_costs
-    expected_r_cost = mcost_rounds + (p_false * gsf_round_cost) + (p_true * gst_round_cost)
-    expected_q_cost = mcost_queries + (p_false * gsf_query_cost) + (p_true * gst_query_cost)
-    worst_depth = mcost_rounds + max(gsf_depth, gst_depth)
-    evald_depth = min(gsf_evald_depth, gst_evald_depth)
-    return ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
+# def calculate_expected_with_depth_and_evald_cost(move_cost, probs, gss_costs):
+#     """
+#     Expects and returns cost tuples in form: ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
+#     """
+#     (mcost_rounds, mcost_queries) = move_cost
+#     (p_false, p_true) = probs
+#     (
+#         ((gsf_round_cost, gsf_query_cost, gsf_depth), gsf_evald_depth),
+#         ((gst_round_cost, gst_query_cost, gst_depth), gst_evald_depth)
+#     ) = gss_costs
+#     expected_r_cost = mcost_rounds + (p_false * gsf_round_cost) + (p_true * gst_round_cost)
+#     expected_q_cost = mcost_queries + (p_false * gsf_query_cost) + (p_true * gst_query_cost)
+#     worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
+#     evald_depth = min(gsf_evald_depth, gst_evald_depth)
+#     return ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
 
 def fp_2tup_gt(a, b):
     """

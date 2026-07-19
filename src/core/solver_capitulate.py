@@ -11,6 +11,24 @@ class Solver_Capitulate(Solver):
         self.num_concurrent_tasks = 0
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
 
+    def solve(self):
+        """
+        Sets up evaluations_cache with the evaluations of all necessary game states.
+        """
+        start = time.time()
+        self._calculate_best_move(
+            qs_dict = self.qs_dict,
+            game_state = self.initial_game_state,
+        )
+        print("Cleaning up evaluations dictionary . . .")
+        filtered_cache = self._filter_cache()
+        end = time.time()
+        self.seconds_to_solve = int(end - start)
+        self.post_solve_printing()
+        self._evaluations_cache = filtered_cache
+        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
+        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
+
     def _choose_best_move_depth_one(self, move_infos:list):
         # cwa_set representation_change TODO!!
         best_expected_result = self.worst_eval # number of answers left, number of combos left.

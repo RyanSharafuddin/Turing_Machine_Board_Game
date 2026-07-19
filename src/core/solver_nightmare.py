@@ -346,8 +346,8 @@ class Solver_Nightmare(Solver):
                         new_evaluations_cache,
                         curr_cache_gs,
                         stack,
-                        put_cache_gs_into_new_ev_cache=False,
-                        curr_working_gs=curr_working_gs
+                        put_cache_gs_in_new_cache=self.cache_gs_in_post_filter_cache,
+                        working_gs_put_cache=curr_working_gs
                     ):
                         break
                 else:
@@ -373,8 +373,8 @@ class Solver_Nightmare(Solver):
                             new_evaluations_cache,
                             curr_cache_gs,
                             stack,
-                            put_cache_gs_into_new_ev_cache=False,
-                            curr_working_gs=curr_working_gs
+                            put_cache_gs_in_new_cache=self.cache_gs_in_post_filter_cache,
+                            working_gs_put_cache=curr_working_gs
                         ):
                             break
                     else:
