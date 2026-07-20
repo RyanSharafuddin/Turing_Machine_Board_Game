@@ -1,4 +1,5 @@
 import time, sys
+import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
@@ -117,59 +118,6 @@ def create_move_info(
     move_info = (move, cost, gs_tuple, p_tuple)
     return move_info
 
-def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
-    """
-    yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
-    move is a tuple (proposal tuple, rc_index of verifier to query).
-    cost is a tuple (round cost, query cost)
-    See create_move_info function docstring for what force_set_intersect does.
-    """
-    # calling len() to figure out num_combos_currently here so don't have to do it repeatedly inside loop
-    # cwa_set representation_change Will have to implement a function to get length of set
-    num_combos_currently = len(game_state.cwa_set)
-    if(game_state.proposal_used_this_round is None):
-        # Yield all proposals b/c it's a new round.
-        cost = (1, 1)
-        next_num_queries = 1
-        for (proposal, inner_dict) in qs_dict.items():
-            for (verifier_to_query, q_info) in inner_dict.items():
-                move = (proposal, verifier_to_query)
-                move_info = create_move_info(
-                    num_combos_currently,
-                    game_state,
-                    next_num_queries,
-                    q_info,
-                    move,
-                    cost,
-                    force_set_intersect
-                )
-                if(move_info is not None):
-                    yield move_info
-                # else:
-                #     pass # not a useful query
-
-    else:
-        # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
-        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
-        if(not(inner_dict_this_proposal is None)): # If this proposal still has potentially useful queries
-            cost = (0, 1) # considering all queries that don't incur a round cost
-            next_num_queries = (game_state.num_queries_this_round + 1) % 3
-            for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
-                move = (game_state.proposal_used_this_round, verifier_to_query)
-                move_info = create_move_info(
-                    num_combos_currently,
-                    game_state,
-                    next_num_queries,
-                    q_info,
-                    move,
-                    cost,
-                    force_set_intersect
-                )
-                if(move_info is not None):
-                    yield move_info
-                # else:
-                #     pass # not a useful query. See other comments.
-
 def testing_stuff(self):
     global display
     from . import display
@@ -181,6 +129,8 @@ progress = solver_utils.progress_initialize()
 
 class Solver:
     double_zero = (0, 0)
+    inf         = float("inf")
+    double_inf  = (inf, inf)
     null_answer = (None, double_zero)
     __slots__ = (
         "problem",
@@ -206,6 +156,9 @@ class Solver:
         "depth_to_tasks_l",
         "max_hex_length", # a bit janky to store a display detail here rather than Solver_Displayer, but oh well.
         "max_decimal_length",
+
+        "best_move",
+        "put_cache_gs_in_new_ev_cache",
     )
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
@@ -218,6 +171,8 @@ class Solver:
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
+        self.best_move          = None
+        self.put_cache_gs_in_new_ev_cache = True
         self.qs_dict            = solver_utils.make_useful_qs_dict(
             self.full_cwas_list,
             self.initial_game_state.cwa_set,
@@ -276,6 +231,60 @@ class Solver:
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
+
+    @staticmethod
+    def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
+        """
+        yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
+        move is a tuple (proposal tuple, rc_index of verifier to query).
+        cost is a tuple (round cost, query cost)
+        See create_move_info function docstring for what force_set_intersect does.
+        """
+        # calling len() to figure out num_combos_currently here so don't have to do it repeatedly inside loop
+        # cwa_set representation_change Will have to implement a function to get length of set
+        num_combos_currently = len(game_state.cwa_set)
+        if(game_state.proposal_used_this_round is None):
+            # Yield all proposals b/c it's a new round.
+            cost = (1, 1)
+            next_num_queries = 1
+            for (proposal, inner_dict) in qs_dict.items():
+                for (verifier_to_query, q_info) in inner_dict.items():
+                    move = (proposal, verifier_to_query)
+                    move_info = create_move_info(
+                        num_combos_currently,
+                        game_state,
+                        next_num_queries,
+                        q_info,
+                        move,
+                        cost,
+                        force_set_intersect
+                    )
+                    if(move_info is not None):
+                        yield move_info
+                    # else:
+                    #     pass # not a useful query
+
+        else:
+            # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
+            inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
+            if(not(inner_dict_this_proposal is None)): # If this proposal still has potentially useful queries
+                cost = (0, 1) # considering all queries that don't incur a round cost
+                next_num_queries = (game_state.num_queries_this_round + 1) % 3
+                for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
+                    move = (game_state.proposal_used_this_round, verifier_to_query)
+                    move_info = create_move_info(
+                        num_combos_currently,
+                        game_state,
+                        next_num_queries,
+                        q_info,
+                        move,
+                        cost,
+                        force_set_intersect
+                    )
+                    if(move_info is not None):
+                        yield move_info
+                    # else:
+                    #     pass # not a useful query. See other comments.
 
     def tasks_initialize(self, depth, move_generator):
         if(depth < self.num_concurrent_tasks):
@@ -342,7 +351,15 @@ class Solver:
         )
         console.rule()
         return
-
+    def _qs_dict_debugging(self, original_qs_dict, current_qs_dict, gs: Game_State):
+        len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
+        len_now = solver_utils.get_num_queries_in_qs_dict(current_qs_dict)
+        self._print_debug_info(
+            len_now < len_before,
+            gs,
+            qs_dict_1=current_qs_dict,
+            qs_dict_2=original_qs_dict,
+        )
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(
@@ -366,21 +383,14 @@ class Solver:
                 self._evaluations_cache[cache_game_state] = Solver.double_zero
             return Solver.double_zero
         if game_state.proposal_used_this_round is None:
-            # original_qs_dict = qs_dict # COMMENT OUT THIS LINE WHEN NOT DEBUGGING ##########################
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # KEEP this line always
-            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
-            # len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
-            # len_now = solver_utils.get_num_queries_in_qs_dict(qs_dict)
-            # self._print_debug_info(
-            #     len_now < len_before,
-            #     game_state,
-            #     qs_dict_1=qs_dict,
-            #     qs_dict_2=original_qs_dict,
-            # )
-            ########################## COMMENT OUT THIS SECTION WHEN NOT DEBUGGING ###########################
+            # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
+            # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
+
         best_node_cost = Solver.initial_best_cost
         found_moves = False
-        move_iterable = self.tasks_initialize(depth, get_and_apply_moves(game_state, qs_dict))
+        best_move = None
+        move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
             gs_false_node_cost = self._calculate_best_move(qs_dict, gs_tup[0], depth+1)
@@ -396,15 +406,15 @@ class Solver:
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
-                if(
-                    (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
-                ):
-                    # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
+                best_move = move
+                if(node_cost_tup == mcost):
+                    # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if not found_moves:
+        if found_moves:
+            self.best_move = best_move
+        else:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
@@ -436,19 +446,19 @@ class Solver:
             progress.start()
         start = time.time()
         self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        if self.num_concurrent_tasks:
+            progress.stop()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        if self.num_concurrent_tasks:
-            progress.stop()
         self.post_solve_printing()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
 
     def post_solve_printing(self):
         """
-        Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers.
+        Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
@@ -648,87 +658,84 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
+
+
+
+
+
     def _filter_cache(self):
         """
         Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
         """
-        new_evaluations_cache = dict()
+        filtered_cache = dict()
         stack : list[Game_State] = [self.initial_game_state]
         while stack:
             curr_working_gs = stack.pop()
             curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
+            gs_to_put_in_cache = curr_cache_gs if self.put_cache_gs_in_new_ev_cache else curr_working_gs
             if(
-                (curr_cache_gs not in new_evaluations_cache) and
-                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
+                (gs_to_put_in_cache in filtered_cache) or
+                one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set)
             ):
-                gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
-                # above is just a tuple (rounds, queries)
-                if gs_evaluation_result is None:
-                    message = "The following game state should be on the path" \
-                        + " of the best game tree, but it is not present in the evaluations_cache."
-                    self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-                for move_info in get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
-                    if self._check_move_info(
-                        move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
-                    ):
-                        break
-                else:
-                    early_new_round_curr_working_gs = Game_State(
-                        num_queries_this_round=0,
-                        proposal_used_this_round=None,
-                        cwa_set=curr_working_gs.cwa_set
-                    )
-                    for move_info in get_and_apply_moves(
-                        early_new_round_curr_working_gs, self.qs_dict, force_set_intersect=True
-                    ):
-                        if self._check_move_info(
-                            move_info, gs_evaluation_result, new_evaluations_cache, curr_cache_gs, stack
-                        ):
-                            break
-                    else:
-                        message = (
-                            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
-                        )
-                        self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-        return new_evaluations_cache
+                continue
+            self.handle_state(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, filtered_cache)
+        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
+        return filtered_cache
 
-
-    def _evaluate_potential_state(self, cache_gs, working_gs) -> tuple[float, float] | None :
-        """
-        Given a cache game state and its corresponding working game state, if the cache gs is in the evaluations cache OR if there is one answer left (i.e. this game state is an end state), return the evaluation of the state. Otherwise return None. This is necessary because end game states may not be stored in the cache, in order to save memory.
-        """
-        if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
-            return Solver.double_zero
-        return self._evaluations_cache.get(cache_gs)
-
-    def _check_move_info(
-            self,
-            move_info,
-            desired_evaluation_result,
-            new_ev_cache,
-            curr_cache_gs,
-            stack,
-            put_cache_gs_into_new_ev_cache=True,
-            curr_working_gs=None
-        ):
-        (move, mcost, working_gs_tuple, p_tuple) = move_info
-        (working_gs_false, working_gs_true) = working_gs_tuple
-        (cache_gs_false, cache_gs_true) = (
-            self._easy_working_gs_to_cache_gs(gs) for gs in working_gs_tuple
+    def _filter_calculate_best_move(self, curr_working_gs):
+        return self._calculate_best_move(
+            qs_dict=self.qs_dict,
+            game_state=curr_working_gs,
+            depth=0
         )
-        false_evaluation = self._evaluate_potential_state(cache_gs_false, working_gs_false)
-        true_evaluation = self._evaluate_potential_state(cache_gs_true, working_gs_true)
-        if not ((false_evaluation is None) or (true_evaluation is None)):
-            curr_gs_cost_with_this_move = self._cost_calculator(
-                mcost, p_tuple, (false_evaluation, true_evaluation)
-            )
-            if (curr_gs_cost_with_this_move == desired_evaluation_result):
-                gs_to_put_in_new_ev = curr_cache_gs if put_cache_gs_into_new_ev_cache else curr_working_gs
-                new_ev_cache[gs_to_put_in_new_ev] = (move, desired_evaluation_result)
-                stack.append(working_gs_false)
-                stack.append(working_gs_true)
-                return True
+
+    def exist_moves(self, curr_working_gs):
+        """
+        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is None, return True if there are useful moves to be made this round using any proposal.
+        """
+        for mi in self.get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
+            return True
         return False
+
+    def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
+        if not self.exist_moves(curr_working_gs):
+            if curr_cache_gs not in self._evaluations_cache:
+                message = (
+                    "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache. Note: Change this if using a 'light' cache."
+                )
+                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+            del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
+            curr_cache_gs = Game_State(
+                proposal_used_this_round=None,
+                num_queries_this_round=0,
+                cwa_set=curr_cache_gs.cwa_set
+            )
+        self._handle_state_helper(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache)
+
+    def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
+            previous_gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
+            if previous_gs_evaluation_result is None:
+                message = (
+                    "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache. Note: Change this if using a 'light' cache."
+                )
+                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+            del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
+            current_gs_eval = self._filter_calculate_best_move(curr_working_gs)
+            # NOTE: may need to use floating point 'equal' here
+            if (current_gs_eval != previous_gs_evaluation_result):
+                console.print("current_gs_eval:", current_gs_eval)
+                console.print("previous_gs_eval:", previous_gs_evaluation_result)
+                console.print(
+                    "[pink]NOTE[/pink]: If the above two values are very close, should use floating point 'equal' here."
+                )
+                message = (
+                    "You should keep track of a state to parent[] list dict and update all parents' evaluations now and start over with filter cache."
+                )
+                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
+            new_ev_cache[gs_to_put_in_cache] = (self.best_move, current_gs_eval)
+            (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
+            stack.append(gs_false)
+            stack.append(gs_true)
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message):
         console.print(message)
@@ -740,3 +747,37 @@ class Solver:
             console.print(cache_gs)
         console.print("Exiting.")
         exit()
+
+    def validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
+        """
+        Note: expects the cache to be filtered to have 2-tups as cost. So, *post-filtered* cache.
+        """
+        first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
+        self.validate_fcache_helper(filtered_cache, first_state)
+
+    def validate_fcache_helper(self, fcache: dict, gs: Game_State):
+        """
+        Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
+        """
+        if one_answer_left(self.full_cwas_list, gs.cwa_set):
+            return Solver.double_zero # do not change
+        cache_gs = self._easy_working_gs_to_cache_gs(gs) if self.put_cache_gs_in_new_ev_cache else gs
+        (best_move, purported_cost) = fcache.get(cache_gs, Solver.double_inf)
+        (gs_false, gs_true) = self.apply_move_to_state(best_move, gs)
+        gsf_prob = len(gs_false.cwa_set) / len(gs.cwa_set)
+        gst_prob = len(gs_true.cwa_set) / len(gs.cwa_set)
+        p_tup = (gsf_prob, gst_prob)
+        fcost = self.validate_fcache_helper(fcache, gs_false)
+        tcost = self.validate_fcache_helper(fcache, gs_true)
+        cost_tup = (fcost, tcost)
+        mcost = (int(Solver.does_move_cost_round(best_move, gs)), 1)
+        actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
+        if not np.allclose(actual_cost, purported_cost, rtol=0, atol=config.A_TOL):
+            print("O noes! This cache is internally invalid! Exiting!")
+            sd.print_game_state(gs)
+            console.print(gs)
+            console.print("Purported best move:", display.get_move_text(best_move), end=" ")
+            console.print("Purported cost:", purported_cost)
+            console.print("Actual cost:", actual_cost)
+            exit()
+        return purported_cost

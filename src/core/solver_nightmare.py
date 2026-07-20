@@ -21,92 +21,6 @@ def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) 
             minimal_vs_list.append(set([v_index]))
     return minimal_vs_list
 
-def _nightmare_get_and_apply_moves(
-        game_state: Game_State,
-        qs_dict: dict[int:dict[int:Query_Info]],
-        minimal_vs_list: list[set[int]],
-        force_set_intersect=False
-    ):
-    # TODO: step through with a debugger to understand how the minimal vs_list is working.
-    # cwa_set representation_change Will have to implement a function to get length of set
-    num_combos_currently = len(game_state.cwa_set)
-    if game_state.proposal_used_this_round is None:
-        cost = (1, 1)
-        next_num_queries = 1
-        for (proposal, inner_dict) in qs_dict.items():
-            num_v_sets_left_to_hit = len(minimal_vs_list)
-            list_hit_v_sets = [False] * num_v_sets_left_to_hit
-            for (verifier_to_query, q_info) in inner_dict.items():
-                move = (proposal, verifier_to_query)
-                for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                    if(verifier_to_query in v_set):
-                        if(not(list_hit_v_sets[v_set_index])):
-                            # try it out
-                            move_info = create_move_info(
-                                num_combos_currently,
-                                game_state,
-                                next_num_queries,
-                                q_info,
-                                move,
-                                cost,
-                                force_set_intersect=force_set_intersect
-                            )
-                            if(move_info is not None):
-                                list_hit_v_sets[v_set_index] = True
-                                num_v_sets_left_to_hit -= 1
-                                yield move_info
-                            # else: # TODO This entire else block can be deleted
-                            #     from .import display
-                            #     console.print(display.get_move_text(move))
-                            #     exit()
-                        break
-                if(not num_v_sets_left_to_hit):
-                    break
-    else:
-        cost = (0, 1)
-        next_num_queries = (game_state.num_queries_this_round + 1) % 3
-        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
-        if(inner_dict_this_proposal is None):
-            return
-        num_v_sets_left_to_hit = len(minimal_vs_list)
-        list_hit_v_sets = [False] * num_v_sets_left_to_hit
-        for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
-            move = (game_state.proposal_used_this_round, verifier_to_query)
-            for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                if(verifier_to_query in v_set):
-                    if(not(list_hit_v_sets[v_set_index])):
-                        # try it out
-                        move_info = create_move_info(
-                            num_combos_currently,
-                            game_state,
-                            next_num_queries,
-                            q_info,
-                            move,
-                            cost,
-                            force_set_intersect=force_set_intersect
-                        )
-                        if(move_info is not None):
-                            list_hit_v_sets[v_set_index] = True
-                            num_v_sets_left_to_hit -= 1
-                            yield(move_info)
-                            if(not num_v_sets_left_to_hit):
-                                return
-                        # else: # TODO this entire else block can be deleted
-                        #     from . import display
-                        #     console.print(display.get_move_text(move))
-                        #     console.print(v_set)
-                        #     cache_state_without_reordering_func = (
-                        #         solver_utils._convert_working_gs_to_cache_gs_standard_int if config.NIGHTMARE_BITSET_TYPE is int else
-                        #         solver_utils._convert_working_gs_to_cache_gs_standard_nparray
-                        #     )
-                        #     cache_state_without_reordering = cache_state_without_reordering_func(
-                        #         game_state,
-                        #         all_cwa_bitsets
-                        #     )
-                        #     sd.print_game_state(game_state, "State with ineffective move:")
-                        #     sd.print_cache_game_state(cache_state_without_reordering)
-                        #     exit()
-                    break
 
 def testing_stuff(self):
     global display
@@ -123,7 +37,7 @@ class Solver_Nightmare(Solver):
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
-
+        self.put_cache_gs_in_new_ev_cache = False
         # WARN TODO: delete the next 2 lines
         # #################################################
         # global all_cwa_bitsets
@@ -153,6 +67,75 @@ class Solver_Nightmare(Solver):
         testing_stuff(self) # TODO: delete
         sd = display.Solver_Displayer(self)
         sd.print_cache_game_state(initial_cache_gs, "Initial State")
+
+    @staticmethod
+    def get_and_apply_moves(
+            game_state: Game_State,
+            qs_dict: dict[int:dict[int:Query_Info]],
+            minimal_vs_list: list[set[int]],
+            force_set_intersect=False
+        ):
+        # TODO: step through with a debugger to understand how the minimal vs_list is working.
+        # cwa_set representation_change Will have to implement a function to get length of set
+        num_combos_currently = len(game_state.cwa_set)
+        if game_state.proposal_used_this_round is None:
+            cost = (1, 1)
+            next_num_queries = 1
+            for (proposal, inner_dict) in qs_dict.items():
+                num_v_sets_left_to_hit = len(minimal_vs_list)
+                list_hit_v_sets = [False] * num_v_sets_left_to_hit
+                for (verifier_to_query, q_info) in inner_dict.items():
+                    move = (proposal, verifier_to_query)
+                    for (v_set_index, v_set) in enumerate(minimal_vs_list):
+                        if(verifier_to_query in v_set):
+                            if(not(list_hit_v_sets[v_set_index])):
+                                # try it out
+                                move_info = create_move_info(
+                                    num_combos_currently,
+                                    game_state,
+                                    next_num_queries,
+                                    q_info,
+                                    move,
+                                    cost,
+                                    force_set_intersect=force_set_intersect
+                                )
+                                if(move_info is not None):
+                                    list_hit_v_sets[v_set_index] = True
+                                    num_v_sets_left_to_hit -= 1
+                                    yield move_info
+                            break
+                    if(not num_v_sets_left_to_hit):
+                        break
+        else:
+            cost = (0, 1)
+            next_num_queries = (game_state.num_queries_this_round + 1) % 3
+            inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
+            if(inner_dict_this_proposal is None):
+                return
+            num_v_sets_left_to_hit = len(minimal_vs_list)
+            list_hit_v_sets = [False] * num_v_sets_left_to_hit
+            for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
+                move = (game_state.proposal_used_this_round, verifier_to_query)
+                for (v_set_index, v_set) in enumerate(minimal_vs_list):
+                    if(verifier_to_query in v_set):
+                        if(not(list_hit_v_sets[v_set_index])):
+                            # try it out
+                            move_info = create_move_info(
+                                num_combos_currently,
+                                game_state,
+                                next_num_queries,
+                                q_info,
+                                move,
+                                cost,
+                                force_set_intersect=force_set_intersect
+                            )
+                            if(move_info is not None):
+                                list_hit_v_sets[v_set_index] = True
+                                num_v_sets_left_to_hit -= 1
+                                yield(move_info)
+                                if(not num_v_sets_left_to_hit):
+                                    return
+                        break
 
     def _print_canonical_form_info(self, game_state, cache_game_state, permutation, max_num_forms):
         if ('num_forms' not in globals()):
@@ -228,11 +211,12 @@ class Solver_Nightmare(Solver):
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
 
         found_moves = False
-        # moves_list = list(nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
+        best_move = None
+        # moves_list = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
         # For testing purposes, make the entire moves_list before examining any moves.
         move_iterable = self.tasks_initialize(
             depth,
-            _nightmare_get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
+            self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
         )
         for move_info in move_iterable:
             (move, mcost, gs_tup, p_tup) = move_info
@@ -260,21 +244,21 @@ class Solver_Nightmare(Solver):
             if(node_cost_tup < best_node_cost):
                 found_moves = True
                 best_node_cost = node_cost_tup
-                if(
-                    (node_cost_tup == (0, 1)) or
-                    ((node_cost_tup == (1, 1)) and (game_state.proposal_used_this_round is None))
-                ):
-                    # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
+                best_move = move
+                if(node_cost_tup == mcost):
+                    # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if not found_moves:
-            # don't have to recalculate minimal_vs_list here; the next invocation will do that.
+        if found_moves:
+            self.best_move = best_move
+        else:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
+            # don't have to recalculate minimal_vs_list here; the next invocation will do that.
             best_node_cost = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
@@ -306,77 +290,30 @@ class Solver_Nightmare(Solver):
         """
         return self._evaluations_cache.get(working_game_state, default)
 
-    def _filter_cache(self):
+    def _filter_calculate_best_move(self, curr_working_gs):
+        minimal_vs_list = _calculate_minimal_vs_list(
+            self.num_rcs, curr_working_gs, self.full_cwas_list
+        )
+        return self._calculate_best_move(
+            qs_dict=self.qs_dict,
+            game_state=curr_working_gs,
+            minimal_vs_list=minimal_vs_list,
+            depth=0,
+            working_cwa_set_convert_cache=dict()
+        )
+
+    def exist_moves(self, curr_working_gs):
         """
-        Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow.
+        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is none, return True if there are useful moves to be made this round using any proposal.
         """
-        new_evaluations_cache = dict()
-        stack : list[Game_State] = [self.initial_game_state]
-        while stack:
-            curr_working_gs = stack.pop()
-            curr_cache_gs = self._easy_working_gs_to_cache_gs(curr_working_gs)
-            if(
-                (curr_working_gs not in new_evaluations_cache) and
-                (not one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set))
-            ):
-                gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
-                if gs_evaluation_result is None:
-                    console.print("Huh. Why is the evaluation result of the following game state None?")
-                    sd.print_game_state(curr_working_gs, "Working game state")
-                    sd.print_cache_game_state(curr_cache_gs, "Cache game state")
-                    console.print("Exiting.")
-                    exit()
-                curr_working_gs_minimal_vs_list = _calculate_minimal_vs_list(
-                    self.num_rcs,
-                    curr_working_gs,
-                    self.full_cwas_list
-                )
-                for move_info in _nightmare_get_and_apply_moves(
-                    curr_working_gs,
-                    self.qs_dict,
-                    curr_working_gs_minimal_vs_list,
-                    force_set_intersect=True
-                ):
-                    if self._check_move_info(
-                        move_info,
-                        gs_evaluation_result,
-                        new_evaluations_cache,
-                        curr_cache_gs,
-                        stack,
-                        put_cache_gs_into_new_ev_cache=False,
-                        curr_working_gs=curr_working_gs
-                    ):
-                        break
-                else:
-                    early_new_round_curr_working_gs = Game_State(
-                        num_queries_this_round=0,
-                        proposal_used_this_round=None,
-                        cwa_set=curr_working_gs.cwa_set
-                    )
-                    early_new_round_gs_minimal_vs_list = _calculate_minimal_vs_list(
-                        self.num_rcs,
-                        early_new_round_curr_working_gs,
-                        self.full_cwas_list
-                    )
-                    for move_info in _nightmare_get_and_apply_moves(
-                        early_new_round_curr_working_gs,
-                        self.qs_dict,
-                        early_new_round_gs_minimal_vs_list,
-                        force_set_intersect=True
-                    ):
-                        if self._check_move_info(
-                            move_info,
-                            gs_evaluation_result,
-                            new_evaluations_cache,
-                            curr_cache_gs,
-                            stack,
-                            put_cache_gs_into_new_ev_cache=False,
-                            curr_working_gs=curr_working_gs
-                        ):
-                            break
-                    else:
-                        message = (
-                            f"Encountered the following game state on the best play game tree with evaluation {gs_evaluation_result}, but within the loop that checks for which moves on this state lead to that evaluation, it failed to find any move leading to that evaluation. Perhaps print out a list of moves it considered and what evaluations they lead to?"
-                        )
-                        self._filter_cache_warn_show(curr_working_gs, curr_cache_gs, message)
-        return new_evaluations_cache
+        minimal_vs_list = _calculate_minimal_vs_list(
+            self.num_rcs, curr_working_gs, self.full_cwas_list
+        )
+        for mi in self.get_and_apply_moves(
+            curr_working_gs,
+            self.qs_dict,
+            minimal_vs_list,
+            force_set_intersect=True
+        ):
+            return True
+        return False
