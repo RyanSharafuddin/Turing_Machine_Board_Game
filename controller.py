@@ -266,15 +266,18 @@ def get_requested_problem(
         new_problem=None
     ) -> Problem:
     """
-    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem.
+    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too.
     """
     if(web):
         p = get_web_problem(p_id, mode, level, verifiers)
         if(p is None):
             console.print(f"Error. Could not successfully retrieve the problem from the website. Exiting.")
             exit()
-            # TODO: consider not adding all web problems to known problems
+        # TODO: consider not adding all web problems to known problems
         problems.add_problem_to_known_problems(p, ignore_warning=True)
+        other_version_problem = problems.get_other_version_problem(p)
+        if other_version_problem:
+            problems.add_problem_to_known_problems(other_version_problem, ignore_warning=True)
         return(p)
     if(new_problem): # if no -n, this is None. If -n but no args, this is an empty list.
         p = problems.get_problem_from_user_string(' '.join(new_problem))
@@ -439,20 +442,22 @@ if(__name__ == "__main__"):
         console.print("\nBaii")
         exit()
 
-    # breakpoint here for debugging purposes.
-    # To use in REPL: do:
-    #   from controller import *
-    #   problem = get_requested_problem(p_id=<ID HERE>)
-    #   s = get_or_make_solver(problem, no_pickles=True, force_overwrite=False)[0]
-    # Then use the solver displayer below to examine.
-    # Use the below for testing/debugging purposes
-    # sd = display.Solver_Displayer(s)
-    # sd.print_useful_qs_dict_info(
-    #     s.qs_dict,
-    #     s.initial_game_state.cwa_set
-    #     verifier_index=None,          # set to None for all verifiers
-    #     proposals_to_examine=None,   # set to None for all proposals
-    #     see_all_combos=True
-    # )
-    # console.rule()
-    # (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
+# # breakpoint here for debugging purposes.
+# # To use in REPL: do:
+# from controller import *
+# problem = get_requested_problem(p_id="ID HERE")
+# s = get_or_make_solver(problem, no_pickles=True, force_overwrite=False)[0]
+# # Then use the solver displayer below to examine.
+# # Use the below for testing/debugging purposes
+# sd = display.Solver_Displayer(s)
+# sd.print_useful_qs_dict_info(
+#     qs_dict, # NOTE: fill in with correct qs dict you want to see
+#     s.initial_game_state.cwa_set, # NOTE: fill in with cwa_set when qs dict made
+#     "Queries Dictionary", # title
+#     verifier_indexes=None, #list of indexes
+#     proposals_to_examine=None, # list of proposals
+#     short=True,
+#     verifiers_to_sort_by=None # list of verifiers
+# )
+# console.rule()
+# (gs_false, gs_true) = sd.print_evaluations_cache_info(s.initial_game_state)
