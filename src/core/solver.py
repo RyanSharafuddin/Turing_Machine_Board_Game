@@ -659,10 +659,6 @@ class Solver:
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
 
-
-
-
-
     def _filter_cache(self):
         """
         Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
@@ -762,7 +758,7 @@ class Solver:
         if one_answer_left(self.full_cwas_list, gs.cwa_set):
             return Solver.double_zero # do not change
         cache_gs = self._easy_working_gs_to_cache_gs(gs) if self.put_cache_gs_in_new_ev_cache else gs
-        (best_move, purported_cost) = fcache.get(cache_gs, Solver.double_inf)
+        (best_move, purported_cost) = fcache.get(cache_gs, (None, Solver.double_inf))
         (gs_false, gs_true) = self.apply_move_to_state(best_move, gs)
         gsf_prob = len(gs_false.cwa_set) / len(gs.cwa_set)
         gst_prob = len(gs_true.cwa_set) / len(gs.cwa_set)
@@ -776,8 +772,9 @@ class Solver:
             print("O noes! This cache is internally invalid! Exiting!")
             sd.print_game_state(gs)
             console.print(gs)
-            console.print("Purported best move:", display.get_move_text(best_move), end=" ")
-            console.print("Purported cost:", purported_cost)
-            console.print("Actual cost:", actual_cost)
+            if best_move:
+                console.print("Purported best move:", display.get_move_text(best_move), end=" ")
+            console.print("\nPurported cost:", purported_cost, end=" ")
+            console.print("   Actual cost:", actual_cost, end=" ")
             exit()
         return purported_cost
