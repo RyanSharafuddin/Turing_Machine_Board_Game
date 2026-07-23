@@ -611,6 +611,31 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
         return (node_queries > threshold_queries)
     return (node_rounds > threshold_rounds)
 
+def roughly_gt_2tup(node_cost, corresponding_threshold):
+    """
+    Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+    """
+    (node_rounds, node_queries) = node_cost
+    (threshold_rounds, threshold_queries) = corresponding_threshold
+    # NOTE: consider using np.isclose(node_cost, corresponding_threshold, rtol=0, atol=A_TOL)
+    # instead of what currently doing. Alternatively, consider using Python's built in
+    # math.isclose(node_rounds, threshold_rounds, rel_tol=0, abs_tol=A_TOL). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand exactly how they differ.
+    # Also, if you use one of those, consider setting relative_tolerance to 1e-9 instead of 0.
+    # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
+    # (rounds_close_np, queries_close_np) = values_close
+    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+    queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+    # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
+    # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
+    if rounds_close_py:
+        # the round costs are 'equal'
+        if queries_close_py:
+            # query costs are 'equal'
+            return False
+        return (node_queries > threshold_queries)
+    return (node_rounds > threshold_rounds)
+
 def fp_lt(a, b):
     """
     Returns True if a is *strictly floating point less* than b. Note that if they are equal or 'close', returns False.

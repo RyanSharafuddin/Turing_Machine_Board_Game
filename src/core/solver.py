@@ -386,19 +386,17 @@ class Solver:
 
         (vertical_prune_rounds, vertical_prune_queries) = vertical_prune_threshold
         (vpr_lt_0, vpr_eq_0) = solver_utils.fp_cmp(vertical_prune_rounds, 0)
-        vpq_leq_1 = solver_utils.fp_leq(vertical_prune_queries, 1)
+        vpq_lt_1 = solver_utils.fp_lt(vertical_prune_queries, 1)
         if vpr_lt_0:
-            # TODO: delete this if block and test, since this shouldn't happen
-            console.print("[red]WARN! I thought this shouldn't happen?[/red]")
-            # BUG: This happens on f43.
+            # console.print("[red]WARN! I thought this shouldn't happen?[/red]")
             return Solver.initial_best_cost
             # return (int(game_state.proposal_used_this_round is None), 1)
-        if (vpr_eq_0 and vpq_leq_1):
+        if (vpr_eq_0 and vpq_lt_1):
             return Solver.initial_best_cost
             # return (int(game_state.proposal_used_this_round is None), 1)
         (vpr_lt_1, vpr_eq_1) = solver_utils.fp_cmp(vertical_prune_rounds, 1)
         if game_state.proposal_used_this_round is None:
-            if (vpr_lt_1 or (vpr_eq_1 and vpq_leq_1)):
+            if (vpr_lt_1 or (vpr_eq_1 and vpq_lt_1)):
                 return Solver.initial_best_cost
                 # return (1, 1)
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
@@ -428,7 +426,7 @@ class Solver:
                 depth+1,
                 vertical_prune_threshold_false
             )
-            if solver_utils.roughly_geq_2tup(gs_false_node_cost, vertical_prune_threshold_false):
+            if solver_utils.roughly_gt_2tup(gs_false_node_cost, vertical_prune_threshold_false):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -461,7 +459,7 @@ class Solver:
                 depth+1,
                 vertical_prune_threshold_true
             )
-            if solver_utils.roughly_geq_2tup(gs_true_node_cost, vertical_prune_threshold_true):
+            if solver_utils.roughly_gt_2tup(gs_true_node_cost, vertical_prune_threshold_true):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -489,7 +487,7 @@ class Solver:
 
             beat_vertical_prune_threshold = True
             vertical_prune_threshold = best_node_cost
-            if solver_utils.fp_eq_tup(node_cost_tup, mcost):
+            if(node_cost_tup == mcost):
                 # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
                 # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                 break
@@ -513,7 +511,7 @@ class Solver:
                 vertical_prune_threshold=vertical_prune_threshold
             )
             beat_vertical_prune_threshold = (
-                not solver_utils.roughly_geq_2tup(best_node_cost, vertical_prune_threshold)
+                not solver_utils.roughly_gt_2tup(best_node_cost, vertical_prune_threshold)
             )
 
         # comment out if not block above and uncomment this to try starting new rounds early as well.
@@ -711,6 +709,7 @@ class Solver:
 
     def print_eval_cache_stats(self):
         """ Prints the number of cwa_sets in the evaluations cache that are duplicated and wasting memory. """
+        from pympler.asizeof import asizeof # only import this if printing post solve debug info.
         cache_cwa_sets = dict()
         cache_gs_with_same_cwas = dict()
         unnecesary_duplicated_cwa_sets = 0
