@@ -61,6 +61,45 @@ class Solver_Nightmare(Solver):
         sd = display.Solver_Displayer(self)
         sd.print_cache_game_state(initial_cache_gs, "Initial State")
 
+    def tasks_initialize(self, depth, move_infos: list):
+        if(depth < self.num_concurrent_tasks):
+            total = len(move_infos)
+            task_id = self.depth_to_tasks_l[depth]
+            progress.reset(task_id, total=total, visible=True)
+
+
+    def get_fset_answers_from_cwa_set(self, cwa_set):
+        return(frozenset([self.full_cwas_list[cwa_index][-1] for cwa_index in cwa_set]))
+
+    def _estimate_move_info_value(self, move_info):
+        (move, mcost, gs_tuple, p_tuple) = move_info
+        (p_false, p_true) = p_tuple
+        (gs_false_answers_left, gs_true_answers_left) = [ # TODO: write it out rather than loop/iterator
+            len(self.get_fset_answers_from_cwa_set(gs.cwa_set)) for gs in gs_tuple
+        ]
+        (gs_false_combos_left, gs_true_combos_left) = [ # TODO: dito above
+            len(gs.cwa_set) for gs in gs_tuple
+        ]
+        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
+        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
+        expected_result = (expected_answers_left, expected_combos_left)
+        return expected_result
+
+    def _reorder_move_infos_list(self, move_infos:list):
+        move_infos.sort(key=self._estimate_move_info_value)
+        # if not move_infos:
+        #     return
+        # # IDEA: consider sorting the entire list by cost heuristic, rather than just moving the smallest one to the front.
+        # (best_expected_result, best_index) = (Solver.initial_best_cost, -1)
+        # for (index, move_info) in enumerate(move_infos):
+        #     result = self._estimate_move_info_value(move_info)
+        #     if (result < best_expected_result):
+        #         best_expected_result = result
+        #         best_index = index
+        # (move_infos[0], move_infos[best_index]) = (move_infos[best_index], move_infos[0])
+
+
+
     @staticmethod
     def get_and_apply_moves(
             game_state: Game_State,
@@ -234,11 +273,11 @@ class Solver_Nightmare(Solver):
         best_move = None
         # moves_list = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
         # For testing purposes, make the entire moves_list before examining any moves.
-        move_iterable = self.tasks_initialize(
-            depth,
-            self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
-        )
-        for move_info in move_iterable:
+        move_infos = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
+        self._reorder_move_infos_list(move_infos)
+        # TODO: check that the first move_info has the lowest estimated cost heuristic here.
+        self.tasks_initialize(depth, move_infos)
+        for move_info in move_infos:
             exist_non_begin_round_moves = True
             (move, mcost, gs_tup, p_tup) = move_info
             (false_p, true_p) = p_tup
