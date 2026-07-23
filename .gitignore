@@ -9,6 +9,7 @@ Supporting_Documents/
 .python-version
 todo.txt
 *.svg
+Supporting_Documents/
 
 # venv stuff
 .venv/

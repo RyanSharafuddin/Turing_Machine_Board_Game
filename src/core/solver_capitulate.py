@@ -42,7 +42,7 @@ class Solver_Capitulate(Solver):
             if current_gs in self._evaluations_cache:
                 continue
             if not one_answer_left(self.full_cwas_list, current_gs.cwa_set):
-                move_infos = list(get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
+                move_infos = list(self.get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
                 if not move_infos:
                     new_game_state = Game_State(
                         proposal_used_this_round=None,
@@ -50,7 +50,7 @@ class Solver_Capitulate(Solver):
                         cwa_set=current_gs.cwa_set
                     )
                     move_infos = list(
-                        get_and_apply_moves(new_game_state, self.qs_dict, force_set_intersect=True)
+                        self.get_and_apply_moves(new_game_state, self.qs_dict, force_set_intersect=True)
                     )
                 answer = self._choose_best_move_depth_one(move_infos)
                 (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
@@ -97,3 +97,7 @@ class Solver_Capitulate(Solver):
         new_ev_cache = dict()
         self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
         return new_ev_cache
+
+    def post_solve_printing(self):
+        print(f"Finished.")
+        console.print(f"It took {self.seconds_to_solve:,} seconds.")

@@ -126,12 +126,8 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
         return(None)
     _add_problem_to_both_dicts(p)
     _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
-    if((p.mode == STANDARD) or (p.mode == NIGHTMARE)):
-        other_version_mode = NIGHTMARE if (p.mode == STANDARD) else STANDARD
-        other_version_suffix = "_S" if other_version_mode == STANDARD else "_N"
-        other_version_problem = Problem(
-            f"{p.identity}{other_version_suffix}", p.rc_nums_list, other_version_mode
-        )
+    other_version_problem = get_other_version_problem(p)
+    if other_version_problem:
         _add_problem_to_both_dicts(other_version_problem)
         _write_user_problem_to_file(USER_PROBS_FILE_NAME, other_version_problem)
     return(p)
@@ -161,7 +157,7 @@ def get_local_problem_by_id(problem_id: str):
     return(problem_list[0])
 def get_problem_from_user_string(s):
     """
-    Make a problem out of a single user input string, add it to the problem dicts and the text file of user problems, and return it. Return None if the problem is invalid in some way.
+    Make a problem out of a single user input string, add it to the problem dicts and the text file of user problems, and return it. If the problem is standard or nightmare mode, make a corresponding nightmare or standard mode problem with the same prefix + _N or _S and add that to the problem dictionaries and user file too. If the problem is invalid in some way, do not add the problem to anything and return None.
     """
     intermediate = _user_input_to_triplet(s)
     if(intermediate is None):
@@ -186,6 +182,18 @@ def add_problem_to_known_problems(p: Problem, ignore_warning=False):
         _add_problem_to_both_dicts(p)
         _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
         return(p)
+def get_other_version_problem(p: Problem):
+    """
+    If `p` is of standard mode or nightmare mode, return a new Problem of the other mode, with the same id but with _S or _N added. If `p` is of extreme mode, return None
+    """
+    if((p.mode == STANDARD) or (p.mode == NIGHTMARE)):
+        other_version_mode = NIGHTMARE if (p.mode == STANDARD) else STANDARD
+        other_version_suffix = "_S" if (other_version_mode == STANDARD) else "_N"
+        other_version_problem = Problem(
+            f"{p.identity}{other_version_suffix}", p.rc_nums_list, other_version_mode
+        )
+        return other_version_problem
+    return None
 def print_all_local_problems():
     """
     Print the table that lists all locally available problems.

@@ -1512,6 +1512,17 @@ def _get_children(tree: Tree):
     ]
     return(children)
 
+def _get_node_background_color(tree: Tree, result):
+    """
+    Function to choose the background color of a tree node. Can make it change color depending on whether the best move here uses a round, and/or the cost to get here, or the cost to go, or etc.
+    """
+    (best_move, best_move_cost, gs_tup, total_expected_cost) = result
+    # things to use: see the fields of a Tree. Can use cost to get here, remaining expected cost, etc.
+    if (best_move_cost[0] == 1):
+        return NEW_ROUND_BACKGROUND_COLOR
+    return TREE_BACKGROUND_COLOR
+
+
 def _node_to_str_table(tree: Tree):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
@@ -1533,6 +1544,7 @@ def _node_to_str_table(tree: Tree):
         # NOTE: comment out below if block to not mark new rounds in the best move tree
         if(best_move_cost[0] == 1): # if the best move costs a round
             move_str += ' (R)'
+        background_color = _get_node_background_color(tree, result)
         if(not tree.show_combos_in_tree):
             tree_lines = (
                 ((prob_str,) if (tree.prob != 1) else tuple()) +
@@ -1541,7 +1553,7 @@ def _node_to_str_table(tree: Tree):
             max_line_length = max([len(l) for l in tree_lines])
             lines = [f"{l:^{max_line_length}}" for l in tree_lines] # the ^ centers the lines
             node_str = f"{nl.join(lines)}"
-            rich_obj_to_print = Text(node_str, style=f"white on {TREE_BACKGROUND_COLOR}")
+            rich_obj_to_print = Text(node_str, style=f"white on {background_color}")
         else:
             num_combos = len(tree.solver.full_cwa_list_from_game_state(tree.gs))
             num_empty_rows = Tree.max_combos_by_depth[tree.depth] - num_combos

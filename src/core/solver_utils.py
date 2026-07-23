@@ -642,3 +642,22 @@ def fp_leq(a, b):
     if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
         return True
     return (a < b)
+
+def fp_cmp(a, b):
+    """
+    Params
+    ------
+    a: float
+
+    b: float
+
+    Returns
+    -------
+    (less_than, equal):
+        less_than is True if a is 'less than' b
+
+        equal is true if a is 'equal' to b
+    """
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
+        return (False, True)
+    return ((a < b), False)
