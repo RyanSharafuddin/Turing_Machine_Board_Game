@@ -1,8 +1,8 @@
 import math, itertools, copy
 import numpy as np
 from rich import progress
-from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
-from .hashable_numpy_array import Hashable_Numpy_Array
+from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
+from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):

@@ -1,5 +1,6 @@
 import numpy as np
 from .solver import *
+from .data_structures.lru_cache import LRUCache
 
 def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]:
     # TODO: print this out to make sure it works
@@ -34,9 +35,11 @@ class Solver_Nightmare(Solver):
         "int_verifier_bit_mask",
         "shift_amounts",
         "index_function",
+        "lru_cache",
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
+        self.lru_cache = LRUCache(config.LRU_CACHE_CAPACITY)
         self.put_cache_gs_in_new_ev_cache = False
         # WARN TODO: delete the next 2 lines
         # #################################################
@@ -198,6 +201,18 @@ class Solver_Nightmare(Solver):
             if result is not None:
                 # self.cache_hits += 1
                 return result
+        else:
+            # in num queries used this round is 1 or 2.
+            (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+                game_state,
+                self.all_cwa_bitsets,
+                working_cwa_set_convert_cache,
+                self.shift_amounts,
+                self.int_verifier_bit_mask,
+            )
+            result = self.lru_cache.get(cache_game_state)
+            if result is not None:
+                return result
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return Solver.double_zero
         best_node_cost = Solver.initial_best_cost
@@ -262,6 +277,8 @@ class Solver_Nightmare(Solver):
             )
         if game_state.proposal_used_this_round is None:
             self._evaluations_cache[cache_game_state.cwa_set] = best_node_cost
+        else:
+            self.lru_cache.put(cache_game_state, best_node_cost)
         return best_node_cost
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
@@ -321,8 +338,8 @@ class Solver_Nightmare(Solver):
         """
         if ((cache_gs.proposal_used_this_round is None) and (cache_gs.cwa_set in self._evaluations_cache)):
             del self._evaluations_cache[cache_gs.cwa_set]
-        # TODO: once start using an LRU cache for game states with 1 or 2 queries used this round, fill in the line below.
-        # elif ((cache_gs.proposal_used_this_round is not None) and (cache_gs in INSERT_LRU_1_AND_2_Q_CACHE))
+        elif ((cache_gs.proposal_used_this_round is not None) and (cache_gs in self.lru_cache)):
+            self.lru_cache.del_item(cache_gs)
         return False
 
     def handle_get_cache_state_eval(self, cache_gs: Game_State):
@@ -337,4 +354,4 @@ class Solver_Nightmare(Solver):
         if (cache_gs.proposal_used_this_round is None):
             return (self._evaluations_cache.get(cache_gs.cwa_set), False)
         # TODO: once start using an LRU cache for game states w/ 1 or 2 queries used this round, delete the line below and replace with a line that looks for the cache states in the LRU cache.
-        return (None, False)
+        return (self.lru_cache.get(cache_gs), False)

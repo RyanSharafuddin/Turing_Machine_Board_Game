@@ -14,7 +14,7 @@ class Hashable_Numpy_Array():
     np.array_equal(
         np.array([1,2], dtype=np.uint8),
         np.array([1,2], dtype=np.uint16)
-    ) 
+    )
     returns True, even though the first array has dtype uint8 and the second array has dtype uint16. However, the __hash__ function only considers the raw bytes, and the raw bytes of those arrays differ. For example, the raw bytes of the first array is b'\x01\x02', and the raw bytes of the second array is b'\x01\x00\x02\x00', because each element is 16 bit in the second, and 8 bit in the first. Because the raw bytes of these arrays differ, their hashes most likely differ, even though they would compare equal under __eq__, which breaks the rule that equal object have equal hashes.
 
     However, that's okay, b/c the only place in this program that the __hash__ or __eq__ functions of this class are used are when inserting cache_game_states into a solver's evaluations_cache. The evaluations cache will only contain np arrays of the all the same shape and type, and since each every object in the cache will be a cache_game_state, the __eq__ function of this class will only ever be used to compare against other objects of this class, thus avoiding both of the above problems.
