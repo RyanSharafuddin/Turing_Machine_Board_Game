@@ -45,6 +45,7 @@ COLORS = [
 # Displaying
 # TREE_BACKGROUND_COLOR      = "#690969"
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
+NEW_ROUND_BACKGROUND_COLOR = "#D102D1" #"#FF0048"
 SHOW_RC_NUMS_IN_PROBLEM    = True          # Display rule card numbers when displaying a problem?
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
@@ -74,6 +75,7 @@ DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
 # Solver workings
+A_TOL                        = 1e-8
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
 S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
@@ -105,7 +107,7 @@ CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
-DISPLAY_CWA_BITSETS         = True  # Display all the cwa bitsets at the beginning when displaying problem?
+DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY      = "src/problems/Pickles/Light_Cache_On_Nightmare" # Where all pickled solvers go.
