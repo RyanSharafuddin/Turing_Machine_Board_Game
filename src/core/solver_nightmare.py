@@ -353,5 +353,4 @@ class Solver_Nightmare(Solver):
         """
         if (cache_gs.proposal_used_this_round is None):
             return (self._evaluations_cache.get(cache_gs.cwa_set), False)
-        # TODO: once start using an LRU cache for game states w/ 1 or 2 queries used this round, delete the line below and replace with a line that looks for the cache states in the LRU cache.
         return (self.lru_cache.get(cache_gs), False)
