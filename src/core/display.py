@@ -9,6 +9,7 @@ from rich.highlighter import ReprHighlighter
 from rich import box
 # My imports
 from . import solver
+from . import solver_utils
 from .definitions import *
 from .config import *
 from .hashable_numpy_array import Hashable_Numpy_Array
@@ -1291,6 +1292,86 @@ class Solver_Displayer:
     def get_problem_id_text(self):
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
 
+    @staticmethod
+    def print_table_move_rqd_tups(move_rqd_tups):
+        if not move_rqd_tups:
+            return
+        print()
+        t = Table(
+            title="Initial Moves And Costs",
+            title_style="",
+            box=box.SQUARE,
+            header_style=""
+        )
+        t.add_column(justify="right")
+        t.add_column("Move")
+        t.add_column("Rounds", justify="right")
+        t.add_column("Queries", justify="right")
+        t.add_column("Worst Depth", justify="right")
+        min_query_index = min(range(len(move_rqd_tups)), key=lambda i:move_rqd_tups[i][1][1])
+        for (index, (move, rqd)) in enumerate(move_rqd_tups):
+            (rounds, queries, worst_depth) = rqd
+            # if ((index > 0) and (worst_depth < move_rqd_tups[index-1][1][2])):
+            #     style = "on red"
+            t.add_row(
+                f"{index+1}",
+                get_move_text(move, verifier_style="white" if (index == min_query_index) else None),
+                f"{rounds:0.3f}",
+                f"{queries:0.3f}",
+                f"{worst_depth}",
+                style= "on #4953da" if (index == min_query_index) else ""
+            )
+        console.print(t)
+    @staticmethod
+    def print_min_depth_counterexample_table(mov_rqd, min_depth_index, message=""):
+        lcm_m_rqd = mov_rqd[0]
+        (lowest_cost_move, (lcm_rounds, lcm_qs, lcm_depth)) = lcm_m_rqd
+        md_m_rqd = mov_rqd[min_depth_index]
+        (min_depth_move, (md_rounds, md_qs, md_depth)) = md_m_rqd
+        console.print(message)
+        console.print(
+            f"[red]WARN![/red] The smallest depth is {md_depth}, but the lowest cost move has a depth of {lcm_depth}!"
+        )
+        t = Table(
+            box=box.SQUARE
+        )
+        t.add_column()
+        t.add_column("Move")
+        t.add_column("Rounds", justify="left")
+        t.add_column("Queries", justify="left")
+        t.add_column("Worst Depth", justify="right")
+        t.add_row(
+            "Lowest Cost Move", get_move_text(lowest_cost_move), f"{lcm_rounds}", f"{lcm_qs}", f"{lcm_depth}",
+        )
+        t.add_row(
+            "Min Depth Move", get_move_text(min_depth_move), f"{md_rounds}", f"{md_qs}", f"{md_depth}",
+        )
+        t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", f"{lcm_depth - md_depth}", "")
+        console.print(t)
+
+    def display_best_move_tree(self, alternate_first_move=None, alternate_first_state=None):
+        """
+        Prints the best move tree, with optional alternate first move and/or state. Leaves solver unchanged afterwards.
+        """
+        og_cache = self.solver._evaluations_cache
+        og_first_state = self.solver.initial_game_state
+        filtered_cache = self.solver._filter_cache(alternate_first_move, alternate_first_state)
+        self.solver._evaluations_cache = filtered_cache
+        print_best_move_tree(alternate_first_state, SHOW_COMBOS_IN_TREE, self.solver)
+        self.solver._evaluations_cache = og_cache
+        self.solver.initial_game_state = og_first_state
+
+    def display_counterexample(self, item, compare, message):
+        if item[0] > compare:
+            (_, move_rqd_tups, game_state, min_depth_move) = item
+            (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(move_rqd_tups)
+            if is_counterexample:
+                self.print_min_depth_counterexample_table(move_rqd_tups, min_depth_index, message)
+                self.print_game_state(game_state)
+                console.print("Lowest cost tree with higher depth:")
+                self.display_best_move_tree(None, game_state) # best move tree lowest cost move w/higher depth
+                console.print("\nLower depth tree with higher cost:")
+                self.display_best_move_tree(min_depth_move, game_state) # tree with best lowest depth move
     ############################### BITSET WERK #######################################################
     def get_bitset_Texts(self, bitset, base_16=False, verifier_colors=None) -> list[Text]:
         """

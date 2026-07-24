@@ -38,12 +38,6 @@ class Solver_Nightmare(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.put_cache_gs_in_new_ev_cache = False
-        # WARN TODO: delete the next 2 lines
-        # #################################################
-        # global all_cwa_bitsets
-        # all_cwa_bitsets = self.all_cwa_bitsets
-        #################################################################################################
-
         if not self.full_cwas_list: # invalid problem with no solutions
             return
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])
@@ -318,3 +312,7 @@ class Solver_Nightmare(Solver):
         ):
             return True
         return False
+
+    def _easy_get_list_move_infos(self, working_gs):
+        min_vs_list = [set([i]) for i in range(self.num_rcs)]
+        return list(self.get_and_apply_moves(working_gs, self.qs_dict, min_vs_list, force_set_intersect=True))

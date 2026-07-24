@@ -420,7 +420,7 @@ class Solver:
         found_moves = False
         best_move = None
         min_round_depth  = self.inf
-        # move_cost_tups = [] # TODO: delete
+        move_rqd_tups = [] # TODO: delete
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             found_moves = True
@@ -441,7 +441,7 @@ class Solver:
                 self._cost_calculator(
                     mcost, p_tup, (gs_false_node_rqd, self.end_game_eval_no_evdepth)
                 ) >= best_node_cost_no_evdepth # only compare (rounds, queries, depth) for pruning purposes
-                ):
+            ):
                 # TODO: breakpoint this to make sure it actually happens and helps. See timings.
                 # The false node alone would make this move not better than the best move, so don't need to search the true node.
                 if depth < self.num_concurrent_tasks:
@@ -458,20 +458,17 @@ class Solver:
                 min_round_depth = gs_true_node_evald_depth
             gss_costs_no_evdepth = (gs_false_node_rqd, gs_true_node_rqd)
             node_cost_tup_no_evdepth = self._cost_calculator(mcost, p_tup, gss_costs_no_evdepth)
-            # TODO: change to account for depth solved to
             if(node_cost_tup_no_evdepth < best_node_cost_no_evdepth):
                 best_node_cost_no_evdepth = node_cost_tup_no_evdepth
                 best_move = move
-                if(
-                     (node_cost_tup_no_evdepth[0] == mcost[0]) and (node_cost_tup_no_evdepth[1] == 1)
-                ):
+                if((node_cost_tup_no_evdepth[0] == mcost[0]) and (node_cost_tup_no_evdepth[1] == 1)):
                     # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
                     # TODO: breakpoint and time this to make sure it's happening.
                     min_round_depth = self.inf
                     break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-            # move_cost_tups.append((move, node_cost_tup)) # TODO: delete
+            move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         if found_moves:
             best_node_cost = (best_node_cost_no_evdepth, min_round_depth + add_to_min_round_depth)
             self.best_move = best_move
@@ -484,6 +481,7 @@ class Solver:
             best_node_cost = self._calculate_best_move(qs_dict, new_gs, depth+1, round_depth)
 
         # # comment out if not block above and uncomment this to try starting new rounds early as well.
+        # # WARN: If do below, will have to remember what current self.best_move is, and, if the end_round_early_rqd does not beat the best_node_cost_no_evdepth, will have to set self.best_move back to what it was before.
         # if(game_state.num_queries_this_round != 0):
         #     new_gs = Game_State(
         #         num_queries_this_round=0,
@@ -491,7 +489,7 @@ class Solver:
         #         cwa_set=game_state.cwa_set
         #     )
         #     (end_round_early_rqd, end_round_early_evdepth) = self._calculate_best_move(
-        #       qs_dict, new_gs, depth+1
+        #       qs_dict, new_gs, depth+1, round_depth
         #     )
         #     if(end_round_early_rqd < best_node_cost_no_evdepth):
         #         # breakpoint here to see if there are situations where ending the round early is better.
@@ -499,7 +497,7 @@ class Solver:
         #         # and see if that node makes it into the best move tree.
         #         best_node_cost = (end_round_early_rqd, end_round_early_evdepth)
 
-        # self.update_biggest_counterexamples(move_cost_tups, game_state) # TODO: delete if not visualizing
+        self.update_biggest_counterexamples(move_rqd_tups, game_state) # TODO: delete if not visualizing
         self._evaluations_cache[cache_game_state] = best_node_cost # NOTE: keep this
         return best_node_cost
 
@@ -527,12 +525,43 @@ class Solver:
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
 
+    def _experiment(self):
+        sd = testing_stuff(self)
+        # initial_qs_dict = solver_utils.full_filter(self.qs_dict, self.initial_game_state.cwa_set)
+        (move_rqd_tups, absent_moves, move_infos) = self.move_rqd_tups_from_working_gs(
+            self.initial_game_state,
+            sort=True
+        )
+        movrqd_filtered_to_unique = []
+        seen_rqds = set()
+        for move_rqd_tup in move_rqd_tups:
+            (move, rqd) = move_rqd_tup
+            rqd_str = solver_utils.rqd_to_str(rqd)
+            if (rqd_str not in seen_rqds):
+                movrqd_filtered_to_unique.append(move_rqd_tup)
+                seen_rqds.add(rqd_str)
+        sd.print_table_move_rqd_tups(movrqd_filtered_to_unique)
+        console.print("Lowest expected query move highlighted in light blue.")
+        message = "\nTop-level depth counterexamples:"
+        (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(
+            movrqd_filtered_to_unique
+        )
+        if is_counterexample:
+            sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
+
     def post_solve_printing(self):
         """
         Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
+        if one_answer_left(self.full_cwas_list, self.initial_game_state.cwa_set):
+            initial_evdepth = self.inf
+        else:
+            initial_evdepth = self._evaluations_cache.get(self.initial_game_state, (None, None))[1]
+        console.print(
+            "Depth the initial state was evaluated to:", display.Text(f"{initial_evdepth}", style="b cyan")
+        )
         from .display import Solver_Displayer
         sd = Solver_Displayer(self)
 
@@ -549,7 +578,7 @@ class Solver:
             # # console.print(f"{useless_queries:,} useless queries")
             # # console.print(f"{useful_queries:,} useful queries")
             # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
-            print("Calculating post-solve debug information.")
+            print("\nCalculating post-solve debug information.")
             gs: Game_State
             num_begin_round_states = 0
             for gs in self._evaluations_cache:
@@ -729,8 +758,47 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
+    def _filter_calculate_best_move(self, curr_working_gs, round_depth=inf):
+        return self._calculate_best_move(
+            qs_dict=self.qs_dict,
+            game_state=curr_working_gs,
+            depth=0,
+            round_depth=round_depth
+        )
 
+    def exist_moves(self, curr_working_gs):
+        """
+        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is None, return True if there are useful moves to be made this round using any proposal.
+        """
+        for mi in self.get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
+            return True
+        return False
 
+    def _easy_get_list_move_infos(self, working_gs:Game_State):
+        return list(self.get_and_apply_moves(working_gs, self.qs_dict, force_set_intersect=True))
+
+    # WARN: if switch to a light cache that does not necessarily save all states, will need to replace calls to _get_state_cost with calls to filter_calculate_best_move
+    def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move, default_cost=double_inf):
+        """
+        Given a working game state and a move, return a 2-tup of (avg round cost, avg query cost) of solving the state if you have to start with making the given move. If either of the resulting states aren't in the cache, return the default cost.
+
+        Returns
+        -------
+        (round cost, query cost)
+        """
+        mcost = (int(Solver.does_move_cost_round(move, working_gs)), 1)
+        (false_gs, true_gs) = self.apply_move_to_state(move, working_gs)
+        p_false = len(false_gs.cwa_set) / len(working_gs.cwa_set)
+        p_true = len(true_gs.cwa_set) / len(working_gs.cwa_set)
+        p_tup = (p_false, p_true)
+        false_cost = self._get_state_cost(false_gs, None)
+        true_cost = self._get_state_cost(true_gs, None)
+        if ((false_cost is None) or (true_cost is None)):
+            return default_cost
+        false_cost_og = solver_utils.new_res_to_og_res(false_cost)
+        true_cost_og = solver_utils.new_res_to_og_res(true_cost)
+        og_cost = solver_utils.calculate_expected_cost(mcost, p_tup, (false_cost_og, true_cost_og))
+        return og_cost
 
     def _filter_cache(self, alternate_first_move=None, alternate_first_state=None):
         """
@@ -766,62 +834,14 @@ class Solver:
         self.validate_filtered_cache(filtered_cache, alternate_first_state=alternate_first_state)
         return filtered_cache
 
-    # TODO: change this to take in evdepth as well and make sure the actual is greater than expected.
-    def check_total_cost_matches(self, rqd_actual, rqd_expected):
+    # TODO: change this to take in evdepth as well and make sure the actual is greater than expected. Also, move this to solver_utils.
+    @staticmethod
+    def check_total_cost_matches(rqd_actual, rqd_expected):
         """
         Expects cost tuples in form: (expected_r_cost, expected_q_cost, worst_depth)
         """
         # WARN: don't compare ev_depths, b/c with pruning, it's difficult or impossible to verify what depth a state was evaluated to from the cache.
         return np.allclose(rqd_actual, rqd_expected, rtol=0, atol=config.A_TOL)
-
-    # TODO: changes when evaluations cache store format changes
-    @staticmethod
-    def _new_res_to_og_res(new_cache_result):
-        """
-        Converts a cost tuple as stored in self._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
-        """
-        ((avg_rounds, avg_queries, worst_case_depth), evald_depth) = new_cache_result
-        return (avg_rounds, avg_queries)
-
-    # WARN: if switch to a light cache that does not necessarily save all states, will need to replace calls to _get_state_cost with calls to filter_calculate_best_move
-    def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move, default_cost=double_inf):
-        """
-        Given a working game state and a move, return a 2-tup of (avg round cost, avg query cost) of solving the state if you have to start with making the given move. If either of the resulting states aren't in the cache, return the default cost.
-
-        Returns
-        -------
-        (round cost, query cost)
-        """
-        mcost = (int(Solver.does_move_cost_round(move, working_gs)), 1)
-        (false_gs, true_gs) = self.apply_move_to_state(working_gs)
-        p_false = len(false_gs.cwa_set) / len(working_gs.cwa_set)
-        p_true = len(true_gs.cwa_set) / len(working_gs.cwa_set)
-        p_tup = (p_false, p_true)
-        false_cost = self._get_state_cost(false_gs, None)
-        true_cost = self._get_state_cost(true_gs, None)
-        if ((false_cost is None) or (true_cost is None)):
-            return default_cost
-        false_cost_og = Solver._new_res_to_og_res(false_cost)
-        true_cost_og = Solver._new_res_to_og_res(true_cost)
-        og_cost = solver_utils.calculate_expected_cost(mcost, p_tup, (false_cost_og, true_cost_og))
-        return og_cost
-
-    # TODO: figure out how to set the round_depth on this once use round_depth for pruning.
-    def _filter_calculate_best_move(self, curr_working_gs, round_depth=inf):
-        return self._calculate_best_move(
-            qs_dict=self.qs_dict,
-            game_state=curr_working_gs,
-            depth=0,
-            round_depth=round_depth
-        )
-
-    def exist_moves(self, curr_working_gs):
-        """
-        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is None, return True if there are useful moves to be made this round using any proposal.
-        """
-        for mi in self.get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
-            return True
-        return False
 
     # WARN: will need changing if start using a light cache (or more aggressive pruning) which does not save all states.
     def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
@@ -841,25 +861,26 @@ class Solver:
 
     # See major TODOs in this function.
     def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
-            previous_gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
-            if previous_gs_evaluation_result is None:
+            previous_gs_eval_result = self._evaluations_cache.get(curr_cache_gs)
+            if previous_gs_eval_result is None:
                 # TODO: keep going if a state doesn't have a previous evaluation
                 message = (
                     "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache. Note: Change this if using a 'light' cache."
                 )
                 self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            if (self._new_res_to_og_res(previous_gs_evaluation_result)[0] == self.inf):
+            if (solver_utils.new_res_to_og_res(previous_gs_eval_result)[0] == self.inf):
                 message = (
                     "The evaluation of the following state on the best move tree is infinity, so this solver has not been searched to a sufficient depth."
                 )
                 self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
             del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
             # TODO: give filter calculate best move a round_depth to use. If there is none b/c the previous eval is not there, have the stack in filter cache keep track of the min round depth each state should be evaluated to, and use that.
-            current_gs_eval = self._filter_calculate_best_move(curr_working_gs, round_depth = Solver.inf)
-            # TODO: use the cost comparison function you made. If cost decreased, great. If increased, error out.
-            if (current_gs_eval != previous_gs_evaluation_result):
+            rd = previous_gs_eval_result[1] if (previous_gs_eval_result is not None) else Solver.inf
+            current_gs_eval = self._filter_calculate_best_move(curr_working_gs, round_depth = rd)
+            # TODO: use the cost comparison function you made. If cost decreased, great, but re-evaluate parents and start over. If increased, error out.
+            if (current_gs_eval != previous_gs_eval_result):
                 console.print("current_gs_eval:", current_gs_eval)
-                console.print("previous_gs_eval:", previous_gs_evaluation_result)
+                console.print("previous_gs_eval:", previous_gs_eval_result)
                 console.print(
                     "[pink]NOTE[/pink]: If the above two values are very close, should use floating point 'equal' here."
                 )
@@ -867,7 +888,7 @@ class Solver:
                     "You should keep track of a state to parent[] list dict and update all parents' evaluations now and start over with filter cache."
                 )
                 self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            (r, q) = self._new_res_to_og_res(current_gs_eval)
+            (r, q) = solver_utils.new_res_to_og_res(current_gs_eval)
             new_ev_cache[gs_to_put_in_cache] = (self.best_move, (r, q))
             (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
             stack.append(gs_false)
@@ -884,12 +905,12 @@ class Solver:
         except Exception:
             console.print("Cache game state:")
             console.print(cache_gs)
-        (move_cost_tups, non_present_moves, move_infos) = self.move_cost_tups_from_working_gs(
+        (move_rqd_tups, non_present_moves, move_infos) = self.move_rqd_tups_from_working_gs(
             working_gs,
             sort=True
         )
-        for (index, (move, cost)) in enumerate(move_cost_tups):
-            console.print(f"{index:>3}", display.get_move_text(move), cost, end=" ")
+        for (index, (move, rqd)) in enumerate(move_rqd_tups):
+            console.print(f"{index:>3}", display.get_move_text(move), rqd, end=" ")
         console.print("Non present moves:")
         for move in non_present_moves:
             console.print(display.get_move_text(move))
@@ -905,11 +926,10 @@ class Solver:
             return self.end_game_eval
         return self._evaluations_cache.get(self._easy_working_gs_to_cache_gs(gs), default)
 
-    # TODO: change get_and_apply_moves for nightmare mode (make filter_get_and_apply for both)
     # WARN: this will not be as effective once you start doing serious depth pruning.
-    def move_cost_tups_from_working_gs(self, working_gs: Game_State, sort=True):
+    def move_rqd_tups_from_working_gs(self, working_gs: Game_State, sort=True):
         """
-        Given a working game state, returns `(move_cost_tups, non_present moves, move_infos_present)`. WARN: do not use for performance-sensitive calculations. Used on *pre-filter* cache.
+        Given a working game state, returns `(move_rqd_tups, non_present moves, move_infos_present)`. WARN: do not use for performance-sensitive calculations. Used on *pre-filter* cache.
 
         Args
         ----
@@ -920,8 +940,8 @@ class Solver:
 
         Returns
         ------
-        move_cost_tups: list
-            A list of (move, cost) tuples. cost from *pre-filtered* cache.
+        move_rqd_tups: list
+            A list of (move, rqd) tuples. cost from *pre-filtered* cache.
         non_present_moves: list
             A list of moves whose costs on working_gs could not be determined from self._evaluations_cache.
         move_infos_present: list
@@ -930,11 +950,7 @@ class Solver:
         move_rqd_tups = []
         non_present_moves = []
         move_infos_present = []
-        min_evdepth = self.inf
-        # TODO: replace get_and_apply_moves with an easy convenience function that you can call for both nightmare and standard. (or maybe this actually works on its own?)
-        move_infos = list(
-            self.get_and_apply_moves(working_gs, self.qs_dict, force_set_intersect=True)
-        )
+        move_infos = self._easy_get_list_move_infos(working_gs)
         for mi in move_infos:
             (move, mcost, (gsf, gst), p_tup) = mi
             (false_rqd, false_evdepth) = self._get_state_cost(gsf, (None, None))
@@ -946,189 +962,14 @@ class Solver:
                 non_present_moves.append(move)
                 continue
             move_rqd = self._cost_calculator(mcost, p_tup, (false_rqd, true_rqd))
-            min_evdepth = min(min_evdepth, false_evdepth, true_evdepth)
             move_rqd_tups.append((move, move_rqd))
             move_infos_present.append(mi)
-        move_cost_tups = []
-        for (move, rqd) in move_rqd_tups:
-            # calculate this move's evdepth given the original state, min evdepth
-            evdepth = self.calculate_state_move_evdepth(working_gs, rqd, min_evdepth)
-            move_cost_tups.append((move, (rqd, evdepth)))
-        if (sort and bool(move_cost_tups)):
-            mct_mi_combined = list(zip(move_cost_tups, move_infos_present, strict=True))
-            # mct_mi_combined = [(mct, mi), (mct, mi)]
-            mct_mi_combined.sort(key = lambda x: x[0][1])
-            (move_cost_tups, move_infos_present) = zip(*mct_mi_combined)
-        return (move_cost_tups, non_present_moves, move_infos_present)
-
-    def calculate_state_move_evdepth(self, working_gs: Game_State, rqd_cost, min_evdepth):
-        """
-        Given a working game state, the minimum evaluation depth of all the moves (meaning, states those moves lead to) generated from it, and an rqd cost, what *would* the evaluation depth of this state be *if* the lowest cost move on this state had the given rqd_cost?
-
-        Args
-        ----
-        working_gs: Game_State
-        rqd_cost: tuple[float, float, int]
-        min_evdepth: int
-            the minimum evaluation depth of all the states that moves made on `working_gs` can lead to. NOTE: assuming that there are no moves here that start a new round when they don't strictly need to. If want to see that, call this function again, but on the equivalent begin-round state. This is necessary so that the evdepth calculations are correct.
-
-        Returns
-        -------
-        The evaluation depth that `working_gs` *would* have *if* a move with evaluation cost *rqd_cost* were the minimum cost move to be made on this state.
-        """
-        begin_round_state = (working_gs.proposal_used_this_round is None)
-        # Things which cause evdepth to be infinity:
-        if (
-            (rqd_cost == self.one_q_zero_r_rqd) or # TODO: replace this line with one that checks if the round cost is exactly 0.
-            (rqd_cost == self.one_q_one_r_rqd) # or
-            # TODO: uncomment the below line and the above or once implement this optimization
-            # ((rqd_cost[0] == 1) and begin_round_state)
-        ):
-            # if this move solves the problem in a single query (regardless of whether or not it costs a round), then we know this move's evaluation could not be improved upon by calculating it to deeper rounds, so its depth is infinity.
-            # optimization: if it's a begin-round state and a move solves the state in an average of 1 round, then evaluating this move to a further round_depth will not improve its evaluation, b/c any moves that may take more than 1 round to solve this state are guaranteed to have a higher average round cost.
-            return self.inf
-        answer = min_evdepth + begin_round_state
-        return answer
-
-    # TODO: deals directly with cost tups
-    @staticmethod
-    def total_cost_to_str(total_cost):
-        (rqd, evaldepth) = total_cost
-        return f"({rqd[0]:0.3f}, {rqd[1]:0.3f}), max_depth: {rqd[2]:>3}, eval'd_depth: {evaldepth:>3}"
-
-    def _experiment(self):
-        sd = testing_stuff(self)
-        # initial_qs_dict = solver_utils.full_filter(self.qs_dict, self.initial_game_state.cwa_set)
-        (move_cost_tups, absent_moves, move_infos) = self.move_cost_tups_from_working_gs(
-            self.initial_game_state,
-            sort=True
-        )
-        mct_filtered_to_unique = []
-        seen_costs = set()
-        for move_cost_tup in move_cost_tups:
-            (move, cost) = move_cost_tup
-            tc_str = Solver.total_cost_to_str(cost)
-            if (
-                # (cost != self.worst_eval) and # NOTE: consider bringing back.
-                (tc_str not in seen_costs)
-            ):
-                mct_filtered_to_unique.append(move_cost_tup)
-                seen_costs.add(tc_str)
-        self._print_table_move_cost_tups(mct_filtered_to_unique)
-        console.print("Lowest expected query move highlighted in light blue.")
-        message = "\nTop-level depth counterexamples:"
-        self._display_min_depth_warning(mct_filtered_to_unique, show_false_alarm=False, message=message)
-
-    # TODO: deal directly with move cost tuples TODO: change to be able to handle costs in form of (r, q, d) w/o min evdepth as well as with min evdepth.
-    def _display_min_depth_warning(self, sorted_move_cost_tups, show_false_alarm=True, message=""):
-        """
-        Parameters
-        ----------
-        sorted_move_cost_tups
-            A list of (move, cost) tuples that are SORTED by ascending cost tuple.
-
-        Returns
-        -------
-            True if there was an actual problem, False otherwise.
-        """
-        if not sorted_move_cost_tups:
-            return
-        # mct is (move, ((r, q, d), evdepth) )
-        min_depth = min([mct[1][0][2] for mct in sorted_move_cost_tups])
-        min_depth_index = min(
-            range(len(sorted_move_cost_tups)),
-            key=lambda i:sorted_move_cost_tups[i][1][0][2]
-        )
-        lowest_cost_move = sorted_move_cost_tups[0][0]
-        ((lcm_rounds, lcm_qs, lcm_depth), lcm_evald_depth) = sorted_move_cost_tups[0][1]
-        min_depth_move = sorted_move_cost_tups[min_depth_index][0]
-        ((md_rounds, md_qs, md_depth), md_evald_depth) = sorted_move_cost_tups[min_depth_index][1]
-        if lcm_depth > min_depth:
-            actual_problem = solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
-            if actual_problem or show_false_alarm:
-                console.print(message)
-                console.print(
-                    "\nIt appears you may have gotten a better result by searching deeper than the minimum depth solution."
-                )
-            if actual_problem:
-                console.print(
-                    f"[red]WARN![/red] The smallest depth is {min_depth}, but the lowest cost move has a depth of {lcm_depth}!"
-                )
-            elif show_false_alarm:
-                print("False alarm. Floating point error.")
-            if not (actual_problem or show_false_alarm):
-                return
-            t = display.Table(
-                box=display.box.SQUARE
-            )
-            t.add_column()
-            t.add_column("Move")
-            t.add_column("Rounds", justify="left")
-            t.add_column("Queries", justify="left")
-            t.add_column("Worst Depth", justify="right")
-            t.add_column("Eval'd Depth", justify="right")
-            t.add_row(
-                "Lowest Cost Move",
-                display.get_move_text(lowest_cost_move), f"{lcm_rounds}", f"{lcm_qs}", f"{lcm_depth}",
-                f"{lcm_evald_depth}"
-            )
-            t.add_row(
-                "Min Depth Move",
-                display.get_move_text(min_depth_move), f"{md_rounds}", f"{md_qs}", f"{md_depth}",
-                f"{md_evald_depth}"
-            )
-            t.add_row("Difference (top - bottom)", "", f"{lcm_rounds - md_rounds}", f"{lcm_qs - md_qs}", f"{lcm_depth - md_depth}", "")
-            console.print(t)
-            return actual_problem
-        return False
-
-    # TODO: don't take in evdepths.
-    def _print_table_move_cost_tups(self, move_cost_tups):
-        if not move_cost_tups:
-            return
-        print()
-        t = display.Table(
-            title="Initial Moves And Costs",
-            title_style="",
-            box=display.box.SQUARE,
-            header_style=""
-        )
-        t.add_column(justify="right")
-        t.add_column("Move")
-        t.add_column("Rounds", justify="right")
-        t.add_column("Queries", justify="right")
-        t.add_column("Worst Depth", justify="right")
-        t.add_column("Eval'd Depth", justify="right")
-        min_query_index = min(
-            range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][0][1], default=None
-        )
-        for (index, (move, cost)) in enumerate(move_cost_tups):
-            ((rounds, queries, worst_depth), evald_depth) = cost
-            # if ((index > 0) and (depth < move_cost_tups[index-1][1][2])):
-            #     style = "on red"
-            t.add_row(
-                f"{index+1}",
-                display.get_move_text(move, verifier_style="white" if (index == min_query_index) else None),
-                f"{rounds:0.3f}",
-                f"{queries:0.3f}",
-                f"{worst_depth}",
-                f"{evald_depth}",
-                style= "on #4953da" if (index == min_query_index) else ""
-            )
-        console.print(t)
-
-    def display_best_move_tree(self, alternate_first_move=None, alternate_first_state=None):
-        """
-        Validates and prints the best move tree, with optional alternate first move and/or state. Leaves self unchanged afterwards.
-        """
-        og_cache = self._evaluations_cache
-        og_first_state = self.initial_game_state
-        filtered_cache = self._filter_cache(alternate_first_move, alternate_first_state)
-        self._evaluations_cache = filtered_cache
-        self.validate_filtered_cache(filtered_cache, alternate_first_state)
-        display.print_best_move_tree(alternate_first_state, config.SHOW_COMBOS_IN_TREE, self)
-        self._evaluations_cache = og_cache
-        self.initial_game_state = og_first_state
+        if (sort and bool(move_rqd_tups)):
+            mvrqd_mi_combined = list(zip(move_rqd_tups, move_infos_present, strict=True))
+            # mvrqd_mi_combined = [(mvrqd, mi), (mvrqd, mi)]
+            mvrqd_mi_combined.sort(key = lambda x: x[0][1])
+            (move_rqd_tups, move_infos_present) = zip(*mvrqd_mi_combined)
+        return (move_rqd_tups, non_present_moves, move_infos_present)
 
     def validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
         """
@@ -1136,7 +977,6 @@ class Solver:
         """
         first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
         self.validate_fcache_helper(filtered_cache, first_state)
-
 
     def validate_fcache_helper(self, fcache: dict, gs: Game_State):
         """
@@ -1166,86 +1006,35 @@ class Solver:
             exit()
         return purported_cost
 
-    # TODO: deals directly with move_cost_tups
-    def overall_depth_handler(self, move_cost_tups:list):
-        """
-        Returns
-        -------
-        (a, b, c, d)
-
-        a:
-            boolean for is min depth counterexample,
-        b:
-            the min depth move,
-        c:
-            the depth difference,
-        d:
-            the difference in average cost
-        """
-        move_cost_tups.sort(key = lambda mct: mct[1])
-        if not move_cost_tups:
-            return (False, None, None, None)
-        min_depth_index = min(range(len(move_cost_tups)), key=lambda i:move_cost_tups[i][1][0][2])
-        min_depth = move_cost_tups[min_depth_index][1][0][2]
-        min_depth_move = move_cost_tups[min_depth_index][0]
-        ((lcm_rounds, lcm_qs, lcm_depth), lcm_evald_depth) = move_cost_tups[0][1]
-        ((md_rounds, md_qs, md_depth), md_evald_depth) = move_cost_tups[min_depth_index][1]
-        if lcm_depth > min_depth:
-            is_counterexample = solver_utils.fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
-            if not is_counterexample:
-                return (False, None, None, None)
-            depth_difference = lcm_depth - min_depth
-            avg_cost_difference = (md_rounds - lcm_rounds, md_qs - lcm_qs)
-            return (
-                is_counterexample, min_depth_move, depth_difference, avg_cost_difference
-            )
-        return (False, None, None, None)
-
-    def update_biggest_counterexamples(self, move_cost_tups, game_state):
+    def update_biggest_counterexamples(self, move_rqd_tups, game_state):
         (
-            is_counterexample, min_depth_move, depth_difference, avg_cost_difference
-        ) = self.overall_depth_handler(move_cost_tups) # this function sorts for you.
-        if is_counterexample:
-            info_last_3 = (move_cost_tups, game_state, min_depth_move)
-            current_biggest_avg_cost_difference = self.biggest_avg_difference_info[0]
-            if avg_cost_difference > current_biggest_avg_cost_difference:
-                self.biggest_avg_difference_info = (avg_cost_difference,) + info_last_3
-            if game_state.proposal_used_this_round is None:
-                current_biggest_begin_round_avg_cost_difference = self.biggest_begin_round_avg_difference_info[0]
-                if avg_cost_difference > current_biggest_begin_round_avg_cost_difference:
-                    self.biggest_begin_round_avg_difference_info = (avg_cost_difference,) + info_last_3
-            current_biggest_depth_difference = self.biggest_depth_difference_info[0]
-            if depth_difference > current_biggest_depth_difference:
-                self.biggest_depth_difference_info = (depth_difference,) + info_last_3
+            is_counterexample, min_depth_move, depth_difference, avg_cost_difference, min_depth_index
+        ) = solver_utils.overall_depth_handler(move_rqd_tups) # this function sorts for you.
+        if not is_counterexample:
+            return
+        info_last_3 = (move_rqd_tups, game_state, min_depth_move)
+        current_biggest_avg_cost_difference = self.biggest_avg_difference_info[0]
+        if avg_cost_difference > current_biggest_avg_cost_difference:
+            self.biggest_avg_difference_info = (avg_cost_difference,) + info_last_3
+        if game_state.proposal_used_this_round is None:
+            current_biggest_begin_round_avg_cost_difference = self.biggest_begin_round_avg_difference_info[0]
+            if avg_cost_difference > current_biggest_begin_round_avg_cost_difference:
+                self.biggest_begin_round_avg_difference_info = (avg_cost_difference,) + info_last_3
+        current_biggest_depth_difference = self.biggest_depth_difference_info[0]
+        if depth_difference > current_biggest_depth_difference:
+            self.biggest_depth_difference_info = (depth_difference,) + info_last_3
+
     def display_biggest_counterexamples(self):
-        if self.biggest_avg_difference_info[0] > (float("-inf"), float("-inf")):
-            console.print("\nShowing the min depth counterexample with the biggest avg difference:")
-            (_, move_cost_tups, game_state, min_depth_move) = self.biggest_avg_difference_info
-            if self._display_min_depth_warning(move_cost_tups, show_false_alarm=False):
-                sd.print_game_state(game_state)
-                console.print("Lowest cost tree with higher depth:")
-                self.display_best_move_tree(None, game_state) # best move tree lowest cost move w/higher depth
-                console.print("\nLower depth tree with higher cost:")
-                self.display_best_move_tree(min_depth_move, game_state) # tree with best lowest depth move
-
-        if self.biggest_begin_round_avg_difference_info[0] > (float("-inf"), float("-inf")):
-            console.print(
-                "\nShowing the begin round min depth counterexample with the biggest avg difference:"
-            )
-            (_, move_cost_tups, game_state, min_depth_move) = self.biggest_begin_round_avg_difference_info
-            if self._display_min_depth_warning(move_cost_tups, show_false_alarm=False):
-                sd.print_game_state(game_state)
-                console.print("Lowest cost tree with higher depth:")
-                self.display_best_move_tree(None, game_state) # best move tree lowest cost move w/higher depth
-                console.print("\nLower depth tree with higher cost:")
-                self.display_best_move_tree(min_depth_move, game_state) # tree with best lowest depth move
-
-        if self.biggest_depth_difference_info[0] > float("-inf"):
-            console.print("\nShowing the min depth counterexample with the biggest depth difference:")
-            (_, move_cost_tups, game_state, min_depth_move) = self.biggest_depth_difference_info
-            if self._display_min_depth_warning(move_cost_tups, show_false_alarm=False):
-                sd.print_game_state(game_state)
-                console.print("Lowest cost tree with higher depth:")
-                self.display_best_move_tree(None, game_state) # best move tree lowest cost move w/higher depth
-                console.print("\nLower depth tree with higher cost:")
-                self.display_best_move_tree(min_depth_move, game_state) # tree with best lowest depth move
+        items = (
+            self.biggest_avg_difference_info,
+            self.biggest_begin_round_avg_difference_info,
+            self.biggest_depth_difference_info
+        )
+        compares = ((self.ninf, self.ninf), (self.ninf, self.ninf), self.ninf)
+        messages = (
+            "\nShowing the min depth counterexample with the biggest avg difference:",
+            "\nShowing the begin round min depth counterexample with the biggest avg difference:",
+            "\nShowing the min depth counterexample with the biggest depth difference:"
+        )
+        for (item, compare, message) in zip(items, compares, messages, strict=True):
+            sd.display_counterexample(item, compare, message)

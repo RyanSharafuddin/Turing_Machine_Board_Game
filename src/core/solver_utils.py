@@ -612,6 +612,17 @@ def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
 #     evald_depth = min(gsf_evald_depth, gst_evald_depth)
 #     return ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
 
+def new_res_to_og_res(new_cache_result):
+    """
+    Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
+    """
+    ((avg_rounds, avg_queries, worst_case_depth), evald_depth) = new_cache_result
+    return (avg_rounds, avg_queries)
+
+def rqd_to_str(rqd):
+    (r, q, d) = rqd
+    return f"({r:0.3f}, {q:0.3f}, max_depth: {d:>3})"
+
 def fp_2tup_gt(a, b):
     """
     Return True if 2-tuple a > b by A_TOL.
@@ -623,3 +634,34 @@ def fp_2tup_gt(a, b):
             return False
         return (a[1] > b[1])
     return (a[0] > b[0])
+
+def overall_depth_handler(move_rqd_tups:list):
+    """
+    Returns
+    -------
+    (a, b, c, d, e)
+
+    a:
+        boolean for is min depth counterexample,
+    b:
+        the min depth move,
+    c:
+        the depth difference,
+    d:
+        the difference in average cost
+    e:
+        min_depth_index
+    """
+    move_rqd_tups.sort(key = lambda move_rqd_tup: move_rqd_tup[1])
+    if not move_rqd_tups:
+        return (False, None, None, None, None)
+    min_depth_index = min(range(len(move_rqd_tups)), key=lambda i:move_rqd_tups[i][1][2])
+    (lcm_rounds, lcm_qs, lcm_depth) = move_rqd_tups[0][1]
+    (min_depth_move, (md_rounds, md_qs, md_depth)) = move_rqd_tups[min_depth_index]
+    is_counterexample = (
+        (lcm_depth > md_depth) and
+        fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
+    )
+    depth_diff = lcm_depth - md_depth
+    avg_cost_diff = (md_rounds - lcm_rounds, md_qs - lcm_qs)
+    return (is_counterexample, min_depth_move, depth_diff, avg_cost_diff, min_depth_index)
