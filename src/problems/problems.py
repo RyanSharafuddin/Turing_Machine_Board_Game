@@ -354,6 +354,24 @@ def get_best_time(problem: Problem):
     Return the number of seconds of the best recorded solver performance on this problem, or inf if there is no recorded performance.
     """
     return _PICKLED_PROB_INFO_DICT.get(problem.identity, (inf, None))[0]
+def get_perfect_prob_solver_info(p: Problem):
+    """
+    NOTE: Future versions might be extended to return more info in the tuple, but the 0th and 1st items are guaranteed to always be as described below.
+
+    WARN: items may be None
+
+    Returns
+    -------
+    (best_time, best_cost)
+
+    best_time: int
+        The best time it has taken to solve this problem, or None if it has not been solved before.
+
+    best_cost: (float, float)
+        The expected cost if solving this problem perfectly, or None if it has not been solved before.
+    """
+    num_items_to_return = 2
+    return _PICKLED_PROB_INFO_DICT.get(p.identity, (None,) * num_items_to_return)
 
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
