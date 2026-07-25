@@ -27,18 +27,14 @@ _EXTREME_PROB_TUPS = [
     ("F63EZQM",  [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3]),
 ]
 _NIGHTMARE_PROB_TUPS = [
-    ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
+    ( "I4BYJK",          [9, 23, 33, 34]),
 ]
 _IDS_TO_COMMENTS_DICT = {
-    "B63YRW4"   : "Zero query",
     "C630YVB"   : "Mult. combos",
     "F5XTDF"    : "Formerly ~180s",
     "F63EZQM"   : "Excellent tree",
     "F52LUJG"   : "Excellent tree",
     "F435FE"    : "Formerly ~3,500s",
-    "INVALID"   : "Example test",
-    "INVALID_N" : "Example test",
-    "C630YVB_N" : "Killed 9",
 }
 _ACCEPTABLE_MODES = ["S", "E", "N"]
 def _add_problem_to_both_dicts(problem: Problem):
