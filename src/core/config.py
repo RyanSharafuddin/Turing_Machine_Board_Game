@@ -54,11 +54,16 @@ HEX_COLOR                  = "#FFD7AF" # color of hex numbers when displaying bi
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#14A990", "#3E53DE", "#FFE600", "#FF7B00"]
 
 # Settings for displaying the available problems table
+SHOW_COST_OTHER            = True # next to all standard mode problem costs, show the cost for equivalent nightmare mode problem, and vice-versa.
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
 RULE_CARD_NUMS_COLOR       = "#FFAFFF"
 PROBLEM_ID_COLOR           = "#00D7FF"
 PROBLEM_TABLE_BORDER       = "#FF8700"
-STACK_EXTREME_RULE_CARDS   = True # stack the rule card numbers on top of each other in extreme mode?
+SHOW_ALL_RCS               = False # show all rc numbers in problem table? If False, only show num verifiers.
+STACK_EXTREME_RULE_CARDS   = True  # stack the rule card numbers on top of each other in extreme mode?
+NUM_V_COLORS               = ['#00FF00', "#FFFF00", "#FF0000"]
+ROUND_COST_STYLE           = "#E34984"
+QUERY_COST_STYLE           = "#7B00FF"
 STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
 
 # Used for printing out info related to where pickles are stored and how much time and space solvers used.
@@ -112,6 +117,6 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY      = "src/problems/Pickles/Vertical_Pruning" # Where all pickled solvers go.
-USER_PROBS_FILE_NAME  = "src/problems/user_problems.txt"
-TIME_PICKLE_FILE_NAME = "src/problems/Pickles/time_pickle_file.bin"
+PICKLE_DIRECTORY           = "src/problems/Pickles/Vertical_Pruning_W_Reorder" # Where all pickled solvers go.
+USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
+PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_pickle_file_vertical_pruning_w_reorder.bin"

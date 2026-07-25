@@ -96,6 +96,7 @@ class Solver_Capitulate(Solver):
     def _filter_cache(self):
         new_ev_cache = dict()
         self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
+        self.validate_filtered_cache(new_ev_cache)
         return new_ev_cache
 
     def post_solve_printing(self):
