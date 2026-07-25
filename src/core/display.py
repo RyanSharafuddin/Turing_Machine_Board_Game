@@ -1066,20 +1066,34 @@ class Solver_Displayer:
             active               = True,
             justify              = "center",
             custom_indent        = 0,
+            unique_perm          = False,
             **kwargs
     ):
         """
         Pretty prints a table of all the full combos_with_answers (cwas) given.
         title is the title of the table. Blank by default.
-        permutation_order: if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
 
-        verifier_to_sort_by: optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
+        Params
+        ------
+        permutation_order:
+            if this is true and it's nightmare mode, prints the rule names in permutation order. If this is false and it's nightmare mode, print the rule names in standard order. Has no effect when not nightmare mode.
 
-        active: if False, this function does nothing
-        custom_indent: indent the table by this amount when printing.
+        verifier_to_sort_by:
+            optionally sort results first by answer, and then by the unique id of the rule they assign to verifier_to_sort_by.
+
+        active:
+            if False, this function does nothing
+
+        custom_indent:
+            indent the table by this amount when printing.
+
+        unique_perm:
+            if this is True, instead of printing *every* possible answer, only print those with a permutation that does not rearrange the verifiers. Useful so that printing on a large nightmare mode problem does not overwhelm the screen.
         """
         if(not active):
             return
+        if (unique_perm and (len(cwas[0]) == 3)): # unique_perm and this is a nightmare mode problem
+            cwas = [(c,p,a) for (c, p, a) in cwas if (p == tuple(range(len(p))))]
         table = self._get_all_possible_answers_table(
             cwas,
             title                = title,

@@ -290,7 +290,7 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     23: [sum_digits_lt_6, sum_digits_eq_6, sum_digits_gt_6],
     24: [cons_seq_cons_asc_3, cons_seq_cons_asc_2, cons_seq_cons_asc_0],
     25: [cons_seq_cons_0, cons_seq_cons_2, cons_seq_cons_3],
-
+    26: [triangle_lt_3, square_lt_3, circle_lt_3],
     27: [triangle_lt_4, square_lt_4, circle_lt_4],
     28: [triangle_eq_1, square_eq_1, circle_eq_1],
     29: [triangle_eq_3, square_eq_3, circle_eq_3],
@@ -303,7 +303,10 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
     36: [sum_dig_3x, sum_dig_4x, sum_dig_5x],
     37: [tri_plus_sq_4, tri_plus_ci_4, sq_plus_ci_4],
     38: [tri_plus_sq_eq_6, tri_plus_ci_eq_6, square_plus_ci_eq_6],
-
+    39: [
+            triangle_eq_1, square_eq_1, circle_eq_1,
+            triangle_gt_1, square_gt_1, circle_gt_1
+        ],
     40: [
             triangle_lt_3, triangle_eq_3, triangle_gt_3,
             square_lt_3, square_eq_3, square_gt_3,
@@ -314,22 +317,28 @@ rcs_deck = { #dict from num: rules list. Dictionary rather than list for ease of
             square_lt_4, square_eq_4, square_gt_4,
             circle_lt_4, circle_eq_4, circle_gt_4,
         ],
-
-    43: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
-         triangle_lt_circle, triangle_eq_circle, triangle_gt_circle],
-    44: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
-         square_lt_circle, square_eq_circle, square_gt_circle],
+    42: [
+            triangle_strict_min, square_strict_min, circle_strict_min,
+            triangle_strict_max, square_strict_max, circle_strict_max
+        ],
+    43: [
+            triangle_lt_square, triangle_eq_square, triangle_gt_square,
+            triangle_lt_circle, triangle_eq_circle, triangle_gt_circle
+        ],
+    44: [
+            triangle_lt_square, triangle_eq_square, triangle_gt_square,
+            square_lt_circle, square_eq_circle, square_gt_circle
+        ],
     45: [zero_1, one_1, two_1, zero_3, one_3, two_3],
     46: [zero_3, one_3, two_3, zero_4, one_4, two_4],
     47: [zero_1, one_1, two_1, zero_4, one_4, two_4],
-    48: [triangle_lt_square, triangle_eq_square, triangle_gt_square,
-         triangle_lt_circle, triangle_eq_circle, triangle_gt_circle,
-         square_lt_circle, square_eq_circle, square_gt_circle]
+    48: [
+            triangle_lt_square, triangle_eq_square, triangle_gt_square,
+            triangle_lt_circle, triangle_eq_circle, triangle_gt_circle,
+            square_lt_circle, square_eq_circle, square_gt_circle
+        ]
 }
 
-# max_rule_name_length = max([max([len(r.__name__) for r in rc]) for rc in rcs_deck.values()])
-# longest_rule_name = max([max([(len(r.__name__), r.__name__) for r in rc]) for rc in rcs_deck.values()])[1]
-# print(longest_rule_name, max_rule_name_length)
 # card_index is the rule's index within the list that is the card. (i.e. 0th rule, 1st rule, 2nd rule, etc.)
 _unique_id = -1
 def _func_to_Rule(func, card_index):

@@ -524,6 +524,16 @@ class Solver:
         self._experiment()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
+        self.display_extra_info()
+
+    def display_extra_info(self):
+        if self.n_mode:
+            console.print(
+                f"There are {len(self.full_cwas_list):,} total possible combos (including rearrangement)."
+            )
+        console.print(
+            f"Expected cost to solve from start:\n{self.expected_cost[0]:0.3f} {self.expected_cost[1]:0.3f}"
+        )
 
     def _experiment(self):
         sd = testing_stuff(self)

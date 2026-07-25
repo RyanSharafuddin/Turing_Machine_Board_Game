@@ -121,8 +121,6 @@ class Solver_Capitulate(Solver):
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
 
-
-
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
@@ -140,3 +138,4 @@ class Solver_Capitulate(Solver):
         self._evaluations_cache = filtered_cache
         self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
+        self.display_extra_info()
