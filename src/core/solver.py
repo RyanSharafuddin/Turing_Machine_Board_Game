@@ -1,4 +1,5 @@
 import time, sys
+from collections import defaultdict
 import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
@@ -159,7 +160,10 @@ class Solver:
 
         "best_move",
         "put_cache_gs_in_new_ev_cache",
+
+        "_estimate_move_info_value",
     )
+
     initial_best_cost = (float('inf'), float('inf'))
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -186,6 +190,12 @@ class Solver:
             for set_r_unique_ids in
             solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
         ]
+        move_info_value_estimators = [
+            self._estimate_move_info_value_ac_left,
+            self._estimate_move_info_value_ans_gap,
+            self._estimate_move_info_value_combined,
+        ]
+        self._estimate_move_info_value = move_info_value_estimators[config.MOVE_INFO_VALUE_ESTIMATOR]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         ############################### BITSET WERK ##########################################################
         testing_stuff(self) # WARN TODO: delete
@@ -286,7 +296,7 @@ class Solver:
                     # else:
                     #     pass # not a useful query. See other comments.
 
-    # TODO: restore the previous tasks_initialize
+    # TODO: restore the previous tasks_initialize if don't use vertical pruning on standard solver.
     def tasks_initialize(self, depth, move_infos: list):
         if(depth < self.num_concurrent_tasks):
             total = len(move_infos)
@@ -296,34 +306,86 @@ class Solver:
     def get_fset_answers_from_cwa_set(self, cwa_set):
         return(frozenset([self.full_cwas_list[cwa_index][-1] for cwa_index in cwa_set]))
 
-    def _estimate_move_info_value(self, move_info):
+    ######################################  MOVE INFO VALUE ESTIMATORS #######################################
+    def _get_answer_proportion_gap_from_ans_list(self, ans_list: list[int]):
+        """
+        Define the proportion of an answer in a game state to be the fraction of all the *combos* in a game state that have that answer. This function returns the difference between the answer with the highest proportion and the answer with the second highest proportion (or 1 if there is only 1 answer).
+        """
+        highest_amount = 0
+        second_highest_amount = 0
+        ans_to_num_dict = dict() # ans_to_num_dict[answer] = the number of that answer seen so far
+        for answer in ans_list:
+            amount_of_answer = ans_to_num_dict.get(answer, 0) + 1
+            ans_to_num_dict[answer] = amount_of_answer
+            if (amount_of_answer > highest_amount):
+                highest_amount = amount_of_answer
+            elif (amount_of_answer > second_highest_amount):
+                second_highest_amount = amount_of_answer
+        total_combos = len(ans_list)
+        return ((highest_amount - second_highest_amount) / total_combos)
+    def _get_num_ac_from_ans_list(self, ans_list: list[int]):
+        a = len(set(ans_list))
+        c = len(ans_list)
+        return(a, c)
+    def _get_answer_proportion_gap(self, gs:Game_State):
+        """
+        Define the proportion of an answer in a game state to be the fraction of all the *combos* in a game state that have that answer. This function returns the difference between the answer with the highest proportion and the answer with the second highest proportion (or 1 if there is only 1 answer).
+        """
+        ans_list = [self.full_cwas_list[cwa_index][-1] for cwa_index in gs.cwa_set]
+        return self._get_answer_proportion_gap_from_ans_list(ans_list)
+
+    def _estimate_move_info_value_ac_left(self, move_info):
+        # NOTE: keep this function in this class, as it is used by both nightmare solver and capitulate solver.
+        # NOTE: Will have to change this function if change cwa_set representation for working game states.
+        """
+        Return an estimate that can be used to order move_infos with most promising move_info first. NOTE: The most promising move_info should have the LOWEST value estimate.
+        """
         (move, mcost, (gsf, gst), (p_false, p_true)) = move_info
-        (gs_false_answers_left, gs_true_answers_left) = [
+        (gsf_answers_left, gst_answers_left) = [
             len(self.get_fset_answers_from_cwa_set(gsf.cwa_set)),
             len(self.get_fset_answers_from_cwa_set(gst.cwa_set))
         ]
-        (gs_false_combos_left, gs_true_combos_left) = [
+        (gsf_combos_left, gst_combos_left) = [
             len(gsf.cwa_set),
             len(gst.cwa_set)
         ]
-        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
+        expected_answers_left = (p_false * gsf_answers_left) + (p_true * gst_answers_left)
+        expected_combos_left = (p_false * gsf_combos_left) + (p_true * gst_combos_left)
         expected_result = (expected_answers_left, expected_combos_left)
         return expected_result
 
+    def _estimate_move_info_value_ans_gap(self, move_info):
+        # NOTE: keep this function in this class, as it is used by both nightmare solver and capitulate solver.
+        # NOTE: Will have to change this function if change cwa_set representation for working game states.
+        """
+        Return an estimate that can be used to order move_infos with most promising move_info first. NOTE: The most promising move_info should have the LOWEST value estimate.
+        """
+        (move, mcost, (gsf, gst), (pf, pt)) = move_info
+        gsf_answer_gap = self._get_answer_proportion_gap(gsf)
+        gst_answer_gap = self._get_answer_proportion_gap(gst)
+        expected_answer_gap = (pf * gsf_answer_gap) + (pt * gst_answer_gap)
+        return (-1 * expected_answer_gap)
+
+    def _estimate_move_info_value_combined(self, move_info):
+        (move, mcost, (gsf, gst), (pf, pt)) = move_info
+        ans_list_f = [self.full_cwas_list[cwa_index][-1] for cwa_index in gsf.cwa_set]
+        ans_list_t = [self.full_cwas_list[cwa_index][-1] for cwa_index in gst.cwa_set]
+
+        ans_prop_gap_f = self._get_answer_proportion_gap_from_ans_list(ans_list_f)
+        ans_prop_gap_t = self._get_answer_proportion_gap_from_ans_list(ans_list_t)
+        neg_expected_ans_gap = -1 * ((pf * ans_prop_gap_f) + (pt * ans_prop_gap_t))
+
+        (ans_f, com_f) = self._get_num_ac_from_ans_list(ans_list_f)
+        (ans_t, com_t) = self._get_num_ac_from_ans_list(ans_list_t)
+        a_left = (pf * ans_f) + (pt * ans_t)
+        c_left = (pf * com_f) + (pt * com_t)
+
+        return (neg_expected_ans_gap, a_left, c_left) # seems to perform better than below
+        # return (a_left, neg_expected_ans_gap, c_left)
+
+    ######################################  MOVE INFO VALUE ESTIMATORS #######################################
     def _reorder_move_infos_list(self, move_infos:list):
-        # NOTE: the full sorting seems to perform better on nightmare mode than merely bringing the lowest-estimate move_info to the front.
         move_infos.sort(key=self._estimate_move_info_value)
-        # if not move_infos:
-        #     return
-        # # IDEA: consider sorting the entire list by cost heuristic, rather than just moving the smallest one to the front.
-        # (best_expected_result, best_index) = (Solver.initial_best_cost, -1)
-        # for (index, move_info) in enumerate(move_infos):
-        #     result = self._estimate_move_info_value(move_info)
-        #     if (result < best_expected_result):
-        #         best_expected_result = result
-        #         best_index = index
-        # (move_infos[0], move_infos[best_index]) = (move_infos[best_index], move_infos[0])
 
     def _print_debug_info(
             self,

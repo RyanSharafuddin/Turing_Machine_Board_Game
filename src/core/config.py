@@ -80,21 +80,13 @@ DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
 # Solver workings
+MOVE_INFO_VALUE_ESTIMATOR = 2     # can be 0, 1, or 2. Affects capitulate solver accuracy and nightmare
+                                  # solver time.
                                   # Should be 1e-8???
 A_TOL                     = 1e-13 # should be a positive number close to 0, but > 3e-16
 REL_TOL                   = 1e-9
 DISABLE_GC                = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES          = False # whether to cache the end states into the evaluations_cache
-S_MODE_PROGRESS_BARS_DICT = {     # dictionary of num_verifiers : num_progress_bars in standard mode
-
-}
-S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
-N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in nightmare mode
-    4: 4,
-    5: 7,
-    6: 7,
-}
-N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
@@ -111,10 +103,20 @@ PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or 
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
 
-# Change Whether Debugging Informations Is Displayed
+# Change Whether Debugging Information Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
-DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
+DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
+S_MODE_PROGRESS_BARS_DICT = {       # dictionary of num_verifiers : num_progress_bars in standard mode
+
+}
+S_MODE_DEFAULT_PROGRESS_BARS = 1    # default number of progress bars in standard mode
+N_MODE_PROGRESS_BARS_DICT    = {    # dictionary of num_verifiers : num_progress_bars in nightmare mode
+    4: 4,
+    5: 7,
+    6: 7,
+}
+N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY           = "src/problems/Pickles/Vertical_Pruning_W_Reorder" # Where all pickled solvers go.

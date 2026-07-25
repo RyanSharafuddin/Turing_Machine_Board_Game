@@ -1,8 +1,5 @@
 from .solver import *
 
-def fset_answers_from_cwa_set(all_cwas, cwa_set):
-    # cwa_set representation_change TODO!!
-    return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
 
 class Solver_Capitulate(Solver):
     def __init__(self, problem: Problem):
@@ -11,25 +8,12 @@ class Solver_Capitulate(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
 
     def _choose_best_move_depth_one(self, move_infos:list):
-        # cwa_set representation_change TODO!!
-        best_expected_result = Solver.initial_best_cost # number of answers left, number of combos left.
-        for(move, mcost, gs_tuple, p_tuple) in move_infos:
-            (p_false, p_true) = p_tuple
-            (gs_false_answers_left, gs_true_answers_left) = [
-                len(fset_answers_from_cwa_set(self.full_cwas_list, gs.cwa_set)) for gs in gs_tuple
-            ]
-            (gs_false_combos_left, gs_true_combos_left) = [
-                len(gs.cwa_set) for gs in gs_tuple
-            ]
-            expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-            expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
-            expected_result = (expected_answers_left, expected_combos_left)
-            if(expected_result < best_expected_result):
-                best_expected_result = expected_result
-                best_move = move
-                best_mcost = mcost
-                best_gs_tup = gs_tuple
-        answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
+        # NOTE: move_infos list is guaranteed to be non-empty at this point.
+        estimated_costs = [self._estimate_move_info_value(mi) for mi in move_infos]
+        min_cost_index = min(range(len(move_infos)), key=lambda i: estimated_costs[i])
+        (best_move_info, best_cost_estimate) = (move_infos[min_cost_index], estimated_costs[min_cost_index])
+        (best_move, best_mcost, best_gs_tup, p_tuple) = best_move_info
+        answer = (best_move, best_mcost, best_gs_tup, best_cost_estimate)
         return answer
 
     # NOTE: calculate_best_move must be able to be started with
@@ -61,14 +45,10 @@ class Solver_Capitulate(Solver):
     def _calculate_actual_expected_for_capitulation(self, game_state: Game_State, new_ev_cache: dict):
         if game_state in new_ev_cache:
             return new_ev_cache[game_state]
-        if not game_state.cwa_set:
-            print(game_state)
-            exit()
+        assert bool(game_state.cwa_set), game_state
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return((None, (0, 0)))
-        if game_state not in self._evaluations_cache:
-            print(game_state)
-            exit()
+        assert (game_state in self._evaluations_cache), game_state
         (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
         (gs_false, gs_true) = self.apply_move_to_state(best_move, game_state)
         p_false = len(gs_false.cwa_set) / len(game_state.cwa_set)
