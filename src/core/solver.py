@@ -286,15 +286,44 @@ class Solver:
                     # else:
                     #     pass # not a useful query. See other comments.
 
-    def tasks_initialize(self, depth, move_generator):
+    # TODO: restore the previous tasks_initialize
+    def tasks_initialize(self, depth, move_infos: list):
         if(depth < self.num_concurrent_tasks):
-            move_iterable = list(move_generator)
-            total = len(move_iterable)
+            total = len(move_infos)
             task_id = self.depth_to_tasks_l[depth]
             progress.reset(task_id, total=total, visible=True)
-        else:
-            move_iterable = move_generator
-        return move_iterable
+
+    def get_fset_answers_from_cwa_set(self, cwa_set):
+        return(frozenset([self.full_cwas_list[cwa_index][-1] for cwa_index in cwa_set]))
+
+    def _estimate_move_info_value(self, move_info):
+        (move, mcost, (gsf, gst), (p_false, p_true)) = move_info
+        (gs_false_answers_left, gs_true_answers_left) = [
+            len(self.get_fset_answers_from_cwa_set(gsf.cwa_set)),
+            len(self.get_fset_answers_from_cwa_set(gst.cwa_set))
+        ]
+        (gs_false_combos_left, gs_true_combos_left) = [
+            len(gsf.cwa_set),
+            len(gst.cwa_set)
+        ]
+        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
+        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
+        expected_result = (expected_answers_left, expected_combos_left)
+        return expected_result
+
+    def _reorder_move_infos_list(self, move_infos:list):
+        # NOTE: the full sorting seems to perform better on nightmare mode than merely bringing the lowest-estimate move_info to the front.
+        move_infos.sort(key=self._estimate_move_info_value)
+        # if not move_infos:
+        #     return
+        # # IDEA: consider sorting the entire list by cost heuristic, rather than just moving the smallest one to the front.
+        # (best_expected_result, best_index) = (Solver.initial_best_cost, -1)
+        # for (index, move_info) in enumerate(move_infos):
+        #     result = self._estimate_move_info_value(move_info)
+        #     if (result < best_expected_result):
+        #         best_expected_result = result
+        #         best_index = index
+        # (move_infos[0], move_infos[best_index]) = (move_infos[best_index], move_infos[0])
 
     def _print_debug_info(
             self,
@@ -378,17 +407,18 @@ class Solver:
         result = self._evaluations_cache.get(cache_game_state, None)
         if result is not None:
             # self.cache_hits += 1
+            if solver_utils.roughly_gt_2tup(result, vertical_prune_threshold):
+                return Solver.initial_best_cost
             return result
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            if config.CACHE_END_STATES:
-                self._evaluations_cache[cache_game_state] = Solver.double_zero
+            if solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold):
+                return Solver.initial_best_cost
             return Solver.double_zero
 
         (vertical_prune_rounds, vertical_prune_queries) = vertical_prune_threshold
         (vpr_lt_0, vpr_eq_0) = solver_utils.fp_cmp(vertical_prune_rounds, 0)
         vpq_lt_1 = solver_utils.fp_lt(vertical_prune_queries, 1)
         if vpr_lt_0:
-            # console.print("[red]WARN! I thought this shouldn't happen?[/red]")
             return Solver.initial_best_cost
             # return (int(game_state.proposal_used_this_round is None), 1)
         if (vpr_eq_0 and vpq_lt_1):
@@ -398,19 +428,19 @@ class Solver:
         if game_state.proposal_used_this_round is None:
             if (vpr_lt_1 or (vpr_eq_1 and vpq_lt_1)):
                 return Solver.initial_best_cost
-                # return (1, 1)
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
             # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
         best_node_cost = Solver.initial_best_cost
-        exist_non_begin_round_moves = False
         beat_vertical_prune_threshold = False
         best_move = None
-        # IDEA: use idea from capitulate solver to order the move_iterable.
-        move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
-        for move_info in move_iterable:
-            # TODO: move exist_non_begin_round_moves outside the loop, once switch from using a move_iterable to a move list, just by seeing if the list is non-empty
-            exist_non_begin_round_moves = True
+        move_infos = list(self.get_and_apply_moves(game_state, qs_dict))
+        exist_non_begin_round_moves = bool(move_infos)
+        # TODO: reorder move_infos here, potentially.
+        # self._reorder_move_infos_list(move_infos)
+        self.tasks_initialize(depth, move_infos)
+        for move_info in move_infos:
+            # NOTE: move exist_non_begin_round_moves back in the loop if decide to generate move_infos on the fly again, rather than all in advance.
             (move, mcost, gs_tup, p_tup) = move_info
             (false_p, true_p) = p_tup
             vertical_prune_threshold_nodes = (
@@ -426,26 +456,11 @@ class Solver:
                 depth+1,
                 vertical_prune_threshold_false
             )
-            if solver_utils.roughly_gt_2tup(gs_false_node_cost, vertical_prune_threshold_false):
+            if (gs_false_node_cost == Solver.initial_best_cost):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
-            # NOTE: See the note about a similar assert error below if this assert errors.
-            # cost_just_false = self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0)))
-            # assert (not solver_utils.roughly_geq_2tup(cost_just_false, vertical_prune_threshold)), (
-            #     gs_false_node_cost[0] - vertical_prune_threshold_false[0],
-            #     gs_false_node_cost[1] - vertical_prune_threshold_false[1]
-            # )
-            # if (self._cost_calculator(mcost, p_tup, (gs_false_node_cost, (0, 0))) >= best_node_cost):
-            #     # TODO: delete this block b/c not needed anymore??
-            #     console.print("[red]Shouldn't dumb pruning not be needed anymore???[/red]")
-            #     if self.num_concurrent_tasks:
-            #         progress.stop()
-            #     exit()
-            #     # The false node alone would make this move not better than the best move, so don't need to search the true node.
-            #     if depth < self.num_concurrent_tasks:
-            #         progress.update(self.depth_to_tasks_l[depth], advance=1)
-            #     continue
+
             vertical_prune_threshold_true_before_divide = (
                 vertical_prune_threshold_nodes[0] - (false_p * gs_false_node_cost[0]),
                 vertical_prune_threshold_nodes[1] - (false_p * gs_false_node_cost[1])
@@ -459,46 +474,24 @@ class Solver:
                 depth+1,
                 vertical_prune_threshold_true
             )
-            if solver_utils.roughly_gt_2tup(gs_true_node_cost, vertical_prune_threshold_true):
+            if (gs_true_node_cost == Solver.initial_best_cost):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
-            # TODO: put an else block to correspond with this if and see how often it happens. It "shouldn't" happen.
-            # if (not solver_utils.roughly_geq_2tup(node_cost_tup, best_node_cost)):
-            # BEGIN ORIGINAL IF BLOCK
             best_node_cost = node_cost_tup
             best_move = move
-            # NOTE: the assert below would *always* be true if floating points were exact.
-            # If you get an AssertionError here, look at the 4 values printed out by the error. Chances are that one of them is a negative number very close to 0, but larger in magnitude than config.A_TOL. Consider making config.A_TOL larger. Alternatively, see the comments in solver_utils.roughly_geq_2tup, and consider using numpy.isclose or math.isclose and/or changing the relative tolerance there.
-            # Alternatively, consider making probabilities, thresholds, and costs Fractions so that they are exact (though that will likely increase compute time and/or memory usage significantly).
-
-            # assert (not solver_utils.roughly_geq_2tup(best_node_cost, vertical_prune_threshold)), (
-            #     (
-            #         gs_true_node_cost[0] - vertical_prune_threshold_true[0],
-            #         gs_true_node_cost[1] - vertical_prune_threshold_true[1]
-            #     ),
-            #     (
-            #         gs_false_node_cost[0] - vertical_prune_threshold_false[0],
-            #         gs_false_node_cost[1] - vertical_prune_threshold_false[1]
-            #     ),
-            # )
-
             beat_vertical_prune_threshold = True
             vertical_prune_threshold = best_node_cost
             if(node_cost_tup == mcost):
                 # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
-                # can solve within 1 query and 0 rounds, or 1 query and 1 round and all queries cost a round, so return early
                 break
-            # END ORIGINAL IF BLOCK
-            # else:
-                # console.print("O noes! This shüd no happen! 😱")
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
-        if exist_non_begin_round_moves:
+        if beat_vertical_prune_threshold:
             self.best_move = best_move
-        else:
+        elif (not exist_non_begin_round_moves):
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
@@ -510,11 +503,10 @@ class Solver:
                 depth=depth+1,
                 vertical_prune_threshold=vertical_prune_threshold
             )
-            beat_vertical_prune_threshold = (
-                not solver_utils.roughly_gt_2tup(best_node_cost, vertical_prune_threshold)
-            )
+            beat_vertical_prune_threshold = (best_node_cost != Solver.initial_best_cost)
 
         # comment out if not block above and uncomment this to try starting new rounds early as well.
+        # NOTE: take into account the vertical prune threshold if do this block of code.
         # if(game_state.num_queries_this_round != 0):
         #     new_gs = Game_State(
         #         num_queries_this_round=0,

@@ -61,44 +61,12 @@ class Solver_Nightmare(Solver):
         sd = display.Solver_Displayer(self)
         sd.print_cache_game_state(initial_cache_gs, "Initial State")
 
+    # NOTE: keep the below in case want to restore standard solver's non-threshold way.
     def tasks_initialize(self, depth, move_infos: list):
         if(depth < self.num_concurrent_tasks):
             total = len(move_infos)
             task_id = self.depth_to_tasks_l[depth]
             progress.reset(task_id, total=total, visible=True)
-
-
-    def get_fset_answers_from_cwa_set(self, cwa_set):
-        return(frozenset([self.full_cwas_list[cwa_index][-1] for cwa_index in cwa_set]))
-
-    def _estimate_move_info_value(self, move_info):
-        (move, mcost, gs_tuple, p_tuple) = move_info
-        (p_false, p_true) = p_tuple
-        (gs_false_answers_left, gs_true_answers_left) = [ # TODO: write it out rather than loop/iterator
-            len(self.get_fset_answers_from_cwa_set(gs.cwa_set)) for gs in gs_tuple
-        ]
-        (gs_false_combos_left, gs_true_combos_left) = [ # TODO: dito above
-            len(gs.cwa_set) for gs in gs_tuple
-        ]
-        expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-        expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
-        expected_result = (expected_answers_left, expected_combos_left)
-        return expected_result
-
-    def _reorder_move_infos_list(self, move_infos:list):
-        move_infos.sort(key=self._estimate_move_info_value)
-        # if not move_infos:
-        #     return
-        # # IDEA: consider sorting the entire list by cost heuristic, rather than just moving the smallest one to the front.
-        # (best_expected_result, best_index) = (Solver.initial_best_cost, -1)
-        # for (index, move_info) in enumerate(move_infos):
-        #     result = self._estimate_move_info_value(move_info)
-        #     if (result < best_expected_result):
-        #         best_expected_result = result
-        #         best_index = index
-        # (move_infos[0], move_infos[best_index]) = (move_infos[best_index], move_infos[0])
-
-
 
     @staticmethod
     def get_and_apply_moves(
@@ -229,20 +197,14 @@ class Solver_Nightmare(Solver):
         result = self._evaluations_cache.get(cache_game_state, None)
         if result is not None:
             # self.cache_hits += 1
-            return (
-                Solver.initial_best_cost
-                if solver_utils.roughly_gt_2tup(result, vertical_prune_threshold) else
-                result
-            )
+            if solver_utils.roughly_gt_2tup(result, vertical_prune_threshold):
+                return Solver.initial_best_cost
+            return result
             # return result # NOTE: could return a value > prune_threshold
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            # if config.CACHE_END_STATES:
-                # self._evaluations_cache[cache_game_state] = Solver.double_zero
-            return (
-                Solver.initial_best_cost
-                if solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold)
-                else Solver.double_zero
-            )
+            if solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold):
+                return Solver.initial_best_cost
+            return Solver.double_zero
             # return Solver.double_zero # NOTE: could return a value > prune_threshold
 
         (vertical_prune_rounds, vertical_prune_queries) = vertical_prune_threshold
@@ -257,28 +219,23 @@ class Solver_Nightmare(Solver):
             # return (int(game_state.proposal_used_this_round is None), 1)
         (vpr_lt_1, vpr_eq_1) = solver_utils.fp_cmp(vertical_prune_rounds, 1)
 
-
         if game_state.proposal_used_this_round is None:
             if (vpr_lt_1 or (vpr_eq_1 and vpq_lt_1)):
                 return Solver.initial_best_cost
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
-            # WARN: line below is new and not fully tested/stepped through/debugged in nightmare mode.
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
 
         best_node_cost = Solver.initial_best_cost
-        exist_non_begin_round_moves = False
         beat_vertical_prune_threshold = False
         best_move = None
-        # moves_list = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
-        # For testing purposes, make the entire moves_list before examining any moves.
         move_infos = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
+        exist_non_begin_round_moves = bool(move_infos)
         self._reorder_move_infos_list(move_infos)
         # TODO: check that the first move_info has the lowest estimated cost heuristic here.
         self.tasks_initialize(depth, move_infos)
         for move_info in move_infos:
-            exist_non_begin_round_moves = True
             (move, mcost, gs_tup, p_tup) = move_info
             (false_p, true_p) = p_tup
             vertical_prune_threshold_nodes = (
@@ -297,9 +254,6 @@ class Solver_Nightmare(Solver):
                 vertical_prune_threshold=vertical_prune_threshold_false
             )
             if (gs_false_node_cost == Solver.initial_best_cost):
-                # if (gs_false_node_cost != Solver.initial_best_cost):
-                #     console.print("O no unexpected")
-                #     exit()
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -320,15 +274,11 @@ class Solver_Nightmare(Solver):
                 vertical_prune_threshold=vertical_prune_threshold_true
             )
             if (gs_true_node_cost == Solver.initial_best_cost):
-                # if (gs_true_node_cost != Solver.initial_best_cost):
-                #     console.print("O no unexpected!")
-                #     exit()
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
             gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
-            # if(node_cost_tup < best_node_cost):
             best_node_cost = node_cost_tup
             best_move = move
             beat_vertical_prune_threshold = True
@@ -354,13 +304,7 @@ class Solver_Nightmare(Solver):
                 vertical_prune_threshold=vertical_prune_threshold
             )
             beat_vertical_prune_threshold = (best_node_cost != Solver.initial_best_cost)
-            # beat_vertical_prune_threshold = (
-            #     not solver_utils.roughly_gt_2tup(best_node_cost, vertical_prune_threshold)
-            # )
-            # if not beat_vertical_prune_threshold:
-            #     if (best_node_cost != Solver.initial_best_cost):
-            #         console.print("O no!")
-            #         exit()
+
         if beat_vertical_prune_threshold:
             self._evaluations_cache[cache_game_state] = best_node_cost
         return best_node_cost
