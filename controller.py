@@ -77,15 +77,17 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     sd = display.Solver_Displayer(s)
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
+        s.display_extra_info()
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     if(solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
     else:
         sd.print_all_possible_answers(
             full_cwa,
-            "\nAll Possible Answers",
+            "\nAll Possible Answers" + (" (Without Rearrangement)" if (s.problem.mode == NIGHTMARE) else ""),
             permutation_order=P_ORDER,
-            active=display_problem
+            active=display_problem,
+            unique_perm=True
         )
         print("\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end="")
         sd.print_table_bitsets(
@@ -133,8 +135,10 @@ def make_solver(problem: Problem, capitulate=False):
         print("Exiting.")
         exit()
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    title = "\nAll Possible Answers"
-    sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=DISPLAY)
+    title = "\nAll Possible Answers" + (" (Without Rearrangement)" if (problem.mode == NIGHTMARE) else "")
+    sd.print_all_possible_answers(
+        full_cwa, title, permutation_order=P_ORDER, active=DISPLAY, unique_perm=True
+    )
     display_bitsets = DISPLAY and DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)
     print("\n" if display_bitsets else "", end="")
     sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=display_bitsets)
@@ -266,7 +270,7 @@ def get_requested_problem(
         new_problem=None
     ) -> Problem:
     """
-    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too.
+    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too. If no p_id is given, just display the table of all local problems.
     """
     if(web):
         p = get_web_problem(p_id, mode, level, verifiers)
