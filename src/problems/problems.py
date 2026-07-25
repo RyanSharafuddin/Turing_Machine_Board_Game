@@ -1,4 +1,5 @@
 import pickle, os
+import numpy as np
 from rich.table import Table
 from rich.text import Text
 # My imports
@@ -17,7 +18,6 @@ _STANDARD_PROB_TUPS = [
     ( "C5HCBJ",     [ 2, 15, 30, 31, 33]),
     ("B63YRW4", [ 2,  5,  9, 15, 18, 22]), # zero_query
     ("C630YVB", [ 9, 22, 24, 31, 37, 40]), # multiple combos -> same answer. nightmare version 2880 cwas.
-    ("INVALID", [ 1,  2,  3,  4,  5,  6])  # invalid problem for testing purposes
 ]
 _EXTREME_PROB_TUPS = [
     ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 -> 1,195 -> ~650 -> ~500
@@ -38,7 +38,6 @@ _IDS_TO_COMMENTS_DICT = {
     "F435FE"    : "Formerly ~3,500s",
     "INVALID"   : "Example test",
     "INVALID_N" : "Example test",
-    "I48ZCX"    : "Somehow harder than 2_N",
     "C630YVB_N" : "Killed 9",
 }
 _ACCEPTABLE_MODES = ["S", "E", "N"]
@@ -135,6 +134,41 @@ def _write_user_problem_to_file(f_name, p: Problem):
     with open(f_name, "a+") as f:
         f.write(repr(p))
         f.write("\n")
+def _get_sec_col_item(p: Problem):
+    """
+    Given a problem, get the renderable (string or Text) that should be displayed in the second column of the problem table for that problem. Either the rule card numbers or the number of verifiers. Used in print_all_local_problems().
+    """
+    if SHOW_ALL_RCS:
+        if((p.mode == EXTREME) and STACK_EXTREME_RULE_CARDS):
+            top_row = ''
+            bottom_row = ''
+            for rc_index in range(len(p.rc_nums_list) // 2):
+                top_row += f'{p.rc_nums_list[2 * rc_index]:>2}' + ' '
+                bottom_row += f'{p.rc_nums_list[2 * rc_index + 1]:>2}' + ' '
+            result = top_row.rstrip() + '\n' + bottom_row.rstrip()
+        else:
+            result = ' '.join([f'{n:>2}' for n in p.rc_nums_list])
+    else:
+        num_verifiers = len(p.rc_nums_list) // (2 if (p.mode == EXTREME) else 1)
+        result = Text(f'{num_verifiers}', style=NUM_V_COLORS[num_verifiers - 4])
+    return result
+def _cost_to_text(cost):
+    if cost is None:
+        return Text("")
+    return (
+        Text.assemble(
+            Text(f"{cost[0]:0.3f} ", style=ROUND_COST_STYLE),
+            Text(f"{cost[1]:0.3f}", style=QUERY_COST_STYLE)
+        )
+    )
+def _get_other_version_id(p: Problem):
+    if p.identity.endswith(("_S", "_N")):
+        return p.identity[:-2]
+    if p.mode == STANDARD:
+        return f"{p.identity}_N"
+    if p.mode == NIGHTMARE:
+        return f"{p.identity}_S"
+    return None
 
 def get_local_problem_by_id(problem_id: str):
     """
@@ -194,6 +228,9 @@ def get_other_version_problem(p: Problem):
         )
         return other_version_problem
     return None
+def get_num_verifiers(p: Problem):
+    return (len(p.rc_nums_list) // (2 if (p.mode == EXTREME) else 1))
+
 def print_all_local_problems():
     """
     Print the table that lists all locally available problems.
@@ -205,35 +242,44 @@ def print_all_local_problems():
         border_style=PROBLEM_TABLE_BORDER,
         row_styles=["", "on #1c1c1c"],
     )
+    sec_col_title = Text("Rule Cards List" if SHOW_ALL_RCS else "# Vs", justify="center")
+    sec_col_justify = "left" if SHOW_ALL_RCS else "left"
     table.add_column(Text("ID", justify="center"), justify="right", style=PROBLEM_ID_COLOR)
-    table.add_column(Text("Rule Cards List", justify="center"), justify="left", style=RULE_CARD_NUMS_COLOR)
+    table.add_column(sec_col_title, justify=sec_col_justify, style=RULE_CARD_NUMS_COLOR)
     table.add_column(Text("Mode", justify="center"))
     table.add_column(Text("Comments", justify="center"))
-    table.add_column(Text("Time Taken", justify="center"), justify="right")
+    table.add_column(Text("Time", justify="center"), justify="right")
+    table.add_column(Text("Cost", justify="center"), justify="right")
+    if SHOW_COST_OTHER:
+        table.add_column(Text("Cost Other", justify="center"), justify="center")
     probs_list = list(_ID_TO_PROBLEM_DICT.values())
-    probs_list.sort(key=lambda p: (p.mode, p.identity))
+    probs_list.sort(key=lambda p: ( # criteria to sort problems in table by.
+        p.mode,
+        get_num_verifiers(p),
+        _PICKLED_PROB_INFO_DICT.get(p.identity, (inf, (inf, inf)))[1], # cost to solve
+        p.identity
+    ))
     for (problem_index, p) in enumerate(probs_list):
-        time_pickle_seconds = _PICKLED_TIME_DICT.get(p.identity, None)
-        if(time_pickle_seconds is not None):
-            time_pickle_str = f"{time_pickle_seconds:,}"
-        else:
-            time_pickle_str = ''
-        if((p.mode == 1) and STACK_EXTREME_RULE_CARDS):
-            top_row = ''
-            bottom_row = ''
-            for rc_index in range(len(p.rc_nums_list) // 2):
-                top_row += f'{p.rc_nums_list[2 * rc_index]:>2}' + ' '
-                bottom_row += f'{p.rc_nums_list[2 * rc_index + 1]:>2}' + ' '
-            rc_nums_str = top_row.rstrip() + '\n' + bottom_row.rstrip()
-        else:
-            rc_nums_str = ' '.join([f'{n:>2}' for n in p.rc_nums_list])
-        table.add_row(
+        time_pickle = _PICKLED_PROB_INFO_DICT.get(p.identity, (None,) * 2)
+        # don't unpack tuple. This way, can put more items in tuple without breaking program.
+        time_pickle_seconds = time_pickle[0]
+        cost = time_pickle[1]
+        time_pickle_str = "" if (time_pickle_seconds is None) else f"{time_pickle_seconds:,}"
+        cost_text = _cost_to_text(cost)
+        sec_col_item = _get_sec_col_item(p)
+        row_args = [
             p.identity,
-            rc_nums_str,
-            Text(MODE_NAMES[p.mode], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
+            sec_col_item,
+            Text(MODE_NAMES[p.mode][0], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
             _IDS_TO_COMMENTS_DICT.get(p.identity, ""),
             Text(time_pickle_str, style=""),
-        )
+            cost_text
+        ]
+        if SHOW_COST_OTHER:
+            row_args.append(
+                _cost_to_text(_PICKLED_PROB_INFO_DICT.get(_get_other_version_id(p), (None, None))[1])
+            )
+        table.add_row(*row_args)
         if(p.mode < 2) and (probs_list[problem_index +1].mode != p.mode):
             table.add_section()
     console.print(table, justify="center")
@@ -271,33 +317,52 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
     """
-    previous_best = _PICKLED_TIME_DICT.get(s.problem.identity, float("inf"))
-    p_ids_to_delete = [p_id for p_id in _PICKLED_TIME_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
+    time_pickle = _PICKLED_PROB_INFO_DICT.get(s.problem.identity)
+    if (time_pickle is None):
+        previous_best = inf
+        previous_cost = None
+    elif (type(time_pickle) == tuple):
+        # don't unpack. This is more robust
+        previous_best = time_pickle[0]
+        previous_cost = time_pickle[1]
+    else:
+        previous_best = time_pickle
+        previous_cost = None
+    p_ids_to_delete = [p_id for p_id in _PICKLED_PROB_INFO_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
     for p_id in p_ids_to_delete:
-        del(_PICKLED_TIME_DICT[p_id])
+        del(_PICKLED_PROB_INFO_DICT[p_id])
     if(s.seconds_to_solve < previous_best):
-        if(previous_best != float("inf")):
+        if(previous_best != inf):
             console.print(
                 f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
             )
-    if(bool(p_ids_to_delete) or (s.seconds_to_solve < previous_best)):
+    if (
+        (previous_cost is not None) and
+        (not np.allclose(previous_cost, s.expected_cost, rtol=0, atol=A_TOL))
+    ):
+        # NOTE: If start storing approximations for solver nightmare (for example, depth-limited approximations), will have to get rid of or otherwise change this block.
+        console.print(
+            f"[red]WARN[/red]: This cost does not match up with the previous cost to solve the problem.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}. Exiting."
+            )
+        exit()
+    if(bool(p_ids_to_delete) or (s.seconds_to_solve < previous_best) or (previous_cost is None)):
         print(f"Pickling time dict . . .")
-        _PICKLED_TIME_DICT[s.problem.identity] = s.seconds_to_solve
-        f = open(TIME_PICKLE_FILE_NAME, "wb")
-        pickle.dump(_PICKLED_TIME_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
+        if ((s.seconds_to_solve < previous_best) or (previous_cost is None)):
+            _PICKLED_PROB_INFO_DICT[s.problem.identity] = (s.seconds_to_solve, s.expected_cost)
+        f = open(PROB_INFO_PICKLE_FILE_NAME, "wb")
+        pickle.dump(_PICKLED_PROB_INFO_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()
         print("Done pickling the time dict.")
 def get_best_time(problem: Problem):
     """
-    Return the number of seconds of the best recorded solver performance on this problem, or float("inf") if there is no recorded performance.
+    Return the number of seconds of the best recorded solver performance on this problem, or inf if there is no recorded performance.
     """
-    return _PICKLED_TIME_DICT.get(problem.identity, float("inf"))
+    return _PICKLED_PROB_INFO_DICT.get(problem.identity, (inf, None))[0]
 
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
 _NIGHTMARE_PROB_TUPS += _derived_nightmare_prob_tups
 _STANDARD_PROB_TUPS += _derived_standard_prob_tups
-# TODO: only the problems defined in this file now have _S and _N versions. Should change it so that all problems, including those in the user problem file, have _S and _N versions. Can do this by updating the function add_problem_to_known_problems to check if it's a nightmare/standard mode problem it's adding, and then automatically also add the standard/nightmare (respectively) version of it.
 # NOTE: Any standard mode problem is now also a nightmare mode problem if just add "_N" to its problem id.
 #       Also, any nightmare mode problem is a standard mode problem by adding "_S".
 
@@ -323,14 +388,16 @@ _PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
 for _problem in _ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(_problem)
 
-if not os.path.isfile(TIME_PICKLE_FILE_NAME):
-    time_pickle_dir = os.path.dirname(TIME_PICKLE_FILE_NAME)
+if not os.path.isfile(PROB_INFO_PICKLE_FILE_NAME):
+    time_pickle_dir = os.path.dirname(PROB_INFO_PICKLE_FILE_NAME)
     if not os.path.exists(time_pickle_dir):
         os.makedirs(time_pickle_dir)
-    _PICKLED_TIME_DICT = dict()
-    with open(TIME_PICKLE_FILE_NAME, 'wb') as _f:
-        pickle.dump(_PICKLED_TIME_DICT, _f, protocol=pickle.HIGHEST_PROTOCOL)
-with open(TIME_PICKLE_FILE_NAME, 'rb') as _f:
-    _PICKLED_TIME_DICT: dict = pickle.load(_f)
+    _PICKLED_PROB_INFO_DICT = dict()
+    with open(PROB_INFO_PICKLE_FILE_NAME, 'wb') as _f:
+        pickle.dump(_PICKLED_PROB_INFO_DICT, _f, protocol=pickle.HIGHEST_PROTOCOL)
+with open(PROB_INFO_PICKLE_FILE_NAME, 'rb') as _f:
+    _PICKLED_PROB_INFO_DICT: dict = pickle.load(_f)
+# NOTE: _PICKLED_PROB_INFO_DICT[problem.identity] = (time_taken_in_seconds, (round_cost, query_cost))
+#        The tuple in the comment above can be extended to include additional info w/o breaking program.
 # TODO: use a trie instead of the wildly inefficient prefix dict
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
