@@ -98,6 +98,38 @@ class Solver_Capitulate(Solver):
         self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
         return new_ev_cache
 
+    def get_perfect_and_underperformance(self):
+        """
+        Returns
+        -------
+        (best_cost, underperformance)
+
+        best_cost:
+            The cost a perfect solver achieved on this problem, or None if it hasn't been solved yet.
+
+        underperformance:
+            The amount the capitulate solver underperformed by, or None if this problem hasn't been solved by a perfect solver.
+        """
+        from ..problems import problems
+        best_solver_info = problems.get_perfect_prob_solver_info(self.problem)
+        # NOTE: do not unpack below, for extensibility.
+        (best_time, best_cost) = (best_solver_info[0], best_solver_info[1])
+        if (best_cost is None):
+            return (None, None)
+        (bcr, bcq) = best_cost
+        (r, q) = self.expected_cost
+        underperformance = (r - bcr, q - bcq)
+        return (best_cost, underperformance)
+
     def post_solve_printing(self):
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
+
+    def post_filter_printing(self):
+        super().post_filter_printing()
+        (best_cost, underperformance) = self.get_perfect_and_underperformance()
+        if underperformance is not None:
+            (ur, uq) = underperformance
+            (bcr, bcq) = best_cost
+            console.print(f"{bcr:0.3f} {bcq:0.3f} : best cost")
+            console.print(f"{ur:0.3f} {uq:0.3f} : underperformance")
