@@ -1,5 +1,4 @@
 import time, sys
-from collections import defaultdict
 import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
@@ -155,9 +154,6 @@ class Solver:
         "convert_working_gs_to_cache_gs",
         "num_concurrent_tasks",
         "depth_to_tasks_l",
-        "max_hex_length", # a bit janky to store a display detail here rather than Solver_Displayer, but oh well.
-        "max_decimal_length",
-
         "best_move",
         "put_cache_gs_in_new_ev_cache",
 
@@ -176,13 +172,8 @@ class Solver:
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.best_move          = None
+        self.qs_dict            = solver_utils.make_useful_qs_dict(self, self.initial_game_state)
         self.put_cache_gs_in_new_ev_cache = True
-        self.qs_dict            = solver_utils.make_useful_qs_dict(
-            self.full_cwas_list,
-            self.initial_game_state.cwa_set,
-            self.flat_rule_list,
-            self.n_mode,
-        )
         if not self.full_cwas_list: # invalid problem with no solutions.
             return
         self.possible_rules_by_verifier = [
@@ -197,31 +188,11 @@ class Solver:
         ]
         self._estimate_move_info_value = move_info_value_estimators[config.MOVE_INFO_VALUE_ESTIMATOR]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
-        ############################### BITSET WERK ##########################################################
-        testing_stuff(self) # WARN TODO: delete
         self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
-        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(
-            self.full_cwas_list,
-            self.possible_rules_by_verifier,
-            self.n_mode,
-            set_type=self.bitset_type,
-        )
+        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(self)
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
         )
-        self.max_hex_length     = 0
-        self.max_decimal_length = 0
-        # NOTE: below block is only for testing purposes.
-        if ((self.bitset_type is not set) and (not self.n_mode)):
-            initial_cache_gs = self.convert_working_gs_to_cache_gs(
-                self.initial_game_state,
-                self.all_cwa_bitsets
-            )
-            initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
-            self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
-            self.max_decimal_length = len(f'{initial_bitset_int:,}')
-            sd.print_cache_game_state(initial_cache_gs, "Initial State")
-        ############################### BITSET WERK ##########################################################
         ############################### PROGRESS WERK ########################################################
         progress_bars_dict = (
             config.N_MODE_PROGRESS_BARS_DICT if self.n_mode else config.S_MODE_PROGRESS_BARS_DICT
@@ -241,6 +212,7 @@ class Solver:
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
+        testing_stuff(self) # WARN TODO: delete
 
     @staticmethod
     def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
