@@ -1,3 +1,4 @@
+import numpy as np
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
@@ -115,6 +116,6 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY           = "src/problems/Pickles/Light_Cache_On_Nightmare" # Where all pickled solvers go.
+PICKLE_DIRECTORY           = "src/problems/Pickles/Light_Cache_On_Nightmare_Upgrade" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
-PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_pickle_file.bin"
+PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/light_cache_prob_info_pickle_file.bin"
