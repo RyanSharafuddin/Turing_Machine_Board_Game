@@ -1,4 +1,4 @@
-import pickle, os, platform, gc, argparse#, git
+import pickle, os, platform, gc, argparse, git
 from rich import print as rprint
 from rich.text import Text
 # My imports
