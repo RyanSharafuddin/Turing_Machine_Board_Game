@@ -666,7 +666,13 @@ def fp_eq(a, b):
 
 def fp_eq_tup(a, b):
     """
-    Returns True if all the elements of a are 'equal' to the corresponding element of b.
+    Returns True if a is approximately equal to b, where a and b are 2-tuples.
+
+    Params
+    ------
+    a: tuple [number, number]
+
+    b: tuple [number, number]
     """
     return (
         math.isclose(a[0], b[0], rel_tol=REL_TOL, abs_tol=A_TOL) and

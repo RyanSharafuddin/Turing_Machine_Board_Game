@@ -825,6 +825,12 @@ class Solver:
             return True
         return False
 
+    def gs_evals_approx_equal(self, gs_eval_a, gs_eval_b):
+        """
+        Return True if two state evaluations are 'equal'.
+        """
+        return solver_utils.fp_eq_tup(gs_eval_a, gs_eval_b)
+
     def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
         if not self.exist_moves(curr_working_gs):
             if curr_cache_gs not in self._evaluations_cache:
@@ -849,12 +855,11 @@ class Solver:
                 self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
             del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
             current_gs_eval = self._filter_calculate_best_move(curr_working_gs)
-            # NOTE: may need to use floating point 'equal' here
-            if (current_gs_eval != previous_gs_evaluation_result):
+            if not self.gs_evals_approx_equal(current_gs_eval, previous_gs_evaluation_result):
                 console.print("current_gs_eval:", current_gs_eval)
                 console.print("previous_gs_eval:", previous_gs_evaluation_result)
                 console.print(
-                    "[pink]NOTE[/pink]: If the above two values are very close, should use floating point 'equal' here."
+                    "[pink]NOTE[/pink]: If the above two values are very close, consider changing floating point tolerance settings in config, or using a different floating point 'close' function."
                 )
                 message = (
                     "You should keep track of a state to parent[] list dict and update all parents' evaluations now and start over with filter cache."
