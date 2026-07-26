@@ -11,24 +11,6 @@ class Solver_Capitulate(Solver):
         self.num_concurrent_tasks = 0
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
 
-    def solve(self):
-        """
-        Sets up evaluations_cache with the evaluations of all necessary game states.
-        """
-        start = time.time()
-        self._calculate_best_move(
-            qs_dict = self.qs_dict,
-            game_state = self.initial_game_state,
-        )
-        print("Cleaning up evaluations dictionary . . .")
-        filtered_cache = self._filter_cache()
-        end = time.time()
-        self.seconds_to_solve = int(end - start)
-        self.post_solve_printing()
-        self._evaluations_cache = filtered_cache
-        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
-        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
-
     def _choose_best_move_depth_one(self, move_infos:list):
         # cwa_set representation_change TODO!!
         best_expected_result = self.worst_eval # number of answers left, number of combos left.
@@ -113,29 +95,61 @@ class Solver_Capitulate(Solver):
         return self._evaluations_cache.get(working_game_state, default)
 
     def _filter_cache(self):
-        new_ev_cache = dict()
-        self._calculate_actual_expected_for_capitulation(self.initial_game_state, new_ev_cache)
-        return new_ev_cache
+        filtered_cache = dict()
+        self._calculate_actual_expected_for_capitulation(self.initial_game_state, filtered_cache)
+        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
+        return filtered_cache
+
+    def get_perfect_and_underperformance(self):
+        """
+        Returns
+        -------
+        (best_cost, underperformance)
+
+        best_cost:
+            The cost a perfect solver achieved on this problem, or None if it hasn't been solved yet.
+
+        underperformance:
+            The amount the capitulate solver underperformed by, or None if this problem hasn't been solved by a perfect solver.
+        """
+        from ..problems import problems
+        best_solver_info = problems.get_perfect_prob_solver_info(self.problem)
+        # NOTE: do not unpack below, for extensibility.
+        (best_time, best_cost) = (best_solver_info[0], best_solver_info[1])
+        if (best_cost is None):
+            return (None, None)
+        (bcr, bcq) = best_cost
+        (r, q) = self.expected_cost
+        underperformance = (r - bcr, q - bcq)
+        return (best_cost, underperformance)
 
     def post_solve_printing(self):
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
 
-    def solve(self):
-        """
-        Sets up evaluations_cache with the evaluations of all necessary game states.
-        """
-        start = time.time()
+    def initial_calc_best_move(self):
         self._calculate_best_move(
-            qs_dict = self.qs_dict,
-            game_state = self.initial_game_state,
+            qs_dict=self.qs_dict,
+            game_state=self.initial_game_state
         )
-        print("Cleaning up evaluations dictionary . . .")
-        filtered_cache = self._filter_cache()
-        end = time.time()
-        self.seconds_to_solve = int(end - start)
-        self.post_solve_printing()
-        self._evaluations_cache = filtered_cache
-        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
-        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
-        self.display_extra_info()
+
+    def _experiment(self):
+        return
+
+    @staticmethod
+    def process_underperformance_str(underperformance_float: float):
+        s = f"{underperformance_float:0.3f}"
+        if (s == "-0.000"):
+            return "0.000"
+        return s
+
+    def post_filter_printing(self):
+        super().post_filter_printing()
+        (best_cost, underperformance) = self.get_perfect_and_underperformance()
+        if underperformance is not None:
+            (ur, uq) = underperformance
+            (bcr, bcq) = best_cost
+            ur_str = self.process_underperformance_str(ur)
+            uq_str = self.process_underperformance_str(uq)
+            console.print(f"{bcr:0.3f}  {bcq:0.3f} : best cost")
+            console.print(f"{ur_str} {uq_str:>6} : underperformance")

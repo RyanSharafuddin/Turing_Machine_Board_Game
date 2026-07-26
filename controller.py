@@ -77,7 +77,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     sd = display.Solver_Displayer(s)
     if(display_problem):
         sd.print_problem(s.rcs_list, s.problem, active=True)
-        s.display_extra_info()
+        s.post_filter_printing()
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     if(solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set)):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
@@ -438,9 +438,12 @@ if(__name__ == "__main__"):
             force_overwrite=args.force_overwrite,
             capitulate=args.capitulate
         )
-        if(not(args.play or args.display) and not(args.capitulate)):
+        if not(args.play or args.display):
             s = get_or_make_solver(
-                problem, no_pickles=not(args.force_overwrite), force_overwrite=args.force_overwrite
+                problem,
+                no_pickles=not(args.force_overwrite),
+                force_overwrite=args.force_overwrite,
+                capitulate=args.capitulate
             )[0]
     except KeyboardInterrupt:
         console.print("\nBaii")

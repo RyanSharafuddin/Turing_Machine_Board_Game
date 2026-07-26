@@ -164,8 +164,6 @@ class Solver:
         "convert_working_gs_to_cache_gs",
         "num_concurrent_tasks",
         "depth_to_tasks_l",
-        "max_hex_length", # a bit janky to store a display detail here rather than Solver_Displayer, but oh well.
-        "max_decimal_length",
 
         "biggest_avg_difference_info",
         "biggest_begin_round_avg_difference_info",
@@ -188,13 +186,8 @@ class Solver:
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.best_move          = None
+        self.qs_dict            = solver_utils.make_useful_qs_dict(self, self.initial_game_state)
         self.put_cache_gs_in_new_ev_cache = True
-        self.qs_dict            = solver_utils.make_useful_qs_dict(
-            self.full_cwas_list,
-            self.initial_game_state.cwa_set,
-            self.flat_rule_list,
-            self.n_mode,
-        )
         if not self.full_cwas_list: # invalid problem with no solutions.
             return
         self.possible_rules_by_verifier = [
@@ -203,31 +196,11 @@ class Solver:
             solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
         ]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
-        ############################### BITSET WERK ##########################################################
-        testing_stuff(self) # WARN TODO: delete
         self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
-        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(
-            self.full_cwas_list,
-            self.possible_rules_by_verifier,
-            self.n_mode,
-            set_type=self.bitset_type,
-        )
+        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(self)
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
         )
-        self.max_hex_length     = 0
-        self.max_decimal_length = 0
-        # NOTE: below block is only for testing purposes.
-        if ((self.bitset_type is not set) and (not self.n_mode)):
-            initial_cache_gs = self.convert_working_gs_to_cache_gs(
-                self.initial_game_state,
-                self.all_cwa_bitsets
-            )
-            initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
-            self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
-            self.max_decimal_length = len(f'{initial_bitset_int:,}')
-            sd.print_cache_game_state(initial_cache_gs, "Initial State")
-        ############################### BITSET WERK ##########################################################
         ############################### PROGRESS WERK ########################################################
         progress_bars_dict = (
             config.N_MODE_PROGRESS_BARS_DICT if self.n_mode else config.S_MODE_PROGRESS_BARS_DICT
@@ -247,6 +220,7 @@ class Solver:
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
+        testing_stuff(self) # WARN TODO: delete
 
         # (bigest_difference, move_cost_tups, game_state, min_depth_move)
         self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3
@@ -501,6 +475,17 @@ class Solver:
         self._evaluations_cache[cache_game_state] = best_node_cost # NOTE: keep this
         return best_node_cost
 
+    def initial_calc_best_move(self):
+        """
+        Each solver defines their own way to initially calculate everything. Could even use iterative deepening here.
+        """
+        self._calculate_best_move(
+            qs_dict=self.qs_dict,
+            game_state=self.initial_game_state,
+            depth=0,
+            round_depth=config.INITIAL_EVAL_DEPTH,
+        )
+
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
@@ -508,11 +493,7 @@ class Solver:
         if self.num_concurrent_tasks:
             progress.start()
         start = time.time()
-        self._calculate_best_move(
-            qs_dict = self.qs_dict,
-            game_state = self.initial_game_state,
-            round_depth=config.INITIAL_EVAL_DEPTH
-        )
+        self.initial_calc_best_move()
         if self.num_concurrent_tasks:
             progress.stop()
         print("Cleaning up evaluations dictionary . . .")
@@ -524,15 +505,18 @@ class Solver:
         self._experiment()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
-        self.display_extra_info()
+        self.post_filter_printing()
 
-    def display_extra_info(self):
+    def post_filter_printing(self):
+        """
+        NOTE: happens even on solvers retrieved from pickles.
+        """
         if self.n_mode:
             console.print(
                 f"There are {len(self.full_cwas_list):,} total possible combos (including rearrangement)."
             )
         console.print(
-            f"Expected cost to solve from start:\n{self.expected_cost[0]:0.3f} {self.expected_cost[1]:0.3f}"
+            f"{self.expected_cost[0]:0.3f}  {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
         )
 
     def _experiment(self):
@@ -887,7 +871,7 @@ class Solver:
             # TODO: give filter calculate best move a round_depth to use. If there is none b/c the previous eval is not there, have the stack in filter cache keep track of the min round depth each state should be evaluated to, and use that.
             rd = previous_gs_eval_result[1] if (previous_gs_eval_result is not None) else Solver.inf
             current_gs_eval = self._filter_calculate_best_move(curr_working_gs, round_depth = rd)
-            # TODO: use the cost comparison function you made. If cost decreased, great, but re-evaluate parents and start over. If increased, error out.
+            # TODO: use the cost comparison function you made. If cost decreased, great, but re-evaluate parents and start over. If increased, error out. evdepth should stay the same or increase.
             if (current_gs_eval != previous_gs_eval_result):
                 console.print("current_gs_eval:", current_gs_eval)
                 console.print("previous_gs_eval:", previous_gs_eval_result)

@@ -281,6 +281,16 @@ class Solver_Displayer:
         # b/c not all rules in the problem are necessarily possible.
         self.solver = solver
         self.n_mode = (self.solver.n_mode)
+        try:
+            from . import solver_utils
+            initial_gs_cache = solver._easy_working_gs_to_cache_gs(solver.initial_game_state)
+            initial_bitset_int = solver_utils.bitset_to_int(initial_gs_cache.cwa_set)
+        except NotImplementedError:
+            initial_bitset_int = 0
+        except:
+            initial_bitset_int = 0
+        self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
+        self.max_decimal_length = len(f'{initial_bitset_int:,}')
 
     @staticmethod
     def _get_width_at_left_idx_col_small_p(left_index, max_elts_partition, partition: list):
@@ -1461,9 +1471,9 @@ class Solver_Displayer:
         t.add_column(
             Text("Int", justify="center"),
             justify="right",
-            min_width=self.solver.max_decimal_length
+            min_width=self.max_decimal_length
         ) # full integer corresponding to bitset
-        t.add_column(Text("Hex", justify="center"), justify="right", min_width=self.solver.max_hex_length) # hex of the integer column
+        t.add_column(Text("Hex", justify="center"), justify="right", min_width=self.max_hex_length) # hex of the integer column
         for v_index in range(self.solver.num_rcs - 1, -1, -1):
             t.add_column(Text(f"{letters[v_index]}", justify="center"), justify="right")
         for (bs_index, bs) in enumerate(bitsets):
@@ -1615,7 +1625,6 @@ def _get_node_background_color(tree: Tree, result):
     if (best_move_cost[0] == 1):
         return NEW_ROUND_BACKGROUND_COLOR
     return TREE_BACKGROUND_COLOR
-
 
 def _node_to_str_table(tree: Tree):
     sd = Solver_Displayer(tree.solver)
