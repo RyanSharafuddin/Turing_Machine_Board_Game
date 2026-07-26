@@ -38,12 +38,6 @@ class Solver_Nightmare(Solver):
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.put_cache_gs_in_new_ev_cache = False
-        # WARN TODO: delete the next 2 lines
-        # #################################################
-        # global all_cwa_bitsets
-        # all_cwa_bitsets = self.all_cwa_bitsets
-        #################################################################################################
-
         if not self.full_cwas_list: # invalid problem with no solutions
             return
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])
@@ -60,7 +54,7 @@ class Solver_Nightmare(Solver):
             dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
-        )[0]
+        )
         initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
         self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
         self.max_decimal_length = len(f'{initial_bitset_int:,}')
@@ -184,7 +178,7 @@ class Solver_Nightmare(Solver):
             working_cwa_set_convert_cache = dict()
 
         # self.called_calculate += 1
-        (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+        cache_game_state = self.convert_working_gs_to_cache_gs(
             game_state,
             self.all_cwa_bitsets,
             working_cwa_set_convert_cache,
@@ -277,7 +271,7 @@ class Solver_Nightmare(Solver):
             dict(),
             self.shift_amounts,
             self.int_verifier_bit_mask
-        )[0] # TODO: delete the '[0]' when update to not calculate permutation anymore.
+        )
         return cache_gs
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):

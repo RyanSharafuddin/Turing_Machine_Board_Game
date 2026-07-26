@@ -295,43 +295,40 @@ def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, s
         true_false_list_by_verifier.append(true_false_list_this_v_index)
     return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
 
-def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray):
+def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray) -> np.ndarray :
     """
-    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array) as well as the permutation that transforms moves on the original into moves on the canonical form. NOTE: when the cache_bitsets are ints, the 'canonical form' is the one that leads to the smallest bitset int, in contrast to when the cache_bitsets are np arrays, in which case the canonical form is the one that leads to the largest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
+    Given a cache_bitset in the form of an np.ndarray, return the canonical form of this cache bitset (creates a new np array). NOTE: when the cache_bitsets are ints, the 'canonical form' is the one that leads to the smallest bitset int, in contrast to when the cache_bitsets are np arrays, in which case the canonical form is the one that leads to the largest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
 
     Returns
     -------
-    (canonical_form, permutation)
+    canonical_form: np.ndarray
         A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
     """
     permutation = np.lexsort(cache_bitset.T)
-    return (cache_bitset[permutation], permutation)
+    return cache_bitset[permutation]
 
 def _convert_cache_bitset_to_canonical_int(
         cache_bitset : int,
         shift_amounts,
         int_verifier_bit_mask,
-    ):
+    ) -> int:
     """
-    Given a cache_bitset in the form of an int, return the canonical form of this cache bitset as well as the permutation that transforms moves on the original into moves on the canonical form. Takes `*args` to absorb arguments given to the int version of this. NOTE: when the cache_bitsets are np arrays, the 'canonical form' is the one that leads to the largest bitset int, in contrast to when the cache_bitsets are ints, in which case the canonical form is the one that leads to the smallest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
+    Given a cache_bitset in the form of an int, return the canonical form of this cache bitset. NOTE: when the cache_bitsets are np arrays, the 'canonical form' is the one that leads to the largest bitset int, in contrast to when the cache_bitsets are ints, in which case the canonical form is the one that leads to the smallest np int. This does not affect the rest of the program, because only one canonical form function is used within a run of the program.
 
     Returns
     -------
-    (canonical_form, permutation)
+    canonical_form: int
         A move on verifier index V of the original is equivalent to a move on verifier index permutation[V] of the canonical form.
     """
-    bitset_ints_by_verifier_with_indices = [
-        ((cache_bitset >> shift_amount) & int_verifier_bit_mask, index)
-        for (index, shift_amount) in enumerate(shift_amounts)
+    bitset_ints_by_verifier = [
+        ((cache_bitset >> shift_amount) & int_verifier_bit_mask)
+        for shift_amount in shift_amounts
     ]
-    # console.print(bitset_ints_by_verifier_with_indices)
-    bitset_ints_by_verifier_with_indices.sort(key=lambda t: t[0], reverse=True)
-    # console.print(bitset_ints_by_verifier_with_indices)
-    (bitsets, indices) = zip(*bitset_ints_by_verifier_with_indices)
+    bitset_ints_by_verifier.sort(reverse=True)
     result = 0
-    for (bitset, shift_amount) in zip(bitsets, shift_amounts):
+    for (bitset, shift_amount) in zip(bitset_ints_by_verifier, shift_amounts):
         result |= (bitset << shift_amount)
-    return (result, indices)
+    return result
 
 def _working_cwa_set_to_cache_bitset(
         working_cwa_set,
@@ -368,55 +365,53 @@ def _do_not_convert_gs(working_gs, *other_args):
     return working_gs
 
 def _convert_working_gs_to_cache_gs_nightmare_int(
+        
         working_gs: Game_State,
-        all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        all_cwa_bitsets: np.ndarray, # NOTE: eliminate once change working_gs cwa set
         working_cwa_set_convert_cache : dict,
         shift_amounts,
         int_verifier_bit_mask
-    ):
-    res = working_cwa_set_convert_cache.get(working_gs.cwa_set, None)
-    if res is None:
+    ) -> Game_State :
+    cache_bitset_canonical_form = working_cwa_set_convert_cache.get(working_gs.cwa_set)
+    if cache_bitset_canonical_form is None:
         cache_bitset = _working_cwa_set_to_cache_bitset(
             working_gs.cwa_set,
             all_cwa_bitsets,
         )
-        res = _convert_cache_bitset_to_canonical_int(
+        cache_bitset_canonical_form = _convert_cache_bitset_to_canonical_int(
             cache_bitset,
             shift_amounts,
             int_verifier_bit_mask
         )
-        working_cwa_set_convert_cache[working_gs.cwa_set] = res
-    (cache_bitset_canonical_form, permutation) = res
+        working_cwa_set_convert_cache[working_gs.cwa_set] = cache_bitset_canonical_form
     cache_gs = Game_State(
         num_queries_this_round=working_gs.num_queries_this_round,
         proposal_used_this_round=working_gs.proposal_used_this_round,
         cwa_set=cache_bitset_canonical_form
     )
-    return (cache_gs, permutation)
+    return cache_gs
 
 def _convert_working_gs_to_cache_gs_nightmare_nparray(
         working_gs: Game_State,
-        all_cwa_bitsets, # NOTE: eliminate once change working_gs cwa set
+        all_cwa_bitsets: np.ndarray, # NOTE: eliminate once change working_gs cwa set
         working_cwa_set_convert_cache : dict,
         *args, # for accepting the 2 last arguments given in the int version
-    ):
-    res = working_cwa_set_convert_cache.get(working_gs.cwa_set, None)
-    if res is None:
+    ) -> Game_State:
+    cache_bitset_canonical_form = working_cwa_set_convert_cache.get(working_gs.cwa_set)
+    if cache_bitset_canonical_form is None:
         cache_bitset = _working_cwa_set_to_cache_bitset(
             working_gs.cwa_set,
             all_cwa_bitsets,
         )
-        (cache_bitset_canonical_form, permutation) = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
-        cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form)
-        res = (cache_bitset_canonical_form, permutation)
-        working_cwa_set_convert_cache[working_gs.cwa_set] = res
-    (cache_bitset_canonical_form, permutation) = res
+        cache_bitset_canonical_form_raw = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
+        cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form_raw)
+        working_cwa_set_convert_cache[working_gs.cwa_set] = cache_bitset_canonical_form
     cache_gs = Game_State(
         num_queries_this_round=working_gs.num_queries_this_round,
         proposal_used_this_round=working_gs.proposal_used_this_round,
         cwa_set=cache_bitset_canonical_form
     )
-    return (cache_gs, permutation)
+    return cache_gs
 
 def _python_index(seq, item):
     return seq.index(item)
