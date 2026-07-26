@@ -600,6 +600,7 @@ def calculate_worst_case_cost(move_cost, probs, gss_costs):
     return((bigger_cost_tup[0] + move_cost[0], bigger_cost_tup[1] + 1))
 def divide_cost_by_probability(cost, p):
     return (cost[0] / p, cost[1] / p)
+
 def roughly_geq_2tup(node_cost, corresponding_threshold):
     """
     Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
@@ -614,20 +615,18 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
     # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
     # (rounds_close_np, queries_close_np) = values_close
     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
     # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
     # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
     if rounds_close_py:
-        # the round costs are 'equal'
+        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
         if queries_close_py:
-            # query costs are 'equal'
             return True
         return (node_queries > threshold_queries)
     return (node_rounds > threshold_rounds)
 
 def roughly_gt_2tup(node_cost, corresponding_threshold):
     """
-    Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+    Returns True if `node_cost` > `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
     """
     (node_rounds, node_queries) = node_cost
     (threshold_rounds, threshold_queries) = corresponding_threshold
@@ -639,13 +638,11 @@ def roughly_gt_2tup(node_cost, corresponding_threshold):
     # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
     # (rounds_close_np, queries_close_np) = values_close
     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
     # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
     # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
     if rounds_close_py:
-        # the round costs are 'equal'
+        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
         if queries_close_py:
-            # query costs are 'equal'
             return False
         return (node_queries > threshold_queries)
     return (node_rounds > threshold_rounds)
