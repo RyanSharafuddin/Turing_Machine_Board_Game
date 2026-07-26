@@ -365,23 +365,20 @@ def _do_not_convert_gs(working_gs, *other_args):
     return working_gs
 
 def _convert_working_gs_to_cache_gs_nightmare_int(
-        
+        nightmare_solver, # this is of type Solver_Nightmare, but don't import it here b/c would have to restructure a lot of things.
         working_gs: Game_State,
-        all_cwa_bitsets: np.ndarray, # NOTE: eliminate once change working_gs cwa set
         working_cwa_set_convert_cache : dict,
-        shift_amounts,
-        int_verifier_bit_mask
     ) -> Game_State :
     cache_bitset_canonical_form = working_cwa_set_convert_cache.get(working_gs.cwa_set)
     if cache_bitset_canonical_form is None:
         cache_bitset = _working_cwa_set_to_cache_bitset(
             working_gs.cwa_set,
-            all_cwa_bitsets,
+            nightmare_solver.all_cwa_bitsets,
         )
         cache_bitset_canonical_form = _convert_cache_bitset_to_canonical_int(
             cache_bitset,
-            shift_amounts,
-            int_verifier_bit_mask
+            nightmare_solver.shift_amounts,
+            nightmare_solver.int_verifier_bit_mask
         )
         working_cwa_set_convert_cache[working_gs.cwa_set] = cache_bitset_canonical_form
     cache_gs = Game_State(
@@ -392,16 +389,15 @@ def _convert_working_gs_to_cache_gs_nightmare_int(
     return cache_gs
 
 def _convert_working_gs_to_cache_gs_nightmare_nparray(
+        nightmare_solver, # this is of type Solver_Nightmare, but don't import it here b/c would have to restructure a lot of things.
         working_gs: Game_State,
-        all_cwa_bitsets: np.ndarray, # NOTE: eliminate once change working_gs cwa set
         working_cwa_set_convert_cache : dict,
-        *args, # for accepting the 2 last arguments given in the int version
     ) -> Game_State:
     cache_bitset_canonical_form = working_cwa_set_convert_cache.get(working_gs.cwa_set)
     if cache_bitset_canonical_form is None:
         cache_bitset = _working_cwa_set_to_cache_bitset(
             working_gs.cwa_set,
-            all_cwa_bitsets,
+            nightmare_solver.all_cwa_bitsets,
         )
         cache_bitset_canonical_form_raw = _convert_cache_bitset_to_canonical_nparray(cache_bitset)
         cache_bitset_canonical_form = Hashable_Numpy_Array(cache_bitset_canonical_form_raw)
@@ -420,7 +416,7 @@ def _numpy_index(nparray, item):
     return np.argwhere(nparray == item)[0, 0]
 
 ############################## PUBLIC FUNCTIONS #################################################
-def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type) -> np.ndarray :
+def get_cwa_bitsets(solver) -> np.ndarray :
     """
     Get the list of bitsets corresponding to the cwas of the problem, or None if `set_type` is set.
 
@@ -443,16 +439,19 @@ def get_cwa_bitsets(full_cwas_list, possible_rules_by_verifier, n_mode, set_type
     cwa_bitsets : np.ndarray (each element of cwa_bitsets is a combo. if set_type is int, each combo is a Python integer. if set_type is np.ndarray, each combo is itself an ndarray where each element of the combo is a np.ndarray of uint8 representing a verifier).
         cwa_bitsets[i] is the bitset corresponding to the cwa that is solver.full_cwas_list[i].
     """
-    if (set_type is set):
+    if (solver.bitset_type is set):
         return None
     return np.array(
-        [_single_cwa_to_bitset(cwa, possible_rules_by_verifier, n_mode, set_type) for cwa in full_cwas_list],
-        dtype=(np.uint8 if (set_type == np.ndarray) else object)
+        [
+            _single_cwa_to_bitset(cwa, solver.possible_rules_by_verifier, solver.n_mode, solver.bitset_type)
+            for cwa in solver.full_cwas_list
+        ],
+        dtype=(np.uint8 if (solver.bitset_type is np.ndarray) else object)
     )
 
-def bitset_to_int(bitset):
+def bitset_to_int(bitset) -> int:
     """
-    Given a bitset, return the integer that corresponds to it. Note that bitset may be of different types. Intended for use only for non-performance-sensitive tasks like displaying.
+    Given a bitset, return the integer that corresponds to it. Note that bitset may be of different types. Intended for use only for non-performance-sensitive tasks like displaying. Raises NotImplementedError if it receives an unexpected type of bitset (this is a critical part of this function's contract).
     """
     if(type(bitset) is int):
         return bitset
@@ -487,6 +486,26 @@ def get_index_function(bitset_type):
         return _python_index
     if bitset_type is np.ndarray:
         return _numpy_index
+
+def get_permutation(nightmare_solver, working_gs: Game_State):
+    """ WARN: only use for printing visualizations to aid debugging; not for anything performance related."""
+    cache_bitset = _working_cwa_set_to_cache_bitset(
+            working_gs.cwa_set,
+            nightmare_solver.all_cwa_bitsets,
+        )
+    if type(cache_bitset) is np.ndarray:
+        return np.lexsort(cache_bitset.T)
+    if type(cache_bitset) is not int:
+        console.print(type(cache_bitset))
+        raise Exception(f"O noes! Type of cache_bitset is unexpectedly {type(cache_bitset)}")
+    # cache_bitset is of type int
+    bitset_ints_by_verifier_with_indexes = [
+        (((cache_bitset >> shift_amount) & nightmare_solver.int_verifier_bit_mask), index)
+        for (index, shift_amount) in enumerate(nightmare_solver.shift_amounts)
+    ]
+    bitset_ints_by_verifier_with_indexes.sort(key=lambda t: t[0], reverse=True)
+    (bitsets, indexes) = zip(*bitset_ints_by_verifier_with_indexes)
+    return indexes
 
 def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
     """
@@ -523,18 +542,18 @@ def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
     possible_combos_with_answers.sort(key=lambda t:t[-1])
     return(possible_combos_with_answers)
 
-def make_useful_qs_dict(full_cwas_list, cwa_set, flat_rule_list, n_mode):
+def make_useful_qs_dict(solver, gs: Game_State):
     """
-    Get the initial queries dictionary that the solver starts with.
+    Get the initial queries dictionary that the solver starts with. gs is the state to use for filtering queries initially.
     """
-    if not full_cwas_list: # only happens on invalid problems.
+    if not solver.full_cwas_list: # only happens on invalid problems.
         return None
     base_qs_dict = _init_base_qs_dict(
-        full_cwas_list,
-        flat_rule_list,
-        n_mode
+        solver.full_cwas_list,
+        solver.flat_rule_list,
+        solver.n_mode
     )
-    useful_qs_dict = full_filter(base_qs_dict, cwa_set)
+    useful_qs_dict = full_filter(base_qs_dict, gs.cwa_set)
     return(useful_qs_dict)
 
 def full_filter(qs_dict: dict, current_cwa_set):
