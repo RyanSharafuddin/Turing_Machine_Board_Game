@@ -1,5 +1,4 @@
 import numpy as np
-
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
@@ -120,4 +119,4 @@ DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginn
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY           = "src/problems/Pickles/Nightmare_Light_Cache_With_LRU" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
-PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_pickle_file.bin"
+PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/lcache_w_lru_prob_info_pickle_file.bin"

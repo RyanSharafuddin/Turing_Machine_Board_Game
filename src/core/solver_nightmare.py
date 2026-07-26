@@ -34,19 +34,12 @@ class Solver_Nightmare(Solver):
         "num_possible_rules",
         "int_verifier_bit_mask",
         "shift_amounts",
-        "index_function",
         "lru_cache",
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
         self.lru_cache = LRUCache(config.LRU_CACHE_CAPACITY)
         self.put_cache_gs_in_new_ev_cache = False
-        # WARN TODO: delete the next 2 lines
-        # #################################################
-        # global all_cwa_bitsets
-        # all_cwa_bitsets = self.all_cwa_bitsets
-        #################################################################################################
-
         if not self.full_cwas_list: # invalid problem with no solutions
             return
         self.num_possible_rules = len(self.possible_rules_by_verifier[0])
@@ -55,21 +48,8 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
-        self.index_function = solver_utils.get_index_function(self.bitset_type)
         # NOTE: below is only for testing purposes.
-        initial_cache_gs = self.convert_working_gs_to_cache_gs(
-            self.initial_game_state,
-            self.all_cwa_bitsets,
-            dict(),
-            self.shift_amounts,
-            self.int_verifier_bit_mask
-        )[0]
-        initial_bitset_int = solver_utils.bitset_to_int(initial_cache_gs.cwa_set)
-        self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
-        self.max_decimal_length = len(f'{initial_bitset_int:,}')
         testing_stuff(self) # TODO: delete
-        sd = display.Solver_Displayer(self)
-        sd.print_cache_game_state(initial_cache_gs, "Initial State")
 
     @staticmethod
     def get_and_apply_moves(
@@ -140,41 +120,42 @@ class Solver_Nightmare(Solver):
                                     return
                         break
 
-    def _print_canonical_form_info(self, game_state, cache_game_state, permutation, max_num_forms):
+    def _print_canonical_form_info(self, game_state, cache_game_state, max_num_forms):
         if ('num_forms' not in globals()):
             global num_forms
             num_forms = 0
         else:
             num_forms += 1
-        if(num_forms < max_num_forms):
-            console.rule()
-            rearranged_colors = [config.VERIFIER_COLORS[num] for num in permutation]
-            cache_state_without_reordering_func = (
-                solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
-                solver_utils._convert_working_gs_to_cache_gs_standard_nparray
-            )
-            cache_state_without_reordering = cache_state_without_reordering_func(
-                game_state,
-                self.all_cwa_bitsets
-            )
-            if not np.array_equal(np.array([i for i in range(self.num_rcs)]), permutation):
-                form_equal_string = ("Canonical form [red]not[/red] equal!")
-            else:
-                form_equal_string = ("Canonical form [green]is[/green] equal!")
-            console.print(f"Table # {num_forms + 1:,}. {form_equal_string}\n", justify="center")
-            sd.print_cache_game_state(
-                cache_state_without_reordering,
-                "Original",
-                config.VERIFIER_COLORS
-            )
-            print()
-            sd.print_cache_game_state(
-                cache_game_state,
-                "Canonical",
-                rearranged_colors,
-                include_round_info=False,
-            )
-            console.print(f"Permutation: {permutation}", justify="center", sep=" ", end="")
+        if not(num_forms < max_num_forms):
+            return
+        console.rule()
+        cache_state_without_reordering_func = (
+            solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
+            solver_utils._convert_working_gs_to_cache_gs_standard_nparray
+        )
+        cache_state_without_reordering = cache_state_without_reordering_func(
+            game_state,
+            self.all_cwa_bitsets
+        )
+        permutation = solver_utils.get_permutation(self, game_state)
+        rearranged_colors = [config.VERIFIER_COLORS[num] for num in permutation]
+        if not np.array_equal(np.array([i for i in range(self.num_rcs)]), permutation):
+            form_equal_string = ("Canonical form [red]not[/red] equal!")
+        else:
+            form_equal_string = ("Canonical form [green]is[/green] equal!")
+        console.print(f"Table # {num_forms + 1:,}. {form_equal_string}\n", justify="center")
+        sd.print_cache_game_state(
+            cache_state_without_reordering,
+            "Original",
+            config.VERIFIER_COLORS
+        )
+        print()
+        sd.print_cache_game_state(
+            cache_game_state,
+            "Canonical",
+            rearranged_colors,
+            include_round_info=False,
+        )
 
     def _calculate_best_move(
         self,
@@ -187,41 +168,39 @@ class Solver_Nightmare(Solver):
         # self.called_calculate += 1
         if game_state.proposal_used_this_round is None:
             working_cwa_set_convert_cache = dict()
-            (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+            cache_game_state = self.convert_working_gs_to_cache_gs(
+                self,
                 game_state,
-                self.all_cwa_bitsets,
                 working_cwa_set_convert_cache,
-                self.shift_amounts,
-                self.int_verifier_bit_mask,
             )
-            ###################################### DEBUGGING #################################################
-            # self._print_canonical_form_info(game_state, cache_game_state, permutation, max_num_forms=5)
-            ###################################### DEBUGGING #################################################
             result = self._evaluations_cache.get(cache_game_state.cwa_set)
             if result is not None:
                 # self.cache_hits += 1
                 return result
         else:
             # in num queries used this round is 1 or 2.
-            (cache_game_state, permutation) = self.convert_working_gs_to_cache_gs(
+            # NOTE: The repetitive calls to convert working gs function are necessary, as they use different
+            # convert_caches
+            cache_game_state = self.convert_working_gs_to_cache_gs(
+                self,
                 game_state,
-                self.all_cwa_bitsets,
                 working_cwa_set_convert_cache,
-                self.shift_amounts,
-                self.int_verifier_bit_mask,
             )
             result = self.lru_cache.get(cache_game_state)
             if result is not None:
                 return result
+        ######################################## DEBUGGING ###################################################
+        # self._print_canonical_form_info(game_state, cache_game_state, max_num_forms=500)
+        ######################################## DEBUGGING ###################################################
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return Solver.double_zero
         best_node_cost = Solver.initial_best_cost
         if game_state.proposal_used_this_round is None:
+            # don't do this until checked if one answer left, as you might not have to do this at all.
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
-            # WARN: line below is new and not fully tested/stepped through/debugged in nightmare mode.
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set) # FILTER
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
 
         found_moves = False
         best_move = None
@@ -285,13 +264,7 @@ class Solver_Nightmare(Solver):
         """
         A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
         """
-        cache_gs = self.convert_working_gs_to_cache_gs(
-            working_game_state,
-            self.all_cwa_bitsets,
-            dict(),
-            self.shift_amounts,
-            self.int_verifier_bit_mask
-        )[0] # TODO: delete the '[0]' when update to not calculate permutation anymore.
+        cache_gs = self.convert_working_gs_to_cache_gs(self, working_game_state, dict())
         return cache_gs
 
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
