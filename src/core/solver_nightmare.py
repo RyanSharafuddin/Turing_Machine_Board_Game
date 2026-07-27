@@ -254,16 +254,6 @@ class Solver_Nightmare(Solver):
         cache_gs = self.convert_working_gs_to_cache_gs(self, working_game_state, dict())
         return cache_gs
 
-    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
-        """
-        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
-
-        Returns
-        -------
-        (best_move, node_evaluation)
-        """
-        return self._evaluations_cache.get(working_game_state, default)
-
     def _filter_calculate_best_move(self, curr_working_gs):
         minimal_vs_list = _calculate_minimal_vs_list(
             self.num_rcs, curr_working_gs, self.full_cwas_list

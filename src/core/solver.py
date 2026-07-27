@@ -1,5 +1,4 @@
 import time, sys
-import numpy as np
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
@@ -411,6 +410,7 @@ class Solver:
         self._evaluations_cache[cache_game_state] = best_node_cost
         return best_node_cost
 
+    # Same for all solvers.
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
@@ -430,6 +430,7 @@ class Solver:
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
         self.post_filter_printing()
 
+    # Happens for all solvers; other solvers may add their own additional statements in their own versions.
     def post_filter_printing(self):
         """
         NOTE: happens even on solvers retrieved from pickles.
@@ -442,6 +443,7 @@ class Solver:
             f"{self.expected_cost[0]:0.3f} {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
         )
 
+    # May be overriden by other solvers.
     def post_solve_printing(self):
         """
         Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
@@ -477,22 +479,22 @@ class Solver:
                 )
         sys.stdout.flush()
 
+
+    ############################### SAME FOR ALL SOLVERS ###############################
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
         """
-        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
+        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache. Used on *post-filtered* caches.
 
         Returns
         -------
         (best_move, node_evaluation)
         """
-        #TODO cache_gs: take into account how to find a state in the cache and how to use the best move.
-        cache_game_state = self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
-        if cache_game_state not in self._evaluations_cache:
-            return default
-        evaluation_result = self._evaluations_cache[cache_game_state]
-        (best_move, node_evaluation) = (evaluation_result[0], evaluation_result[-1])
-        return (best_move, node_evaluation)
-
+        gs_in_cache = (
+            self._easy_working_gs_to_cache_gs(working_game_state)
+            if self.put_cache_gs_in_new_ev_cache
+            else working_game_state
+        )
+        return self._evaluations_cache.get(gs_in_cache, default)
     def get_move_mcost_gs_ncost_from_cache(self, working_game_state: Game_State, default=None):
         """
         Given a working game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py.
@@ -508,7 +510,6 @@ class Solver:
         gs_tuple = self.apply_move_to_state(best_move, working_game_state)
         constructed_answer = (best_move, best_mcost, gs_tuple, node_evaluation)
         return constructed_answer
-
     def apply_move_to_state(self, move, gs: Game_State) -> tuple[Game_State, Game_State]:
         """ WARN: Do not use this for anything performance sensitive. Return (gs_false, gs_true). Note: these are working states this function is dealing with."""
         (proposal, v_index) = move
@@ -533,13 +534,11 @@ class Solver:
             cwa_set=cwa_set_true
         )
         return((gs_false, gs_true))
-
     @staticmethod
     def does_move_cost_round(move, gs: Game_State):
         proposal = move[0]
         # if num_queries_this_round is 0, then gs.proposal_used.. should be None
         return(gs.proposal_used_this_round != proposal)
-
     def default_cwa_sort_key(self, full_cwa):
         """
         Sort by answer, then by the unique_ids of the combo.
@@ -559,11 +558,9 @@ class Solver:
         # sort the list in a consistent way so that printouts when debugging are consistent.
         full_cwa_list.sort(key=self.default_cwa_sort_key)
         return(full_cwa_list)
-
     def full_cwa_list_from_game_state(self, working_gs: Game_State):
         """ A convenience function for getting the full cwa list directly from a working game state """
         return(self.full_cwa_list_from_cwa_set(working_gs.cwa_set))
-
     def intersect_gscwa_qinfocwa(self, gs_cwa_set, q_info_cwa_set):
         """
         Given a working cwa_set from a game state (as opposed to a cache cwa_set) and a cwa_set from a q_info (either True or False), return a working cwa_set that could be used to construct the working game state that results from using the query info on the gs_cwa_set.
@@ -582,7 +579,6 @@ class Solver:
         """
         # working cwa_set representation_change
         return(gs_cwa_set & q_info_cwa_set)
-
     def print_cache_by_size(self):
         #TODO cache_gs: reconsider this function entirely in light of cache bitsets.
         for gs in self._evaluations_cache:
@@ -600,7 +596,6 @@ class Solver:
         for (size, num) in enumerate(l, start=1):
             console.print(f"{size:>{4},}: {num:>{len(f'{max(l):,}')},}", justify="center")
         console.rule()
-
     def print_eval_cache_stats(self):
         """ Prints the number of cwa_sets in the evaluations cache that are duplicated and wasting memory. """
         from pympler.asizeof import asizeof # only import this if using it.
@@ -638,14 +633,9 @@ class Solver:
         #     console.rule()
         #     for gs in gs_list:
         #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
+    ############################### SAME FOR ALL SOLVERS ###############################
 
-    def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
-        """
-        A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
-        """
-        return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
-
-
+    ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
     def _filter_cache(self):
         """
         Return a new cache that *only* contains the information needed to play the problem perfectly. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
@@ -665,6 +655,75 @@ class Solver:
         self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
         return filtered_cache
 
+    def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
+        if not self.exist_moves(curr_working_gs):
+            self.handle_delete_eval(curr_working_gs, curr_cache_gs)
+            curr_cache_gs = Game_State(
+                proposal_used_this_round=None,
+                num_queries_this_round=0,
+                cwa_set=curr_cache_gs.cwa_set
+            )
+        self._handle_state_helper(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache)
+
+    def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
+            prev_gs_eval = self.handle_delete_eval(curr_working_gs, curr_cache_gs)
+            current_gs_eval = self._filter_calculate_best_move(curr_working_gs)
+            self.filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
+            new_ev_cache[gs_to_put_in_cache] = (self.best_move, current_gs_eval)
+            (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
+            stack.append(gs_false)
+            stack.append(gs_true)
+
+    def _filter_cache_error_show(self, working_gs, cache_gs, message, end_program=False):
+        console.print(message)
+        sd.print_game_state(working_gs, "Working Game State")
+        try:
+            if cache_gs is not None:
+                sd.print_cache_game_state(cache_gs, title="Cache Game State")
+        except Exception:
+            pass
+        print(working_gs)
+        print(cache_gs)
+        if end_program:
+            console.print("Exiting.", style=config.BIG_WARN)
+            exit()
+
+    def validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
+        """
+        Note: expects the cache to be filtered to have 2-tups as cost. So, *post-filtered* cache.
+        """
+        first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
+        self.validate_fcache_helper(filtered_cache, first_state)
+
+    def validate_fcache_helper(self, fcache: dict, wgs: Game_State):
+        """
+        Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
+        """
+        if one_answer_left(self.full_cwas_list, wgs.cwa_set):
+            return Solver.double_zero # do not change
+        cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
+        (best_move, purported_cost) = fcache.get(cache_gs, (None, Solver.double_inf))
+        (gs_false, gs_true) = self.apply_move_to_state(best_move, wgs)
+        gsf_prob = len(gs_false.cwa_set) / len(wgs.cwa_set)
+        gst_prob = len(gs_true.cwa_set) / len(wgs.cwa_set)
+        p_tup = (gsf_prob, gst_prob)
+        fcost = self.validate_fcache_helper(fcache, gs_false)
+        tcost = self.validate_fcache_helper(fcache, gs_true)
+        cost_tup = (fcost, tcost)
+        mcost = (int(Solver.does_move_cost_round(best_move, wgs)), 1)
+        actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
+        self.validate_filter_compare_evals(purported_cost, actual_cost, wgs)
+        fcache[cache_gs] = (best_move, actual_cost)
+        return actual_cost
+    ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
+
+    ######################### MAY BE DIFFERENT B/T NIGHTMARE AND STANDARD #########################
+    def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
+        """
+        A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
+        """
+        return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
+
     def _filter_calculate_best_move(self, curr_working_gs):
         return self._calculate_best_move(
             qs_dict=self.qs_dict,
@@ -680,88 +739,95 @@ class Solver:
             return True
         return False
 
-    def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
-        if not self.exist_moves(curr_working_gs):
-            if curr_cache_gs not in self._evaluations_cache:
-                message = (
-                    "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache. Note: Change this if using a 'light' cache."
-                )
-                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
-            curr_cache_gs = Game_State(
-                proposal_used_this_round=None,
-                num_queries_this_round=0,
-                cwa_set=curr_cache_gs.cwa_set
+    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State):
+        """
+        Deletes the evaluation of the cache_gs from the cache if it is in the cache and returns the result. Displays warning messages as appropriate.
+        """
+        if cache_gs in self._evaluations_cache:
+            result = self._evaluations_cache[cache_gs]
+            del self._evaluations_cache[cache_gs]
+            return result
+        # not in cache:
+        console.print("WARN!!", style=config.BIG_WARN)
+        message = (
+            "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
+        )
+        self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
+        return None
+
+    def filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
+        """
+        Used on *pre-filter* costs.
+
+        Params
+        -----
+
+        old_eval: a cost
+            The old cost. May be None.
+
+        new_eval: a cost.
+            Guaranteed to not be None.
+
+        wgs: working Game_State
+
+        cgs: cache Game_State
+        """
+        if (old_eval is None):
+            return
+        (old_rounds, old_queries) = old_eval
+        (new_rounds, new_queries) = new_eval
+        if not solver_utils.fp_eq(old_rounds, new_rounds):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print(
+                "Expected the following two evaluations to be approximately equal, but their round costs are not even approximately equal! NOTE: This part of the function will need to change once use depth-pruning, as the new eval may be significantly lower than the old eval."
             )
-        self._handle_state_helper(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache)
+            console.print(f"old: {old_eval}")
+            console.print(f"new: {new_eval}")
+            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
+            return
+        if not solver_utils.fp_eq(old_queries, new_queries):
+            console.print("Warn:", style=config.SMALL_WARN)
+            print(
+                "Expected the following two evaluations to be approximately equal. While their round costs are approximately equal, their query costs are not. This is acceptable."
+            )
+            console.print(f"old: {old_eval}")
+            console.print(f"new: {new_eval}")
+            return
+        return
 
-    def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
-            previous_gs_evaluation_result = self._evaluations_cache.get(curr_cache_gs)
-            if previous_gs_evaluation_result is None:
-                message = (
-                    "The following game state should be on the path of the best game tree, but it is not present in the evaluations_cache. Note: Change this if using a 'light' cache."
-                )
-                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            del self._evaluations_cache[curr_cache_gs] # don't del if not present in light cache
-            current_gs_eval = self._filter_calculate_best_move(curr_working_gs)
-            # NOTE: may need to use floating point 'equal' here
-            if (current_gs_eval != previous_gs_evaluation_result):
-                console.print("current_gs_eval:", current_gs_eval)
-                console.print("previous_gs_eval:", previous_gs_evaluation_result)
-                console.print(
-                    "[pink]NOTE[/pink]: If the above two values are very close, should use floating point 'equal' here."
-                )
-                message = (
-                    "You should keep track of a state to parent[] list dict and update all parents' evaluations now and start over with filter cache."
-                )
-                self._filter_cache_error_show(curr_working_gs, curr_cache_gs, message)
-            new_ev_cache[gs_to_put_in_cache] = (self.best_move, current_gs_eval)
-            (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
-            stack.append(gs_false)
-            stack.append(gs_true)
+    def validate_filter_compare_evals(self, old_eval, new_eval, wgs: Game_State):
+        """
+        Although this function may look similar to self.filter_compare_evals, this one is ssed on *post-filter* costs, unlike the previous one.
 
-    def _filter_cache_error_show(self, working_gs, cache_gs, message):
-        console.print(message)
-        sd.print_game_state(working_gs, "Working Game State")
-        try:
-            sd.print_cache_game_state(cache_gs)
-        except Exception:
-            console.print("Cache game state:")
-            console.print(cache_gs)
-        console.print("Exiting.")
-        exit()
+        Params
+        -----
 
-    def validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
-        """
-        Note: expects the cache to be filtered to have 2-tups as cost. So, *post-filtered* cache.
-        """
-        first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
-        self.validate_fcache_helper(filtered_cache, first_state)
+        old_eval: a cost
+            The old cost. Guaranteed to not be None.
 
-    def validate_fcache_helper(self, fcache: dict, gs: Game_State):
+        new_eval: a cost.
+            Guaranteed to not be None.
+
+        wgs: working Game_State
         """
-        Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
-        """
-        if one_answer_left(self.full_cwas_list, gs.cwa_set):
-            return Solver.double_zero # do not change
-        cache_gs = self._easy_working_gs_to_cache_gs(gs) if self.put_cache_gs_in_new_ev_cache else gs
-        (best_move, purported_cost) = fcache.get(cache_gs, (None, Solver.double_inf))
-        (gs_false, gs_true) = self.apply_move_to_state(best_move, gs)
-        gsf_prob = len(gs_false.cwa_set) / len(gs.cwa_set)
-        gst_prob = len(gs_true.cwa_set) / len(gs.cwa_set)
-        p_tup = (gsf_prob, gst_prob)
-        fcost = self.validate_fcache_helper(fcache, gs_false)
-        tcost = self.validate_fcache_helper(fcache, gs_true)
-        cost_tup = (fcost, tcost)
-        mcost = (int(Solver.does_move_cost_round(best_move, gs)), 1)
-        actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
-        if not np.allclose(actual_cost, purported_cost, rtol=0, atol=config.A_TOL):
-            print("O noes! This cache is internally invalid! Exiting!")
-            sd.print_game_state(gs)
-            console.print(gs)
-            if best_move:
-                console.print("Purported best move:", display.get_move_text(best_move), end=" ")
-            console.print("\nPurported cost:", purported_cost, end=" ")
-            console.print("   Actual cost:", actual_cost, end=" ")
-            exit()
-        return purported_cost
+        (old_rounds, old_queries) = old_eval
+        (new_rounds, new_queries) = new_eval
+        if not solver_utils.fp_eq(old_rounds, new_rounds):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print(
+                "While validating filtered cache, expected the following two evaluations to be approximately equal, but their round costs are not even approximately equal! NOTE: This part of the function will need to change once use depth-pruning, as the new eval may be significantly lower than the old eval."
+            )
+            console.print(f"old: {old_eval}")
+            console.print(f"new: {new_eval}")
+            self._filter_cache_error_show(wgs, None, message="", end_program=False)
+            return
+        if not solver_utils.fp_eq(old_queries, new_queries):
+            console.print("Warn:", style=config.SMALL_WARN)
+            print(
+                "While validating filtered cache, expected the following two evaluations to be approximately equal. While their round costs are approximately equal, their query costs are not. This is acceptable."
+            )
+            console.print(f"old: {old_eval}")
+            console.print(f"new: {new_eval}")
+            return
+        return
+
