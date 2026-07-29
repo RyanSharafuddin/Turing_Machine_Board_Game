@@ -1,4 +1,6 @@
-import numpy as np
+import numpy as np # pyright: ignore[reportUnusedImport]
+from rich.style import Style
+
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
@@ -88,12 +90,12 @@ A_TOL                     = 1e-13 # should be a positive number close to 0, but 
 REL_TOL                   = 1e-9
 DISABLE_GC                = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES          = False # whether to cache the end states into the evaluations_cache
-STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
+STANDARD_BITSET_TYPE      = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
     # np.ndarray
 )
-NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
+NIGHTMARE_BITSET_TYPE     = (     # cache game state set type in standard mode. Choose 1.
     int
     # np.ndarray
 )
@@ -103,6 +105,8 @@ PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partit
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
+SMALL_WARN                 = Style.parse("red")
+BIG_WARN                   = Style.parse("b red")
 
 # Change Whether Debugging Information Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.

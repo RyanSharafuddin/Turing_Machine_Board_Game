@@ -334,13 +334,12 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
             )
     if (
         (previous_cost is not None) and
-        (not np.allclose(previous_cost, s.expected_cost, rtol=0, atol=A_TOL))
+        (not np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL))
     ):
-        # NOTE: If start storing approximations for solver nightmare (for example, depth-limited approximations), will have to get rid of or otherwise change this block.
+        console.print("Warn:", style=SMALL_WARN)
         console.print(
-            f"[red]WARN[/red]: This cost does not match up with the previous cost to solve the problem.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}. Exiting."
-            )
-        exit()
+            f"The cost on this solver run is not approximately equal to the cost on the pickled solver run. This may be acceptable.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}."
+        )
     if(bool(p_ids_to_delete) or (s.seconds_to_solve < previous_best) or (previous_cost is None)):
         print(f"Pickling time dict . . .")
         if ((s.seconds_to_solve < previous_best) or (previous_cost is None)):

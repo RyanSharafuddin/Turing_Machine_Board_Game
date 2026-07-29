@@ -1,7 +1,7 @@
 import math, itertools, copy
 import numpy as np
 from rich import progress
-from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
+from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
 from .config import A_TOL, REL_TOL
 from .hashable_numpy_array import Hashable_Numpy_Array
 
@@ -607,16 +607,11 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
     """
     (node_rounds, node_queries) = node_cost
     (threshold_rounds, threshold_queries) = corresponding_threshold
-    # NOTE: consider using np.isclose(node_cost, corresponding_threshold, rtol=0, atol=A_TOL)
-    # instead of what currently doing. Alternatively, consider using Python's built in
-    # math.isclose(node_rounds, threshold_rounds, rel_tol=0, abs_tol=A_TOL). They are different.
-    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand exactly how they differ.
-    # Also, if you use one of those, consider setting relative_tolerance to 1e-9 instead of 0.
-    # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
-    # (rounds_close_np, queries_close_np) = values_close
+    # NOTE: consider using np.isclose() instead of what currently doing.
+    # Alternatively, consider using Python's built in math.isclose(). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+    # Also, consider setting REL_TOL to 1e-9 instead of 0.
     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
-    # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
     if rounds_close_py:
         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
         if queries_close_py:
@@ -630,16 +625,11 @@ def roughly_gt_2tup(node_cost, corresponding_threshold):
     """
     (node_rounds, node_queries) = node_cost
     (threshold_rounds, threshold_queries) = corresponding_threshold
-    # NOTE: consider using np.isclose(node_cost, corresponding_threshold, rtol=0, atol=A_TOL)
-    # instead of what currently doing. Alternatively, consider using Python's built in
-    # math.isclose(node_rounds, threshold_rounds, rel_tol=0, abs_tol=A_TOL). They are different.
-    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand exactly how they differ.
-    # Also, if you use one of those, consider setting relative_tolerance to 1e-9 instead of 0.
-    # values_close = np.isclose(node_cost, corresponding_threshold, rtol=REL_TOL, atol=A_TOL)
-    # (rounds_close_np, queries_close_np) = values_close
+    # NOTE: consider using np.isclose() instead of what currently doing.
+    # Alternatively, consider using Python's built in math.isclose(). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+    # Also, consider setting REL_TOL to 1e-9 instead of 0.
     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    # If the assert below fails, the python isclose and numpy is close differ. Consider what to do then.
-    # assert ((rounds_close_py == rounds_close_np) and (queries_close_np == queries_close_py))
     if rounds_close_py:
         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
         if queries_close_py:
@@ -657,7 +647,7 @@ def fp_lt(a, b):
 
 def fp_eq(a, b):
     """
-    Returns True iff a is 'equal' to b.
+    Returns True iff a is 'equal' to b. a and b are single numbers.
     """
     return math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL)
 
