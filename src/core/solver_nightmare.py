@@ -251,16 +251,6 @@ class Solver_Nightmare(Solver):
         cache_gs = self.convert_working_gs_to_cache_gs(self, working_game_state, dict())
         return cache_gs
 
-    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
-        """
-        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
-
-        Returns
-        -------
-        (best_move, node_evaluation)
-        """
-        return self._evaluations_cache.get(working_game_state, default)
-
     def _filter_calculate_best_move(self, curr_working_gs):
         minimal_vs_list = _calculate_minimal_vs_list(
             self.num_rcs, curr_working_gs, self.full_cwas_list
@@ -289,26 +279,17 @@ class Solver_Nightmare(Solver):
             return True
         return False
 
-    def handle_delete_cache_state(self, cache_gs: Game_State):
-        """
-        Used on *pre-filter* cache. If the given cache_gs is in the cache, delete it from the cache. Otherwise, do nothing. Returns whether an error occurred. In the case of nightmare solver using a light cache, states might not be in the cache, so return False.
-        """
-        if ((cache_gs.proposal_used_this_round is None) and (cache_gs.cwa_set in self._evaluations_cache)):
+    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State):
+        if (cache_gs.proposal_used_this_round is not None):
+            return None
+        if (cache_gs.cwa_set in self._evaluations_cache):
+            result = self._evaluations_cache[cache_gs.cwa_set]
             del self._evaluations_cache[cache_gs.cwa_set]
-        # TODO: once start using an LRU cache for game states with 1 or 2 queries used this round, fill in the line below.
-        # elif ((cache_gs.proposal_used_this_round is not None) and (cache_gs in INSERT_LRU_1_AND_2_Q_CACHE))
-        return False
-
-    def handle_get_cache_state_eval(self, cache_gs: Game_State):
-        """
-        Returns
-        -------
-        (cost, error: bool):
-            cost: the evaluation cost of the cache state, or None if it's not in the cache.
-
-            error: a boolean that is True if a state that was expected to be in the cache is not there; False otherwise.
-        """
-        if (cache_gs.proposal_used_this_round is None):
-            return (self._evaluations_cache.get(cache_gs.cwa_set), False)
-        # TODO: once start using an LRU cache for game states w/ 1 or 2 queries used this round, delete the line below and replace with a line that looks for the cache states in the LRU cache.
-        return (None, False)
+            return result
+        # not in cache:
+        console.print("WARN!!", style=config.BIG_WARN)
+        message = (
+            "The following begin-round game state was expected to be in the light cache, but it is not present in said cache."
+        )
+        self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
+        return None
