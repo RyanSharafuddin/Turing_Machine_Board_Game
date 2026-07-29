@@ -618,7 +618,7 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
         return (node_queries > threshold_queries)
     return (node_rounds > threshold_rounds)
 
-def roughly_geq_2tup(node_cost, corresponding_threshold):
+def roughly_gt_2tup(node_cost, corresponding_threshold):
     """
     Returns True if `node_cost` > `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
     """
