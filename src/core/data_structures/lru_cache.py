@@ -27,6 +27,9 @@ class LRUCache:
         """
         del self._cache[item]
 
+    def clear(self):
+        self._cache.clear()
+
     # Below only used for testing purposes.
     # def display(self):
     #     for (k, v) in self._cache.items():

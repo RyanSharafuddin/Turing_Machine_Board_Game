@@ -260,6 +260,11 @@ class Solver_Nightmare(Solver):
             self.lru_cache.put(cache_game_state, best_node_cost)
         return best_node_cost
 
+    def _filter_cache(self):
+        filtered_cache = super()._filter_cache()
+        self.lru_cache.clear()
+        return filtered_cache
+
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """
         A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
