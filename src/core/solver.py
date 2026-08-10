@@ -16,16 +16,15 @@ def one_answer_left(full_cwas_list, working_cwa_set):
     # cwa_set representation_change
     # TODO: see if using answer block intersection helps or hurts.
     # TODO: see which of sorting/not sorting the full cwas list in solver_utils.make_full_cwas_list is better.
-    seen_answer_set = set()
     # See comments in definitions.Game_State for the format game_state_cwa_set is in.
     # May not be a literal Python set object.
     iterator = iter(working_cwa_set)
     zeroth_cwa_representation = next(iterator)
-    seen_answer_set.add(full_cwas_list[zeroth_cwa_representation][-1])
+    zeroth_answer = full_cwas_list[zeroth_cwa_representation][-1]
     current_cwa_representation = next(iterator, None)
 
-    while(current_cwa_representation is not None):
-        if(full_cwas_list[current_cwa_representation][-1] not in seen_answer_set):
+    while (current_cwa_representation is not None):
+        if (full_cwas_list[current_cwa_representation][-1] != zeroth_answer):
             return False
         current_cwa_representation = next(iterator, None)
     return True
