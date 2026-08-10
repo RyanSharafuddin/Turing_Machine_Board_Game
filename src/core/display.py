@@ -1354,7 +1354,7 @@ class Solver_Displayer:
         (min_depth_move, (md_rounds, md_qs, md_depth)) = md_m_rqd
         console.print(message)
         console.print(
-            f"[red]WARN![/red] The smallest depth is {md_depth}, but the lowest cost move has a depth of {lcm_depth}!"
+            f"[hot_pink]NOTE:[/hot_pink] The smallest depth is {md_depth}, but the lowest cost move has a depth of {lcm_depth}!"
         )
         t = Table(
             box=box.SQUARE
@@ -1699,4 +1699,3 @@ def print_best_move_tree(gs, show_combos, solver):
     Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)
     table_tree = PrettyPrintTree(_get_children, _node_to_str_table, color='')
     table_tree(tree)
-

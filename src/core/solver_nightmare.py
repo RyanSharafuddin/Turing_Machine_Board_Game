@@ -2,7 +2,6 @@ import numpy as np
 from .solver import *
 
 def _calculate_minimal_vs_list(num_rcs, game_state: Game_State, full_cwas_list) -> list[set[int]]:
-    # TODO: print this out to make sure it works
     minimal_vs_list: list[set[int]] = []
     r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
         full_cwas_list,
@@ -45,6 +44,8 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
+        # NOTE: not using round depth limiting yet.
+        self._cost_calculator = solver_utils.calculate_expected_cost
         # NOTE: below is only for testing purposes.
         testing_stuff(self) # TODO: delete
 
@@ -56,7 +57,6 @@ class Solver_Nightmare(Solver):
             minimal_vs_list: list[set[int]],
             force_set_intersect=False
         ):
-        # TODO: step through with a debugger to understand how the minimal vs_list is working.
         # cwa_set representation_change Will have to implement a function to get length of set
         num_combos_currently = len(game_state.cwa_set)
         if game_state.proposal_used_this_round is None:
@@ -252,18 +252,7 @@ class Solver_Nightmare(Solver):
         """
         A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
         """
-        cache_gs = self.convert_working_gs_to_cache_gs(self, working_game_state, dict())
-        return cache_gs
-
-    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
-        """
-        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
-
-        Returns
-        -------
-        (best_move, node_evaluation)
-        """
-        return self._evaluations_cache.get(working_game_state, default)
+        return self.convert_working_gs_to_cache_gs(self, working_game_state, dict())
 
     def initial_calc_best_move(self):
         """
@@ -273,27 +262,28 @@ class Solver_Nightmare(Solver):
             self.num_rcs, self.initial_game_state, self.full_cwas_list
         )
         self._calculate_best_move(
-            qs_dict=self.qs_dict,
-            game_state=self.initial_game_state,
-            minimal_vs_list=minimal_vs_list,
-            depth=0,
-            working_cwa_set_convert_cache=None
+            qs_dict                       = self.qs_dict,
+            game_state                    = self.initial_game_state,
+            minimal_vs_list               = minimal_vs_list,
+            depth                         = 0,
+            working_cwa_set_convert_cache = None
         )
-
-    def _experiment(self):
-        return
 
     def _filter_calculate_best_move(self, curr_working_gs):
         minimal_vs_list = _calculate_minimal_vs_list(
             self.num_rcs, curr_working_gs, self.full_cwas_list
         )
         return self._calculate_best_move(
-            qs_dict=self.qs_dict,
-            game_state=curr_working_gs,
-            minimal_vs_list=minimal_vs_list,
-            depth=0,
-            working_cwa_set_convert_cache=dict()
+            qs_dict                       = self.qs_dict,
+            game_state                    = curr_working_gs,
+            minimal_vs_list               = minimal_vs_list,
+            depth                         = 0,
+            working_cwa_set_convert_cache = dict()
         )
+
+    def new_res_to_og_res(self, new_cache_result):
+        # NOTE: not using round depth limiting yet.
+        return new_cache_result
 
     def exist_moves(self, curr_working_gs):
         """
@@ -314,5 +304,29 @@ class Solver_Nightmare(Solver):
     def _easy_get_list_move_infos(self, working_gs):
         min_vs_list = [set([i]) for i in range(self.num_rcs)]
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, min_vs_list, force_set_intersect=True))
+
+    def filter_compare_evals(self, old_eval, new_eval, wgs, cgs):
+        # NOTE: not using round depth limiting yet.
+        if not solver_utils.fp_eq_tup(old_eval, new_eval):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print("The new evaluation is not approximately equal to the old one!")
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
+            self._filter_cache_error_show(wgs, cgs, "", end_program=False)
+
+    def validate_filter_compare_evals(self, old_eval, new_eval, wgs):
+        # NOTE: not using round depth limiting yet.
+        if not solver_utils.fp_eq_tup(old_eval, new_eval):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print("The new evaluation is not approximately equal to the old one!")
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
+            self._filter_cache_error_show(wgs, None, "", end_program=False)
+
+    def move_rqd_tups_from_working_gs(self, working_gs, sort=True):
+        # NOTE: not using round depth limiting yet.
+        return []
+
+    def _experiment(self):
+        # NOTE: not using round depth limiting yet.
+        return
 
     # post_solve_printing empty for now?

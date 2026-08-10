@@ -1,4 +1,6 @@
-import numpy as np
+import numpy as np # pyright: ignore[reportUnusedImport]
+from rich.style import Style
+
 # see https://www.eggradients.com/shades-of-color or https://rgbcolorpicker.com/random/true
 # also see https://rich.readthedocs.io/en/latest/appendix/colors.html#appendix-colors for more colors
 COLORS = [
@@ -82,20 +84,11 @@ PRINT_COMBOS          = True  # print remaining combos after every query in play
 
 # Solver workings
 A_TOL                        = 1e-8
-# INITIAL_EVAL_DEPTH           = float("inf")
-INITIAL_EVAL_DEPTH           = 4
+REL_TOL                      = 0
+INITIAL_EVAL_DEPTH           = float("inf")
+# INITIAL_EVAL_DEPTH           = 4
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
-S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
-
-}
-S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
-N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in nightmare mode
-    4: 4,
-    5: 7,
-    6: 7,
-}
-N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
@@ -111,6 +104,18 @@ PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partit
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
+SMALL_WARN                 = Style.parse("hot_pink")
+BIG_WARN                   = Style.parse("b red")
+S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
+
+}
+S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
+N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in nightmare mode
+    4: 4,
+    5: 7,
+    6: 7,
+}
+N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.

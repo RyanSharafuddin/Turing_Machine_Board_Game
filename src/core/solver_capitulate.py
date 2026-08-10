@@ -10,6 +10,7 @@ class Solver_Capitulate(Solver):
         Solver.__init__(self, problem)
         self.num_concurrent_tasks = 0
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
+        self.put_cache_gs_in_new_ev_cache   = False
 
     def _choose_best_move_depth_one(self, move_infos:list):
         # cwa_set representation_change TODO!!
@@ -83,16 +84,6 @@ class Solver_Capitulate(Solver):
         answer = (best_move, actual_expected_cost)
         new_ev_cache[game_state] = answer
         return answer
-
-    def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
-        """
-        Given a working game state, return the best move, and the cost of the game_state, or default if the game state is not in the cache. This function helps get_move_mcost_gs_ncost_from_cache.
-
-        Returns
-        -------
-        (best_move, node_evaluation)
-        """
-        return self._evaluations_cache.get(working_game_state, default)
 
     def _filter_cache(self):
         filtered_cache = dict()

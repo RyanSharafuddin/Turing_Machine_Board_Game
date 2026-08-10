@@ -1,9 +1,9 @@
 import math, itertools, copy
 import numpy as np
 from rich import progress
-from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console # TODO: delete console
+from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
+from .config import REL_TOL, A_TOL
 from .hashable_numpy_array import Hashable_Numpy_Array
-from .config import A_TOL
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
@@ -610,44 +610,10 @@ def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
     # TODO: is the below line faster than using the max() function?
     worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
     return (expected_r_cost, expected_q_cost, worst_depth)
-# def calculate_expected_with_depth_and_evald_cost(move_cost, probs, gss_costs):
-#     """
-#     Expects and returns cost tuples in form: ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
-#     """
-#     (mcost_rounds, mcost_queries) = move_cost
-#     (p_false, p_true) = probs
-#     (
-#         ((gsf_round_cost, gsf_query_cost, gsf_depth), gsf_evald_depth),
-#         ((gst_round_cost, gst_query_cost, gst_depth), gst_evald_depth)
-#     ) = gss_costs
-#     expected_r_cost = mcost_rounds + (p_false * gsf_round_cost) + (p_true * gst_round_cost)
-#     expected_q_cost = mcost_queries + (p_false * gsf_query_cost) + (p_true * gst_query_cost)
-#     worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
-#     evald_depth = min(gsf_evald_depth, gst_evald_depth)
-#     return ((expected_r_cost, expected_q_cost, worst_depth), evald_depth)
-
-def new_res_to_og_res(new_cache_result):
-    """
-    Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
-    """
-    ((avg_rounds, avg_queries, worst_case_depth), evald_depth) = new_cache_result
-    return (avg_rounds, avg_queries)
 
 def rqd_to_str(rqd):
     (r, q, d) = rqd
     return f"({r:0.3f}, {q:0.3f}, max_depth: {d:>3})"
-
-def fp_2tup_gt(a, b):
-    """
-    Return True if 2-tuple a > b by A_TOL.
-    """
-    if (abs(a[0] - b[0]) < A_TOL):
-        # rounds roughly equal
-        if (abs(a[1] - b[1]) < A_TOL):
-            # queries roughly equal
-            return False
-        return (a[1] > b[1])
-    return (a[0] > b[0])
 
 def overall_depth_handler(move_rqd_tups:list):
     """
@@ -674,8 +640,101 @@ def overall_depth_handler(move_rqd_tups:list):
     (min_depth_move, (md_rounds, md_qs, md_depth)) = move_rqd_tups[min_depth_index]
     is_counterexample = (
         (lcm_depth > md_depth) and
-        fp_2tup_gt((md_rounds, md_qs), (lcm_rounds, lcm_qs))
+        roughly_gt_2tup((md_rounds, md_qs), (lcm_rounds, lcm_qs))
     )
     depth_diff = lcm_depth - md_depth
     avg_cost_diff = (md_rounds - lcm_rounds, md_qs - lcm_qs)
     return (is_counterexample, min_depth_move, depth_diff, avg_cost_diff, min_depth_index)
+
+def roughly_geq_2tup(node_cost, corresponding_threshold):
+    """
+    Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+    """
+    (node_rounds, node_queries) = node_cost
+    (threshold_rounds, threshold_queries) = corresponding_threshold
+    # NOTE: consider using np.isclose() instead of what currently doing.
+    # Alternatively, consider using Python's built in math.isclose(). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+    # Also, consider setting REL_TOL to 1e-9 instead of 0.
+    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+    if rounds_close_py:
+        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+        if queries_close_py:
+            return True
+        return (node_queries > threshold_queries)
+    return (node_rounds > threshold_rounds)
+
+def roughly_gt_2tup(node_cost, corresponding_threshold):
+    """
+    Returns True if `node_cost` > `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+    """
+    (node_rounds, node_queries) = node_cost
+    (threshold_rounds, threshold_queries) = corresponding_threshold
+    # NOTE: consider using np.isclose() instead of what currently doing.
+    # Alternatively, consider using Python's built in math.isclose(). They are different.
+    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+    # Also, consider setting REL_TOL to 1e-9 instead of 0.
+    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+    if rounds_close_py:
+        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+        if queries_close_py:
+            return False
+        return (node_queries > threshold_queries)
+    return (node_rounds > threshold_rounds)
+
+def fp_lt(a, b):
+    """
+    Returns True if a is *strictly floating point less* than b. Note that if they are equal or 'close', returns False.
+    """
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
+        return False
+    return (a < b)
+
+def fp_eq(a, b):
+    """
+    Returns True iff a is 'equal' to b. a and b are single numbers.
+    """
+    return math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL)
+
+def fp_eq_tup(a, b):
+    """
+    Returns True if a is approximately equal to b, where a and b are 2-tuples.
+
+    Params
+    ------
+    a: tuple [number, number]
+
+    b: tuple [number, number]
+    """
+    return (
+        math.isclose(a[0], b[0], rel_tol=REL_TOL, abs_tol=A_TOL) and
+        math.isclose(a[1], b[1], rel_tol=REL_TOL, abs_tol=A_TOL)
+    )
+    # return np.allclose(a, b, rtol=REL_TOL, atol=A_TOL)
+
+def fp_leq(a, b):
+    """
+    floating point less than or equal
+    """
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
+        return True
+    return (a < b)
+
+def fp_cmp(a, b):
+    """
+    Params
+    ------
+    a: float
+
+    b: float
+
+    Returns
+    -------
+    (less_than, equal):
+        less_than is True if a is 'less than' b
+
+        equal is true if a is 'equal' to b
+    """
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
+        return (False, True)
+    return ((a < b), False)
