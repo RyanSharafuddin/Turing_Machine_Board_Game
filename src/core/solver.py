@@ -358,7 +358,8 @@ class Solver:
             game_state: Game_State,
             depth=0,
 
-            round_depth = inf
+            round_depth = inf,
+            check_stuff = True,
         ):
         """
         Return (cost_tup, worst_round_depth)
@@ -369,15 +370,26 @@ class Solver:
         if (result[1] >= round_depth):
             # self.cache_hits += 1
             return result
-        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+        if check_stuff and one_answer_left(self.full_cwas_list, game_state.cwa_set):
             # if config.CACHE_END_STATES:
             #     self._evaluations_cache[cache_game_state] = self.end_game_eval
             return self.end_game_eval
         is_begin_round_state = game_state.proposal_used_this_round is None
         if is_begin_round_state:
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
+            if check_stuff:
+                qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
             # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
+            if (round_depth > 1):
+                (depth_one_rqd, depth_one_evdepth) = self._calculate_best_move(
+                    qs_dict,
+                    game_state,
+                    depth + 1,
+                    round_depth = 1,
+                    check_stuff = False
+                )
+                if (depth_one_rqd[0] == 1):
+                    return (depth_one_rqd, depth_one_evdepth)
             if (round_depth == 0):
                 # TODO: consider not storing this result in the cache (but still return worst eval)
                 # Should save some memory and cost very little time to not store this.
@@ -387,6 +399,8 @@ class Solver:
         best_node_cost_rqd = self.worst_eval_no_evdepth
         found_moves = False
         min_round_depth = self.inf
+        evdepth_infinity = False
+        best_move = None # NOTE: keep this, b/c if there are moves, but none of them are evaluated deeply enough to yield an answer, then the line that assigns to self.best_move will reference best_move before the latter has been assigned to.
         # move_rqd_tups = [] # TODO: delete
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
@@ -425,15 +439,16 @@ class Solver:
             if(node_cost_rqd < best_node_cost_rqd):
                 best_node_cost_rqd = node_cost_rqd
                 best_move = move
-                if((node_cost_rqd[0] == is_begin_round_state) and (node_cost_rqd[1] == 1)):
-                    # WARN: be sure not to mix begin-round-early moves w/regular moves for this prune.
-                    min_round_depth = self.inf
-                    break
+                if (node_cost_rqd[0] == is_begin_round_state):
+                    evdepth_infinity = True
+                    if (node_cost_rqd[1] == 1):
+                        break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         if found_moves:
-            best_node_cost = (best_node_cost_rqd, min_round_depth + is_begin_round_state)
+            evdepth = inf if evdepth_infinity else min_round_depth + is_begin_round_state
+            best_node_cost = (best_node_cost_rqd, evdepth)
             self.best_move = best_move
         else:
             new_gs = Game_State(
@@ -883,12 +898,12 @@ class Solver:
             round_depth = config.INITIAL_EVAL_DEPTH,
         )
 
-    def _filter_calculate_best_move(self, curr_working_gs):
+    def _filter_calculate_best_move(self, curr_working_gs, round_depth=config.INITIAL_EVAL_DEPTH):
         return self._calculate_best_move(
             qs_dict     = self.qs_dict,
             game_state  = curr_working_gs,
             depth       = 0,
-            round_depth = config.INITIAL_EVAL_DEPTH
+            round_depth = round_depth
             # TODO: Think about whether a value of 1 works here.
             # I don't think it does, due to pruning. Consider tracking the evdepth to go in the stack in filter cache and passing it as an argument to this function.
         )
@@ -994,7 +1009,9 @@ class Solver:
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
 
-    def move_rqd_tups_from_working_gs(self, working_gs: Game_State, sort=True):
+    def move_rqd_tups_from_working_gs(
+            self, working_gs: Game_State, sort=True, round_depth=config.INITIAL_EVAL_DEPTH
+        ):
         """
         Given a working game state, returns `(move_rqd_tups, move_infos)`. WARN: do not use for performance-sensitive calculations. Used on *pre-filter* cache.
 
@@ -1016,8 +1033,8 @@ class Solver:
         move_infos = self._easy_get_list_move_infos(working_gs)
         for mi in move_infos:
             (move, mcost, (gsf, gst), p_tup) = mi
-            (false_rqd, false_evdepth) = self._filter_calculate_best_move(gsf)
-            (true_rqd, true_evdepth) = self._filter_calculate_best_move(gst)
+            (false_rqd, false_evdepth) = self._filter_calculate_best_move(gsf, round_depth)
+            (true_rqd, true_evdepth) = self._filter_calculate_best_move(gst, round_depth)
             move_rqd = self._cost_calculator(mcost, p_tup, (false_rqd, true_rqd))
             move_rqd_tups.append((move, move_rqd))
         if (sort and bool(move_rqd_tups)):
@@ -1031,7 +1048,8 @@ class Solver:
         sd = testing_stuff(self)
         (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
             self.initial_game_state,
-            sort=True
+            sort=True,
+            round_depth=config.INITIAL_EVAL_DEPTH - 1
         )
         movrqd_filtered_to_unique = []
         seen_rqds = set()
