@@ -156,6 +156,7 @@ class Solver:
         "put_cache_gs_in_new_ev_cache",
 
         "_estimate_move_info_value",
+
     )
 
     initial_best_cost = (float('inf'), float('inf'))
@@ -433,8 +434,9 @@ class Solver:
         """
         Returns
         -------
-        ((r, q), pruned):
-            pruned: If True, none of the moves on this state lead to an average cost below the vertical_prune_threshold. In this case, the (r, q) is a lower bound. That is, the real answer >= (r, q), rather than being equal to it.
+        ((r, q), pruned, lower_bound):
+            pruned: If True, none of the moves on this state lead to an average cost below the vertical_prune_threshold.
+            lower_bound: if True, the real answer is >= to this answer. If False, the real answer = this answer.
         """
         # _evaluations_cache contains ((r, q), lower_bound). If lower_bound False, answer is exact, otherwise, real answer >= lower_bound.
         # self.called_calculate += 1
@@ -444,20 +446,19 @@ class Solver:
             # self.cache_hits += 1
             (rq, lower_bound) = result
             pruned = solver_utils.roughly_gt_2tup(rq, vertical_prune_threshold)
-            # TODO: consider differentiating b/t pruned and lower_bound. i.e. if an answer is exact, but it's also above the vertical_prune_threshold, you can record this information by returning 2 booleans: 1 for if it's exact, and another for if it's pruned.
             if (pruned or (not lower_bound)):
-                return (rq, pruned)
+                return (rq, pruned, lower_bound)
 
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             pruned = solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold)
-            return (Solver.double_zero, pruned)
+            return (Solver.double_zero, pruned, False)
 
         is_begin_round = int(game_state.proposal_used_this_round is None)
         (vertical_prune_rounds, vertical_prune_queries) = vertical_prune_threshold
         (vpr_lt_begin_round, vpr_eq_begin_round) = solver_utils.fp_cmp(vertical_prune_rounds, is_begin_round)
         vpq_lt_1 = solver_utils.fp_lt(vertical_prune_queries, 1)
         if vpr_lt_begin_round or (vpr_eq_begin_round and vpq_lt_1):
-            return ((is_begin_round, 1), True)
+            return ((is_begin_round, 1), True, True)
         if is_begin_round:
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
@@ -481,17 +482,19 @@ class Solver:
                 vertical_prune_threshold_nodes,
                 false_p
             )
-            (false_rq, false_pruned) = self._calculate_best_move(
+            (false_rq, false_pruned, false_lower_bound) = self._calculate_best_move(
                 qs_dict,
                 gs_tup[0],
                 depth+1,
                 vertical_prune_threshold_false
             )
+            assert  (not ((not false_pruned) and false_lower_bound))
             if false_pruned:
                 if not beat_vertical_prune_threshold:
                     cost_just_false = self._cost_calculator(mcost, p_tup, (false_rq, Solver.double_zero))
                     if solver_utils.roughly_gt_2tup(best_node_cost, cost_just_false):
                         best_node_cost = cost_just_false
+                        best_node_cost_not_exact = True # not going to calculate the cost of the true state
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -504,23 +507,26 @@ class Solver:
                 vertical_prune_threshold_true_before_divide,
                 true_p
             )
-            (true_rq, true_pruned) = self._calculate_best_move(
+            (true_rq, true_pruned, true_lower_bound) = self._calculate_best_move(
                 qs_dict,
                 gs_tup[1],
                 depth+1,
                 vertical_prune_threshold_true
             )
+            assert  (not ((not true_pruned) and true_lower_bound))
             gss_costs = (false_rq, true_rq)
             if true_pruned:
                 if not beat_vertical_prune_threshold:
                     node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
                     if solver_utils.roughly_gt_2tup(best_node_cost, node_cost_tup):
                         best_node_cost = node_cost_tup
+                        best_node_cost_not_exact = (false_lower_bound or true_lower_bound)
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             best_node_cost = node_cost_tup
+            best_node_cost_not_exact = False
             best_move = move
             beat_vertical_prune_threshold = True
             vertical_prune_threshold = best_node_cost
@@ -541,7 +547,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            (best_node_cost, pruned) = self._calculate_best_move(
+            (best_node_cost, pruned, best_node_cost_not_exact) = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
                 depth=depth+1,
@@ -561,8 +567,8 @@ class Solver:
         #         # breakpoint here to see if there are situations where ending the round early is better.
         #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
         #         best_node_cost = end_round_early_result
-        answer = (best_node_cost, pruned)
-        self._evaluations_cache[cache_game_state] = answer
+        answer = (best_node_cost, pruned, best_node_cost_not_exact)
+        self._evaluations_cache[cache_game_state] = (best_node_cost, best_node_cost_not_exact)
         return answer
 
     # Same for all solvers.
@@ -880,7 +886,7 @@ class Solver:
         """
         Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
         """
-        ((r, q), pruned) = new_cache_result
+        ((r, q), pruned, lower_bound) = new_cache_result
         return (r, q)
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
@@ -911,7 +917,7 @@ class Solver:
         if cache_gs in self._evaluations_cache:
             result = self._evaluations_cache[cache_gs]
             del self._evaluations_cache[cache_gs]
-            return result
+            return self.convert_cache_eval_to_filter_call_eval(result)
         # not in cache:
         console.print("WARN!!", style=config.BIG_WARN)
         message = (
@@ -937,14 +943,21 @@ class Solver:
 
         cgs: cache Game_State
         """
+        ((new_rounds, new_queries), t_pruned, t_lower_bound) = new_eval
+        if (t_pruned or t_lower_bound):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print("New evaluation is pruned or lower bound!")
+            console.print(f"new: {new_eval}")
+            self._filter_cache_error_show(wgs, cgs, message="", end_program=True)
+            return
+
         if (old_eval is None):
             return
-        ((old_rounds, old_queries), f_pruned) = old_eval
-        ((new_rounds, new_queries), t_pruned) = new_eval
-        if (t_pruned or f_pruned):
+        ((old_rounds, old_queries), f_pruned, f_lower_bound) = old_eval
+        if (t_pruned or f_pruned or t_lower_bound or f_lower_bound):
             console.print("WARN!!", style=config.BIG_WARN)
             print(
-                "While filtering the cache, the program told you the best move is to do something that led to a 'pruned' response."
+                "While filtering the cache, the program told you the best move is to do something that led to a 'pruned' or inexact (lower_bound) response."
             )
             console.print(f"old: {old_eval}")
             console.print(f"new: {new_eval}")
@@ -1004,4 +1017,9 @@ class Solver:
             console.print(f"new: {new_eval}")
             return
         return
+
+    def convert_cache_eval_to_filter_call_eval(self, cache_item):
+        (rq, lower_bound) = cache_item
+        pruned = False
+        return (rq, pruned, lower_bound)
 
