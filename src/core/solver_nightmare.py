@@ -167,7 +167,8 @@ class Solver_Nightmare(Solver):
         working_cwa_set_convert_cache = None,
         vertical_prune_threshold = Solver.initial_best_cost
     ):
-        if game_state.proposal_used_this_round is None:
+        is_begin_round = int(game_state.proposal_used_this_round is None)
+        if is_begin_round:
             working_cwa_set_convert_cache = dict()
 
         # self.called_calculate += 1
@@ -182,31 +183,24 @@ class Solver_Nightmare(Solver):
         result = self._evaluations_cache.get(cache_game_state, None)
         if result is not None:
             # self.cache_hits += 1
-            if solver_utils.roughly_gt_2tup(result, vertical_prune_threshold):
-                return Solver.initial_best_cost
-            return result
-            # return result # NOTE: could return a value > prune_threshold
+            (rq, lower_bound) = result
+            pruned = solver_utils.roughly_gt_2tup(rq, vertical_prune_threshold)
+            # TODO: see corresponding note in standard solver.
+            if (pruned or (not lower_bound)):
+                return (rq, pruned)
+
+
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            if solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold):
-                return Solver.initial_best_cost
-            return Solver.double_zero
-            # return Solver.double_zero # NOTE: could return a value > prune_threshold
+            pruned = solver_utils.roughly_gt_2tup(Solver.double_zero, vertical_prune_threshold)
+            return (Solver.double_zero, pruned)
 
         (vertical_prune_rounds, vertical_prune_queries) = vertical_prune_threshold
-        (vpr_lt_0, vpr_eq_0) = solver_utils.fp_cmp(vertical_prune_rounds, 0)
+        (vpr_lt_begin_round, vpr_eq_begin_round) = solver_utils.fp_cmp(vertical_prune_rounds, is_begin_round)
         vpq_lt_1 = solver_utils.fp_lt(vertical_prune_queries, 1)
-        if vpr_lt_0:
-            return Solver.initial_best_cost
-            # return (int(game_state.proposal_used_this_round is None), 1)
+        if vpr_lt_begin_round or (vpr_eq_begin_round and vpq_lt_1):
+            return ((is_begin_round, 1), True)
 
-        if (vpr_eq_0 and vpq_lt_1):
-            return Solver.initial_best_cost
-            # return (int(game_state.proposal_used_this_round is None), 1)
-        (vpr_lt_1, vpr_eq_1) = solver_utils.fp_cmp(vertical_prune_rounds, 1)
-
-        if game_state.proposal_used_this_round is None:
-            if (vpr_lt_1 or (vpr_eq_1 and vpq_lt_1)):
-                return Solver.initial_best_cost
+        if is_begin_round:
             minimal_vs_list = _calculate_minimal_vs_list(
                 self.num_rcs, game_state, self.full_cwas_list
             )
@@ -214,23 +208,23 @@ class Solver_Nightmare(Solver):
 
         best_node_cost = Solver.initial_best_cost
         beat_vertical_prune_threshold = False
-        best_move = None
         move_infos = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
         exist_non_begin_round_moves = bool(move_infos)
+        # TODO: test whether reordering saves or wastes time.
         self._reorder_move_infos_list(move_infos)
-        # TODO: check that the first move_info has the lowest estimated cost heuristic here.
         self.tasks_initialize(depth, move_infos)
         for move_info in move_infos:
             (move, mcost, gs_tup, p_tup) = move_info
             (false_p, true_p) = p_tup
             vertical_prune_threshold_nodes = (
-                vertical_prune_threshold[0] - mcost[0],
+                vertical_prune_threshold[0] - is_begin_round,
                 vertical_prune_threshold[1] - 1
             )
             vertical_prune_threshold_false = solver_utils.divide_cost_by_probability(
-                vertical_prune_threshold_nodes, false_p
+                vertical_prune_threshold_nodes,
+                false_p
             )
-            gs_false_node_cost = self._calculate_best_move(
+            (false_rq, false_pruned) = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=gs_tup[0],
                 minimal_vs_list=minimal_vs_list,
@@ -238,19 +232,24 @@ class Solver_Nightmare(Solver):
                 working_cwa_set_convert_cache=working_cwa_set_convert_cache,
                 vertical_prune_threshold=vertical_prune_threshold_false
             )
-            if (gs_false_node_cost == Solver.initial_best_cost):
+            if false_pruned:
+                if not beat_vertical_prune_threshold:
+                    cost_just_false = self._cost_calculator(mcost, p_tup, (false_rq, Solver.double_zero))
+                    if solver_utils.roughly_gt_2tup(best_node_cost, cost_just_false):
+                        best_node_cost = cost_just_false
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
 
             vertical_prune_threshold_true_before_divide = (
-                vertical_prune_threshold_nodes[0] - (false_p * gs_false_node_cost[0]),
-                vertical_prune_threshold_nodes[1] - (false_p * gs_false_node_cost[1])
+                vertical_prune_threshold_nodes[0] - (false_p * false_rq[0]),
+                vertical_prune_threshold_nodes[1] - (false_p * false_rq[1])
             )
             vertical_prune_threshold_true = solver_utils.divide_cost_by_probability(
-                vertical_prune_threshold_true_before_divide, true_p
+                vertical_prune_threshold_true_before_divide,
+                true_p
             )
-            gs_true_node_cost = self._calculate_best_move(
+            (true_rq, true_pruned) = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=gs_tup[1],
                 minimal_vs_list=minimal_vs_list,
@@ -258,11 +257,15 @@ class Solver_Nightmare(Solver):
                 working_cwa_set_convert_cache=working_cwa_set_convert_cache,
                 vertical_prune_threshold=vertical_prune_threshold_true
             )
-            if (gs_true_node_cost == Solver.initial_best_cost):
+            gss_costs = (false_rq, true_rq)
+            if true_pruned:
+                if not beat_vertical_prune_threshold:
+                    node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
+                    if solver_utils.roughly_gt_2tup(best_node_cost, node_cost_tup):
+                        best_node_cost = node_cost_tup
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
-            gss_costs = (gs_false_node_cost, gs_true_node_cost)
             node_cost_tup = self._cost_calculator(mcost, p_tup, gss_costs)
             best_node_cost = node_cost_tup
             best_move = move
@@ -273,26 +276,28 @@ class Solver_Nightmare(Solver):
                 break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
+
+
+        pruned = not beat_vertical_prune_threshold
         if beat_vertical_prune_threshold:
             self.best_move = best_move
-        elif (not exist_non_begin_round_moves):
+        if not exist_non_begin_round_moves:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
             # don't have to recalculate minimal_vs_list here; the next invocation will do that.
-            best_node_cost = self._calculate_best_move(
+            (best_node_cost, pruned) = self._calculate_best_move(
                 qs_dict=qs_dict,
                 game_state=new_gs,
                 depth=depth+1,
                 vertical_prune_threshold=vertical_prune_threshold
             )
-            beat_vertical_prune_threshold = (best_node_cost != Solver.initial_best_cost)
 
-        if beat_vertical_prune_threshold:
-            self._evaluations_cache[cache_game_state] = best_node_cost
-        return best_node_cost
+        answer = (best_node_cost, pruned)
+        self._evaluations_cache[cache_game_state] = answer
+        return answer
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """

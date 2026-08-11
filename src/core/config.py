@@ -83,7 +83,7 @@ DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
 # Solver workings
-MOVE_INFO_VALUE_ESTIMATOR = 2     # can be 0, 1, or 2. Affects capitulate solver accuracy and nightmare
+MOVE_INFO_VALUE_ESTIMATOR = 1     # can be 0, 1, or 2. Affects capitulate solver accuracy and nightmare
                                   # solver time.
                                   # Should be 1e-8???
 A_TOL                     = 1e-13 # should be a positive number close to 0, but > 3e-16
@@ -124,6 +124,6 @@ N_MODE_PROGRESS_BARS_DICT    = {    # dictionary of num_verifiers : num_progress
 N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY           = "src/problems/Pickles/Vertical_Pruning_W_Reorder" # Where all pickled solvers go.
+PICKLE_DIRECTORY           = "src/problems/Pickles/Vertical_Pruning_W_Reorder_And_Lower_Bound_Memory" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
-PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_pickle_file_vertical_pruning_w_reorder.bin"
+PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_vert_prune_reorder_and_lower_bound_mem.bin"
