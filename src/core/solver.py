@@ -353,6 +353,13 @@ class Solver:
         )
     # called_calculate = 0
     # cache_hits = 0
+
+    def get_current_lower_bound(self, gs: Game_State):
+        result = self._evaluations_cache.get(gs)
+        if result is None:
+            return self.triple_zero
+        return result[-1]
+
     def _calculate_best_move(
             self,
             qs_dict,
@@ -400,6 +407,15 @@ class Solver:
         for move_info in move_iterable:
             found_moves = True
             (move, mcost, (f_state, t_state), p_tup) = move_info
+            f_curr_lower_bound = self.get_current_lower_bound(f_state)
+            t_curr_lower_bound = self.get_current_lower_bound(t_state)
+            if (
+                self._cost_calculator(mcost, p_tup, (f_curr_lower_bound, t_curr_lower_bound)) >=
+                best_rqd_so_far
+            ):
+                if depth < self.num_concurrent_tasks:
+                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                continue
             f_result = self._calculate_best_move(
                 qs_dict,
                 f_state,
@@ -412,7 +428,7 @@ class Solver:
             if (f_evdepth < min_round_depth):
                 min_round_depth = f_evdepth
             f_evdepth_is_inf = (f_evdepth == inf)
-            f_curr_evdepth_lower_bound = f_best_known_rqd if f_evdepth_is_inf else f_result[2]
+            f_curr_evdepth_lower_bound = f_result[-1]
             # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
             # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
             if (
@@ -437,7 +453,7 @@ class Solver:
                 min_round_depth = t_evdepth
             t_evdepth_is_inf = (t_evdepth == inf)
             if not (f_evdepth_is_inf and t_evdepth_is_inf):
-                t_curr_evdepth_lower_bound = t_best_known_rqd if t_evdepth_is_inf else t_result[2]
+                t_curr_evdepth_lower_bound = t_result[-1]
                 gss_costs_lower_bound = (f_curr_evdepth_lower_bound, t_curr_evdepth_lower_bound)
                 currnode_lower_bound_rqd = self._cost_calculator(mcost, p_tup, gss_costs_lower_bound)
                 if currnode_lower_bound_rqd >= best_rqd_so_far:
@@ -516,7 +532,7 @@ class Solver:
     def iterative_deepen_root(self):
         evdepth = 0
         received_evdepth = 0
-        # moves_to_examine = self.get_and_apply_moves(self.initial_game_state, self.qs_dict)
+        # moves_to_examine = list(self.get_and_apply_moves(self.initial_game_state, self.qs_dict))
         while (received_evdepth != inf):
             evdepth += 1
             console.print(f"Calculating root to depth: {evdepth:,}")
