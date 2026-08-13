@@ -27,7 +27,7 @@ def testing_stuff(self):
     sd = display.Solver_Displayer(self)
 
 class Solver_Nightmare(Solver):
-    worst_eval = (Solver.inf, Solver.inf)
+    worst_eval = (inf, inf)
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",

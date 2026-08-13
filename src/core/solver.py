@@ -128,10 +128,10 @@ progress = solver_utils.progress_initialize()
 class Solver:
     double_zero = (0, 0)
     triple_zero = (0, 0, 0)
-    inf = float("inf")
     ninf = float("-inf")
     triple_inf = (inf, inf, inf)
     double_inf = (inf, inf)
+    triple_z_in_tup = (triple_zero,)
 
     end_game_eval = (inf, triple_zero) # (evdepth, best_known_rqd)
     end_game_eval_no_evdepth = triple_zero
@@ -353,13 +353,6 @@ class Solver:
         )
     # called_calculate = 0
     # cache_hits = 0
-
-    def get_current_lower_bound(self, gs: Game_State):
-        result = self._evaluations_cache.get(gs)
-        if result is None:
-            return self.triple_zero
-        return result[-1]
-
     def _calculate_best_move(
             self,
             qs_dict,
@@ -391,14 +384,14 @@ class Solver:
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
             # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
             if (round_depth == 0):
-                # TODO: consider not storing this result in the cache (but still return worst eval)
-                # Should save some memory and cost very little time to not store this.
+                # NOTE: surprisingly, the line below somehow saves a lot of time.
+                # commenting it out causes problem f43 to take over 7 times longer.
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
                 return self.round_depth_cutoff # refuse to search more rounds
             round_depth -= 1
 
         found_moves = False
-        min_round_depth = self.inf
+        min_round_depth = inf
         evdepth_infinity = False
         best_move = None # NOTE: keep this, b/c if there are moves, but none of them are evaluated deeply enough to yield an answer, then the line that assigns to self.best_move will reference best_move before the latter has been assigned to.
         # move_rqd_tups = [] # TODO: delete
@@ -407,10 +400,11 @@ class Solver:
         for move_info in move_iterable:
             found_moves = True
             (move, mcost, (f_state, t_state), p_tup) = move_info
-            f_curr_lower_bound = self.get_current_lower_bound(f_state)
-            t_curr_lower_bound = self.get_current_lower_bound(t_state)
+            f_curr_lower_bound = self._evaluations_cache.get(f_state, self.triple_z_in_tup)[-1]
+            t_curr_lower_bound = self._evaluations_cache.get(t_state, self.triple_z_in_tup)[-1]
             if (
-                self._cost_calculator(mcost, p_tup, (f_curr_lower_bound, t_curr_lower_bound)) >=
+                self._cost_calculator(mcost, p_tup, (f_curr_lower_bound, t_curr_lower_bound))
+                >=
                 best_rqd_so_far
             ):
                 if depth < self.num_concurrent_tasks:
@@ -433,7 +427,7 @@ class Solver:
             # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
             if (
                 self._cost_calculator(
-                    mcost, p_tup, (f_curr_evdepth_lower_bound, self.end_game_eval_no_evdepth)
+                    mcost, p_tup, (f_curr_evdepth_lower_bound, t_curr_lower_bound)
                 ) >= best_rqd_so_far # only compare (rounds, queries, depth) for pruning purposes
             ):
                 if depth < self.num_concurrent_tasks:
@@ -471,7 +465,8 @@ class Solver:
                 if (best_known_currnode_cost_rqd[0] == is_begin_round_state):
                     evdepth_infinity = True
                     # TODO: turn this on when try iterative deepening.
-                    # assert (round_depth == is_begin_round_state) # if this fails, understand why.
+                     # if the below assertion fails, understand why. (NOTE: I think it should be round_depth == 0)
+                    # assert (round_depth == is_begin_round_state), (round_depth, is_begin_round_state)
                     if (best_known_currnode_cost_rqd[1] == 1):
                         break
             if depth < self.num_concurrent_tasks:
@@ -593,7 +588,7 @@ class Solver:
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
         try:
             if one_answer_left(self.full_cwas_list, self.initial_game_state.cwa_set):
-                initial_evdepth = self.inf
+                initial_evdepth = inf
             else:
                 initial_state_res = self._evaluations_cache.get(self.initial_game_state)
                 (initial_evdepth, (r, q, d)) = initial_state_res[0:2]
@@ -734,7 +729,7 @@ class Solver:
         # working cwa_set representation_change
         return(gs_cwa_set & q_info_cwa_set)
     def print_cache_by_size(self):
-        #TODO cache_gs: reconsider this function entirely in light of cache bitsets.
+        #NOTE cache_gs: reconsider this function entirely in light of cache bitsets.
         for gs in self._evaluations_cache:
             break
         if type(gs.cwa_set) is not frozenset:
