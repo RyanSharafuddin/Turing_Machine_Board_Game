@@ -133,11 +133,12 @@ class Solver:
     triple_inf = (inf, inf, inf)
     double_inf = (inf, inf)
 
-    end_game_eval = (triple_zero, inf) # ((avg rounds, avg queries, max depth), depth eval'd to)
+    end_game_eval = (inf, triple_zero) # (evdepth, best_known_rqd)
     end_game_eval_no_evdepth = triple_zero
     worst_eval = (triple_inf, 0)
     worst_eval_no_evdepth = triple_inf
-    result_not_present = (None, ninf)
+    round_depth_cutoff = (0, triple_inf, (1, 1, 1))
+    result_not_present = (None, ninf) # NOTE: not currently being used
     one_q_zero_r_rqd = (0, 1, 0) # (0 rounds, 1 query, 0 max depth)
     one_q_one_r_rqd = (1, 1, 1)  # (1 round, 1 query, 1 max depth)
     __slots__ = (
@@ -357,98 +358,120 @@ class Solver:
             qs_dict,
             game_state: Game_State,
             depth=0,
-
             round_depth = inf,
-            check_stuff = True,
         ):
         """
         Return (cost_tup, worst_round_depth)
         """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
-        result = self._evaluations_cache.get(cache_game_state, self.result_not_present)
-        if (result[1] >= round_depth):
-            # self.cache_hits += 1
-            return result
-        if check_stuff and one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            # if config.CACHE_END_STATES:
-            #     self._evaluations_cache[cache_game_state] = self.end_game_eval
+        result = self._evaluations_cache.get(cache_game_state)
+        if result is None:
+            # NOTE: at this point, the rqd may actually be (0, 0, 0), but this is fine, since these variables
+            #       won't be used until after one_answer_left is checked.
+            best_rqd_so_far = self.triple_inf
+        else:
+            # result is (evdepth, best_known_rqd, optional_lower_bound_rqd)
+            if (result[0] >= round_depth):
+                # self.cache_hits += 1
+                return result
+            best_rqd_so_far = result[1]
+        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return self.end_game_eval
         is_begin_round_state = game_state.proposal_used_this_round is None
         if is_begin_round_state:
             # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
-            if check_stuff:
-                qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
             # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
-            if (round_depth > 1):
-                (depth_one_rqd, depth_one_evdepth) = self._calculate_best_move(
-                    qs_dict,
-                    game_state,
-                    depth + 1,
-                    round_depth = 1,
-                    check_stuff = False
-                )
-                if (depth_one_rqd[0] == 1):
-                    return (depth_one_rqd, depth_one_evdepth)
             if (round_depth == 0):
                 # TODO: consider not storing this result in the cache (but still return worst eval)
                 # Should save some memory and cost very little time to not store this.
-                self._evaluations_cache[cache_game_state] = self.worst_eval
-                return self.worst_eval # refuse to search more rounds
+                self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
+                return self.round_depth_cutoff # refuse to search more rounds
             round_depth -= 1
-        best_node_cost_rqd = self.worst_eval_no_evdepth
+
         found_moves = False
         min_round_depth = self.inf
         evdepth_infinity = False
         best_move = None # NOTE: keep this, b/c if there are moves, but none of them are evaluated deeply enough to yield an answer, then the line that assigns to self.best_move will reference best_move before the latter has been assigned to.
         # move_rqd_tups = [] # TODO: delete
+        current_evdepth_lower_bound_rqd = None
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             found_moves = True
-            (move, mcost, gs_tup, p_tup) = move_info
-            (gs_false_node_rqd, gs_false_node_evald_depth) = self._calculate_best_move(
+            (move, mcost, (f_state, t_state), p_tup) = move_info
+            f_result = self._calculate_best_move(
                 qs_dict,
-                gs_tup[0],
+                f_state,
                 depth+1,
                 round_depth
             )
-            # assert (gs_false_node_evald_depth >= round_depth)
-            if (gs_false_node_evald_depth < min_round_depth):
-                min_round_depth = gs_false_node_evald_depth
+            f_evdepth = f_result[0]
+            f_best_known_rqd = f_result[1]
+            assert (f_evdepth >= round_depth)
+            if (f_evdepth < min_round_depth):
+                min_round_depth = f_evdepth
+            f_evdepth_is_inf = (f_evdepth == inf)
+            f_curr_evdepth_lower_bound = f_best_known_rqd if f_evdepth_is_inf else f_result[2]
             # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
             # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
             if (
                 self._cost_calculator(
-                    mcost, p_tup, (gs_false_node_rqd, self.end_game_eval_no_evdepth)
-                ) >= best_node_cost_rqd # only compare (rounds, queries, depth) for pruning purposes
+                    mcost, p_tup, (f_curr_evdepth_lower_bound, self.end_game_eval_no_evdepth)
+                ) >= best_rqd_so_far # only compare (rounds, queries, depth) for pruning purposes
             ):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
-            (gs_true_node_rqd, gs_true_node_evald_depth) = self._calculate_best_move(
+
+            t_result = self._calculate_best_move(
                 qs_dict,
-                gs_tup[1],
+                t_state,
                 depth+1,
                 round_depth
             )
-            # assert (gs_true_node_evald_depth >= round_depth)
-            if (gs_true_node_evald_depth < min_round_depth):
-                min_round_depth = gs_true_node_evald_depth
-            gss_costs_no_evdepth = (gs_false_node_rqd, gs_true_node_rqd)
-            node_cost_rqd = self._cost_calculator(mcost, p_tup, gss_costs_no_evdepth)
-            if(node_cost_rqd < best_node_cost_rqd):
-                best_node_cost_rqd = node_cost_rqd
+            t_evdepth = t_result[0]
+            t_best_known_rqd = t_result[1]
+            assert (t_evdepth >= round_depth)
+            if (t_evdepth < min_round_depth):
+                min_round_depth = t_evdepth
+            t_evdepth_is_inf = (t_evdepth == inf)
+            if not (f_evdepth_is_inf and t_evdepth_is_inf):
+                t_curr_evdepth_lower_bound = t_best_known_rqd if t_evdepth_is_inf else t_result[2]
+                gss_costs_lower_bound = (f_curr_evdepth_lower_bound, t_curr_evdepth_lower_bound)
+                currnode_lower_bound_rqd = self._cost_calculator(mcost, p_tup, gss_costs_lower_bound)
+                if currnode_lower_bound_rqd >= best_rqd_so_far:
+                    continue
+                if (
+                    (current_evdepth_lower_bound_rqd is None) or
+                    (currnode_lower_bound_rqd < current_evdepth_lower_bound_rqd)
+                ):
+                    current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+            gss_costs_best_known_rqd = (f_best_known_rqd, t_best_known_rqd)
+            best_known_currnode_cost_rqd = self._cost_calculator(mcost, p_tup, gss_costs_best_known_rqd)
+            if(best_known_currnode_cost_rqd < best_rqd_so_far):
+                best_rqd_so_far = best_known_currnode_cost_rqd
                 best_move = move
-                if (node_cost_rqd[0] == is_begin_round_state):
+                if (best_known_currnode_cost_rqd[0] == is_begin_round_state):
                     evdepth_infinity = True
-                    if (node_cost_rqd[1] == 1):
+                    # TODO: turn this on when try iterative deepening.
+                    # assert (round_depth == is_begin_round_state) # if this fails, understand why.
+                    if (best_known_currnode_cost_rqd[1] == 1):
                         break
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         if found_moves:
-            evdepth = inf if evdepth_infinity else min_round_depth + is_begin_round_state
-            best_node_cost = (best_node_cost_rqd, evdepth)
+            evdepth = (
+                inf
+                if (evdepth_infinity or (current_evdepth_lower_bound_rqd is None))
+                else min_round_depth + is_begin_round_state
+            )
+            answer = (
+                (evdepth, best_rqd_so_far)
+                if (evdepth is inf)
+                else (evdepth, best_rqd_so_far, current_evdepth_lower_bound_rqd)
+            )
             self.best_move = best_move
         else:
             new_gs = Game_State(
@@ -456,7 +479,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            best_node_cost = self._calculate_best_move(qs_dict, new_gs, depth+1, round_depth)
+            answer = self._calculate_best_move(qs_dict, new_gs, depth+1, round_depth)
 
         # comment out else block above and uncomment this to try starting new rounds early as well.
         # WARN: If do below, will have to remember what current self.best_move is, and, if the end_round_early_rqd does not beat the best_node_cost_no_evdepth, will have to set self.best_move back to what it was before.
@@ -469,7 +492,7 @@ class Solver:
         #     (end_round_early_rqd, end_round_early_evdepth) = self._calculate_best_move(
         #       qs_dict, new_gs, depth+1, round_depth
         #     )
-        #     if(end_round_early_rqd < best_node_cost_rqd):
+        #     if(end_round_early_rqd < NEED_TO_REPLACE):
         #         # breakpoint here to see if there are situations where ending the round early is better.
         #         # can even label the evaluations result with this info,
         #         # and see if that node makes it into the best move tree.
@@ -478,20 +501,49 @@ class Solver:
         #         self.best_move = best_move
 
         # self.update_biggest_counterexamples(move_rqd_tups, game_state) # TODO: delete if not visualizing
-        self._evaluations_cache[cache_game_state] = best_node_cost # NOTE: keep this
-        return best_node_cost
+        self._evaluations_cache[cache_game_state] = answer # NOTE: keep this
+        return answer
+
+    def iterative_deepen(self, qs_dict, gs: Game_State):
+        evdepth = 0
+        received_evdepth = 0
+        while (received_evdepth != inf):
+            evdepth += 1
+            result = self._calculate_best_move(qs_dict, gs, 0, evdepth)
+            received_evdepth = result[0]
+            print()
+
+    def iterative_deepen_root(self):
+        evdepth = 0
+        received_evdepth = 0
+        # moves_to_examine = self.get_and_apply_moves(self.initial_game_state, self.qs_dict)
+        while (received_evdepth != inf):
+            evdepth += 1
+            console.print(f"Calculating root to depth: {evdepth:,}")
+            if self.num_concurrent_tasks:
+                progress.start()
+            result = self._calculate_best_move(self.qs_dict, self.initial_game_state, 0, evdepth)
+            if self.num_concurrent_tasks:
+                progress.stop()
+            console.print(f"Received evdepth: {result[0]:,}")
+            console.print(f"Best known cost : {result[1]}")
+            if (len(result) > 2):
+                console.print(f"Best lower bound: {result[2]}")
+            received_evdepth = result[0]
+            print()
 
     # Same for all solvers.
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
-        if self.num_concurrent_tasks:
-            progress.start()
+        # if self.num_concurrent_tasks:
+        #     progress.start()
         start = time.time()
-        self.initial_calc_best_move()
-        if self.num_concurrent_tasks:
-            progress.stop()
+        # self.initial_calc_best_move()
+        # if self.num_concurrent_tasks:
+        #     progress.stop()
+        self.iterative_deepen_root()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
@@ -528,7 +580,7 @@ class Solver:
                 initial_evdepth = self.inf
             else:
                 initial_state_res = self._evaluations_cache.get(self.initial_game_state)
-                ((r, q, d), initial_evdepth) = initial_state_res
+                (initial_evdepth, (r, q, d)) = initial_state_res[0:2]
             console.print(
                 "Depth the initial state was evaluated to:",
                 display.Text(f"{initial_evdepth}", style="b cyan")
@@ -808,7 +860,8 @@ class Solver:
         print(cache_gs)
         (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
             working_gs,
-            sort=True
+            sort=True,
+            round_depth=config.INITIAL_EVAL_DEPTH - 1
         )
         for (index, (move, rqd)) in enumerate(move_rqd_tups):
             console.print(f"{index:>3}", display.get_move_text(move), rqd, end=" ")
@@ -912,8 +965,11 @@ class Solver:
         """
         Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
         """
-        ((avg_rounds, avg_queries, worst_case_depth), evald_depth) = new_cache_result
-        return (avg_rounds, avg_queries)
+        # evdepth = new_cache_result[0]
+        (r, q, d) = new_cache_result[1]
+        if len(new_cache_result) > 2:
+            console.print("O NOES from new_res_to_og_res!", style=config.BIG_WARN)
+        return (r, q)
 
     def exist_moves(self, curr_working_gs):
         """
@@ -961,8 +1017,8 @@ class Solver:
         """
         if (old_eval is None):
             return
-        ((old_r, old_q, old_d), old_evdepth) = old_eval
-        ((new_r, new_q, new_d), new_evdepth) = new_eval
+        (old_evdepth, (old_r, old_q, old_d)) = old_eval[0:2]
+        (new_evdepth, (new_r, new_q, new_d)) = new_eval[0:2]
 
         if new_evdepth < old_evdepth:
             console.print("WARN!!", style=config.BIG_WARN)
@@ -1009,6 +1065,7 @@ class Solver:
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
 
+    # TODO: update
     def move_rqd_tups_from_working_gs(
             self, working_gs: Game_State, sort=True, round_depth=config.INITIAL_EVAL_DEPTH
         ):
@@ -1044,26 +1101,28 @@ class Solver:
             (move_rqd_tups, move_infos) = zip(*mvrqd_mi_combined)
         return (move_rqd_tups, move_infos)
 
+    # TODO: update
     def _experiment(self):
-        sd = testing_stuff(self)
-        (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
-            self.initial_game_state,
-            sort=True,
-            round_depth=config.INITIAL_EVAL_DEPTH - 1
-        )
-        movrqd_filtered_to_unique = []
-        seen_rqds = set()
-        for move_rqd_tup in move_rqd_tups:
-            (move, rqd) = move_rqd_tup
-            rqd_str = solver_utils.rqd_to_str(rqd)
-            if (rqd_str not in seen_rqds):
-                movrqd_filtered_to_unique.append(move_rqd_tup)
-                seen_rqds.add(rqd_str)
-        sd.print_table_move_rqd_tups(movrqd_filtered_to_unique)
-        console.print("Lowest expected query move highlighted in light blue.")
-        message = "\nTop-level depth counterexamples:"
-        (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(
-            movrqd_filtered_to_unique
-        )
-        if is_counterexample:
-            sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
+        pass
+        # sd = testing_stuff(self)
+        # (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
+        #     self.initial_game_state,
+        #     sort=True,
+        #     round_depth=config.INITIAL_EVAL_DEPTH - 1
+        # )
+        # movrqd_filtered_to_unique = []
+        # seen_rqds = set()
+        # for move_rqd_tup in move_rqd_tups:
+        #     (move, rqd) = move_rqd_tup
+        #     rqd_str = solver_utils.rqd_to_str(rqd)
+        #     if (rqd_str not in seen_rqds):
+        #         movrqd_filtered_to_unique.append(move_rqd_tup)
+        #         seen_rqds.add(rqd_str)
+        # sd.print_table_move_rqd_tups(movrqd_filtered_to_unique)
+        # console.print("Lowest expected query move highlighted in light blue.")
+        # message = "\nTop-level depth counterexamples:"
+        # (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(
+        #     movrqd_filtered_to_unique
+        # )
+        # if is_counterexample:
+        #     sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
