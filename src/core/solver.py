@@ -132,6 +132,7 @@ class Solver:
     triple_inf = (inf, inf, inf)
     double_inf = (inf, inf)
     triple_z_in_tup = (triple_zero,)
+    neg1_tz = (-1, triple_zero)
 
     end_game_eval = (inf, triple_zero) # (evdepth, best_known_rqd)
     end_game_eval_no_evdepth = triple_zero
@@ -395,95 +396,97 @@ class Solver:
         evdepth_infinity = False
         best_move = None # NOTE: keep this, b/c if there are moves, but none of them are evaluated deeply enough to yield an answer, then the line that assigns to self.best_move will reference best_move before the latter has been assigned to.
         # move_rqd_tups = [] # TODO: delete
-        current_evdepth_lower_bound_rqd = None
+        current_evdepth_lower_bound_rqd = self.triple_inf
         # TODO: see if reordering the moves in the same way as vertical pruning improves time and/or memory usage.
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             found_moves = True
             (move, mcost, (f_state, t_state), p_tup) = move_info
             # WARN In below 2 lines, really should convert convert f_state and t_state into their cache versions using the convert function before looking them up in the cache. Fine for now, since the convert function does nothing, but you should be able to easily switch to using int or hashable np array cache states.
-            # TODO: also get the f_state and t_state evdepth they were evaluated to, and only make the recursive call if round_depth is strictly greater than the evdepth they were evaluated to.
-            f_prev_lower_bound = self._evaluations_cache.get(f_state, self.triple_z_in_tup)[-1]
-            t_prev_lower_bound = self._evaluations_cache.get(t_state, self.triple_z_in_tup)[-1]
-            if (
-                self._cost_calculator(mcost, p_tup, (f_prev_lower_bound, t_prev_lower_bound))
-                >=
-                best_rqd_so_far
-            ):
+            f_result = self._evaluations_cache.get(f_state, self.neg1_tz)
+            t_result = self._evaluations_cache.get(t_state, self.neg1_tz)
+            f_evdepth = f_result[0]
+            f_lower_bound = f_result[-1]
+            t_lower_bound = t_result[-1]
+            currnode_lower_bound_rqd = self._cost_calculator(
+                mcost, p_tup, (f_lower_bound, t_lower_bound)
+            )
+            if (currnode_lower_bound_rqd >= best_rqd_so_far):
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
-            f_result = self._calculate_best_move(
-                qs_dict,
-                f_state,
-                depth+1,
-                round_depth
-            )
-            f_evdepth = f_result[0]
-            assert (f_evdepth >= round_depth)
-            if (f_evdepth < min_round_depth):
-                min_round_depth = f_evdepth
-            f_curr_evdepth_lower_bound = f_result[-1]
-            # # TODO: smarter pruning. Also, make a dedicated single-state cost calculator rather than using the regular 2-state cost calculator and setting one of the states to 0 cost, as you're doing now.
-            # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
-            if (
-                self._cost_calculator(
-                    mcost, p_tup, (f_curr_evdepth_lower_bound, t_prev_lower_bound)
-                ) >= best_rqd_so_far # only compare (rounds, queries, depth) for pruning purposes
-            ):
-                if depth < self.num_concurrent_tasks:
-                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+            if (f_evdepth < round_depth):
+                f_result = self._calculate_best_move(
+                    qs_dict,
+                    f_state,
+                    depth+1,
+                    round_depth
+                )
+                f_evdepth = f_result[0]
+                assert (f_evdepth >= round_depth)
+                f_lower_bound = f_result[-1]
+                currnode_lower_bound_rqd = self._cost_calculator(
+                    mcost, p_tup, (f_lower_bound, t_lower_bound)
+                )
+                # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
+                if (currnode_lower_bound_rqd >= best_rqd_so_far):
+                    if depth < self.num_concurrent_tasks:
+                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    continue
+
+
+            t_evdepth = t_result[0]
+            if (t_evdepth < round_depth):
+                t_result = self._calculate_best_move(
+                    qs_dict,
+                    t_state,
+                    depth+1,
+                    round_depth
+                )
+                t_evdepth = t_result[0]
+                t_lower_bound = t_result[-1]
+                currnode_lower_bound_rqd = self._cost_calculator(
+                    mcost, p_tup, (f_lower_bound, t_lower_bound)
+                )
+            assert (t_evdepth >= round_depth)
+
+            # TODO: see if getting rid of below if block saves or adds time.
+            if currnode_lower_bound_rqd >= best_rqd_so_far:
                 continue
 
-            t_result = self._calculate_best_move(
-                qs_dict,
-                t_state,
-                depth+1,
-                round_depth
-            )
-            t_evdepth = t_result[0]
-            assert (t_evdepth >= round_depth)
+            # moves that have been horizontally pruned (ruled out) should not affect the min_round_depth.
+            if (f_evdepth < min_round_depth):
+                min_round_depth = f_evdepth
             if (t_evdepth < min_round_depth):
                 min_round_depth = t_evdepth
-            if ((f_evdepth < inf) or (t_evdepth < inf)):
-                t_curr_evdepth_lower_bound = t_result[-1]
-                gss_costs_lower_bound = (f_curr_evdepth_lower_bound, t_curr_evdepth_lower_bound)
-                currnode_lower_bound_rqd = self._cost_calculator(mcost, p_tup, gss_costs_lower_bound)
-                if currnode_lower_bound_rqd >= best_rqd_so_far:
-                    continue
-                if (
-                    (current_evdepth_lower_bound_rqd is None) or
-                    (currnode_lower_bound_rqd < current_evdepth_lower_bound_rqd)
-                ):
-                    current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
-            gss_costs_best_known_rqd = (f_result[1], t_result[1])
-            best_known_currnode_cost_rqd = self._cost_calculator(mcost, p_tup, gss_costs_best_known_rqd)
+
+            best_known_currnode_cost_rqd = (
+                currnode_lower_bound_rqd
+                if ((f_evdepth == inf) and (t_evdepth == inf))
+                else self._cost_calculator(mcost, p_tup, (f_result[1], t_result[1]))
+            )
+            if (currnode_lower_bound_rqd < current_evdepth_lower_bound_rqd):
+                current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+
             if(best_known_currnode_cost_rqd < best_rqd_so_far):
                 best_rqd_so_far = best_known_currnode_cost_rqd
                 best_move = move
-                if (
-                    (current_evdepth_lower_bound_rqd is not None)
-                    and (best_known_currnode_cost_rqd <= current_evdepth_lower_bound_rqd)
-                ):
-                    current_evdepth_lower_bound_rqd = None
                 if (best_known_currnode_cost_rqd[0] == is_begin_round_state):
                     evdepth_infinity = True
                     assert ((round_depth == 0) or (round_depth == inf)), round_depth
                     if (best_known_currnode_cost_rqd[1] == 1):
                         break
+
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         if found_moves:
-            if (evdepth_infinity or (current_evdepth_lower_bound_rqd is None)):
+            if (evdepth_infinity or (current_evdepth_lower_bound_rqd >= best_rqd_so_far)):
                 evdepth = inf
                 answer = (evdepth, best_rqd_so_far)
             else:
                 evdepth = min_round_depth + is_begin_round_state
                 answer = (evdepth, best_rqd_so_far, current_evdepth_lower_bound_rqd)
-                assert (current_evdepth_lower_bound_rqd < best_rqd_so_far), (
-                    f"\nbest so far: {answer[1]}\nlower bound: {answer[2]}"
-                )
             self.best_move = best_move
         else:
             new_gs = Game_State(
@@ -501,11 +504,14 @@ class Solver:
         #         proposal_used_this_round=None,
         #         cwa_set=game_state.cwa_set
         #     )
-        #     (end_round_early_rqd, end_round_early_evdepth) = self._calculate_best_move(
+        #     end_round_early_result = self._calculate_best_move(
         #       qs_dict, new_gs, depth+1, round_depth
         #     )
+        #     # TODO: account for the changed format of results and handle all cases, updating everything accordingly.
         #     if(end_round_early_rqd < NEED_TO_REPLACE):
+        #        if found_moves:
         #         # breakpoint here to see if there are situations where ending the round early is better.
+        #           pass
         #         # can even label the evaluations result with this info,
         #         # and see if that node makes it into the best move tree.
         #         best_node_cost = (end_round_early_rqd, end_round_early_evdepth)
