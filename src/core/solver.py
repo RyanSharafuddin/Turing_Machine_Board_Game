@@ -87,17 +87,20 @@ def create_move_info(
     # Therefore, all of the game states' cwa_sets created below are frozensets.
     if((game_state.proposal_used_this_round is not None) or force_set_intersect):
         cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
-        cwa_set_if_false = game_state.cwa_set &  q_info.cwa_set_false
-        if not (bool(cwa_set_if_false) and bool(cwa_set_if_true)):
+        # NOTE: bc working game states' cwa_sets are currently of type frozenset, taking the length of a cwa set is less expensive than taking their intersection, which is why true_cwa_set_len is calculated first and its value is used to potentially 'short-circuit' (return early, before doing the set intersection for cwa_set_if_false). If change type from frozenset to Python integer bitset or numpy Hashable array, this may no longer be true (will have to look into the performance of a numpy array 'population count', or see if there's an efficient way to get the population count of a Python integer). If getting the population count is more costly in that case, then you could do the set intersection first, and compare both the ints/numpy arrays to 0 (or the all 0 array) in order to short circuit out of doing a population count.
+        true_cwa_set_len = len(cwa_set_if_true)
+        if not ((0 < true_cwa_set_len) and (true_cwa_set_len < num_combos_currently)):
             return None # not a useful query
+        cwa_set_if_false = game_state.cwa_set & q_info.cwa_set_false
     else:
         # if the game_state.proposal_used_this_round is None, then can pull the cwa_sets directly from the q_info, as they were just updated at the beginning of the round when filtering the query dict.
         cwa_set_if_true = q_info.cwa_set_true
         cwa_set_if_false = q_info.cwa_set_false
+        true_cwa_set_len = len(cwa_set_if_true)
 
     # this is a useful query.
     # cwa_set representation_change Will need a function to get the length of a set.
-    p_true = len(cwa_set_if_true) / num_combos_currently
+    p_true = true_cwa_set_len / num_combos_currently
     p_false = 1 - p_true
     # p_false = len(cwa_set_if_false) / num_combos_currently
     p_tuple = (p_false, p_true)
@@ -368,8 +371,6 @@ class Solver:
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
         result = self._evaluations_cache.get(cache_game_state)
         if result is None:
-            # NOTE: at this point, the rqd may actually be (0, 0, 0), but this is fine, since these variables
-            #       won't be used until after one_answer_left is checked.
             best_rqd_so_far = self.triple_inf
         else:
             # result is (evdepth, best_known_rqd, optional_lower_bound_rqd)
