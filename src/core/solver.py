@@ -414,12 +414,15 @@ class Solver:
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
-        if self.num_concurrent_tasks:
-            progress.start()
-        start = time.time()
-        self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
-        if self.num_concurrent_tasks:
-            progress.stop()
+        try:
+            if self.num_concurrent_tasks:
+                progress.start()
+            start = time.time()
+            self._calculate_best_move(qs_dict = self.qs_dict, game_state = self.initial_game_state)
+        finally:
+            # this finally block ensures progress.stop() is called even if any exceptions arise.
+            if self.num_concurrent_tasks:
+                progress.stop()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
