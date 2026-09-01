@@ -541,9 +541,12 @@ class Solver:
             console.print(f"Calculating root to depth: {evdepth:,}")
             if self.num_concurrent_tasks:
                 progress.start()
-            result = self._calculate_best_move(self.qs_dict, self.initial_game_state, 0, evdepth)
-            if self.num_concurrent_tasks:
-                progress.stop()
+            try:
+                result = self._calculate_best_move(self.qs_dict, self.initial_game_state, 0, evdepth)
+            finally:
+                # finally block ensures progress.stop() is always called.
+                if self.num_concurrent_tasks:
+                    progress.stop()
             console.print(f"Received evdepth: {result[0]:,}")
             console.print(f"Best known cost : {result[1]}")
             if (len(result) > 2):
