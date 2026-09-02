@@ -411,7 +411,9 @@ class Solver:
             currnode_lower_bound_rqd = self._cost_calculator(
                 mcost, p_tup, (f_lower_bound, t_lower_bound)
             )
-            if (currnode_lower_bound_rqd >= best_rqd_so_far):
+            if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
+                # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
+                #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -429,7 +431,9 @@ class Solver:
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
                 # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
-                if (currnode_lower_bound_rqd >= best_rqd_so_far):
+                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
+                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
+                    #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
                         progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
@@ -448,7 +452,9 @@ class Solver:
                 currnode_lower_bound_rqd = self._cost_calculator(
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
-                if (currnode_lower_bound_rqd >= best_rqd_so_far):
+                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
+                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
+                    #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
                         progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
@@ -464,10 +470,10 @@ class Solver:
                 if ((f_evdepth == inf) and (t_evdepth == inf))
                 else self._cost_calculator(mcost, p_tup, (f_result[1], t_result[1]))
             )
-            if (currnode_lower_bound_rqd < current_evdepth_lower_bound_rqd):
+            if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
                 current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
 
-            if(currnode_best_known_rqd < best_rqd_so_far):
+            if solver_utils.roughly_lt_rqd(currnode_best_known_rqd, best_rqd_so_far):
                 best_rqd_so_far = currnode_best_known_rqd
                 best_move = move
                 if (currnode_best_known_rqd[0] == is_begin_round_state):
@@ -479,10 +485,13 @@ class Solver:
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
-        # WARN: below assert statement fails on f43 due to rounding error caused by floating point arithmetic
-        assert (current_evdepth_lower_bound_rqd <= best_rqd_so_far), f"\nlower bound: {current_evdepth_lower_bound_rqd}\nbest so far: {best_rqd_so_far}\n{game_state}"
+        assert (current_evdepth_lower_bound_rqd is self.triple_inf) or solver_utils.roughly_geq_rqd(best_rqd_so_far, current_evdepth_lower_bound_rqd), f"\nlower bound: {current_evdepth_lower_bound_rqd}\nbest so far: {best_rqd_so_far}\n{game_state}"
         if found_moves:
-            if (evdepth_infinity or (current_evdepth_lower_bound_rqd >= best_rqd_so_far)):
+            if (
+                evdepth_infinity or
+                # NOTE: if uncomment the lines updating current_evdepth_lower_bound_rqd when pruning a move, replace below comparison w/fp_eq_tup, since current_evdepth_lower_bound_rqd should never be > best_rqd_so_far.
+                solver_utils.roughly_geq_rqd(current_evdepth_lower_bound_rqd, best_rqd_so_far)
+            ):
                 evdepth = inf
                 answer = (evdepth, best_rqd_so_far)
             else:
