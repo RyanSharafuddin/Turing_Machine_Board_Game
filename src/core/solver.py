@@ -385,26 +385,36 @@ class Solver:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
         if found_moves:
             self.best_move = best_move
-        else:
-            new_gs = Game_State(
-                num_queries_this_round=0,
-                proposal_used_this_round=None,
-                cwa_set=game_state.cwa_set
-            )
-            best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
-
-        # comment out if not block above and uncomment this to try starting new rounds early as well.
-        # if(game_state.num_queries_this_round != 0):
+        # else:
         #     new_gs = Game_State(
         #         num_queries_this_round=0,
         #         proposal_used_this_round=None,
         #         cwa_set=game_state.cwa_set
         #     )
-        #     end_round_early_result = self.calculate_best_move(qs_dict=qs_dict, game_state=new_gs)
-        #     if(end_round_early_result < best_node_cost):
-        #         # breakpoint here to see if there are situations where ending the round early is better.
-        #         # can even label the evaluations result with this info, and see if that node makes it into the best move tree.
-        #         best_node_cost = end_round_early_result
+        #     best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
+
+        # To consider all moves that end the round early, set config.CONSIDER_END_ROUND_EARLY to True
+        # and also uncomment the below if block and comment out the above else block.
+        if(game_state.proposal_used_this_round is not None):
+            saved_best_move = best_move
+            new_gs = Game_State(
+                num_queries_this_round=0,
+                proposal_used_this_round=None,
+                cwa_set=game_state.cwa_set
+            )
+            end_round_early_result = self._calculate_best_move(qs_dict, new_gs, depth)
+            if solver_utils.roughly_gt_2tup(best_node_cost, end_round_early_result):
+                if found_moves and (sd.num_end_round_early_states_printed < 10):
+                    # An example of a state where ending the round early even if you don't have to is the better answer. Can print out/display info and even mark the evaluations tree with this info, if this state makes it into the best move tree.
+                    print("Found a state where ending the round earlier than you have to is better!")
+                    sd.print_game_state(game_state)
+                    console.print("       Previous result:", best_node_cost, end=" ")
+                    console.print("End round early result:", end_round_early_result, end=" ")
+                    console.rule()
+                    sd.num_end_round_early_states_printed += 1
+                best_node_cost = end_round_early_result
+            else:
+                self.best_move = saved_best_move
 
         self._evaluations_cache[cache_game_state] = best_node_cost
         return best_node_cost
@@ -480,7 +490,6 @@ class Solver:
                     f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
                 )
         sys.stdout.flush()
-
 
     ############################### SAME FOR ALL SOLVERS ###############################
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -658,7 +667,19 @@ class Solver:
         return filtered_cache
 
     def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
-        if not self.exist_moves(curr_working_gs):
+        moves_exist = self.exist_moves(curr_working_gs)
+        if (
+            config.CONSIDER_END_ROUND_EARLY
+            and (curr_working_gs.proposal_used_this_round is not None)
+            and moves_exist
+        ):
+            new_round_early_cache_gs = Game_State(
+                proposal_used_this_round=None,
+                num_queries_this_round=0,
+                cwa_set=curr_cache_gs.cwa_set
+            )
+            self.handle_delete_eval(curr_working_gs, new_round_early_cache_gs, warn=False)
+        if not moves_exist:
             self.handle_delete_eval(curr_working_gs, curr_cache_gs)
             curr_cache_gs = Game_State(
                 proposal_used_this_round=None,
@@ -741,7 +762,7 @@ class Solver:
             return True
         return False
 
-    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State):
+    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State, warn=True):
         """
         Deletes the evaluation of the cache_gs from the cache if it is in the cache and returns the result. Displays warning messages as appropriate.
         """
@@ -750,11 +771,12 @@ class Solver:
             del self._evaluations_cache[cache_gs]
             return result
         # not in cache:
-        console.print("WARN!!", style=config.BIG_WARN)
-        message = (
-            "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
-        )
-        self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
+        if warn:
+            console.print("WARN!!", style=config.BIG_WARN)
+            message = (
+                "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
+            )
+            self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
 
     def filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):

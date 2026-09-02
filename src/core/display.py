@@ -278,6 +278,7 @@ class Solver_Displayer:
         # b/c not all rules in the problem are necessarily possible.
         self.solver = solver
         self.n_mode = (self.solver.n_mode)
+        self.num_end_round_early_states_printed = 0
         try:
             from . import solver_utils
             initial_gs_cache = solver._easy_working_gs_to_cache_gs(solver.initial_game_state)
