@@ -385,36 +385,36 @@ class Solver:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
         if found_moves:
             self.best_move = best_move
-        # else:
-        #     new_gs = Game_State(
-        #         num_queries_this_round=0,
-        #         proposal_used_this_round=None,
-        #         cwa_set=game_state.cwa_set
-        #     )
-        #     best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
-
-        # To consider all moves that end the round early, set config.CONSIDER_END_ROUND_EARLY to True
-        # and also uncomment the below if block and comment out the above else block.
-        if(game_state.proposal_used_this_round is not None):
-            saved_best_move = best_move
+        else:
             new_gs = Game_State(
                 num_queries_this_round=0,
                 proposal_used_this_round=None,
                 cwa_set=game_state.cwa_set
             )
-            end_round_early_result = self._calculate_best_move(qs_dict, new_gs, depth)
-            if solver_utils.roughly_gt_2tup(best_node_cost, end_round_early_result):
-                if found_moves and (sd.num_end_round_early_states_printed < 10):
-                    # An example of a state where ending the round early even if you don't have to is the better answer. Can print out/display info and even mark the evaluations tree with this info, if this state makes it into the best move tree.
-                    print("Found a state where ending the round earlier than you have to is better!")
-                    sd.print_game_state(game_state)
-                    console.print("       Previous result:", best_node_cost, end=" ")
-                    console.print("End round early result:", end_round_early_result, end=" ")
-                    console.rule()
-                    sd.num_end_round_early_states_printed += 1
-                best_node_cost = end_round_early_result
-            else:
-                self.best_move = saved_best_move
+            best_node_cost = self._calculate_best_move(qs_dict=qs_dict, game_state=new_gs, depth=depth+1)
+
+        # To consider all moves that end the round early, set config.CONSIDER_END_ROUND_EARLY to True
+        # and also uncomment the below if block and comment out the above else block.
+        # if(game_state.proposal_used_this_round is not None):
+        #     saved_best_move = best_move
+        #     new_gs = Game_State(
+        #         num_queries_this_round=0,
+        #         proposal_used_this_round=None,
+        #         cwa_set=game_state.cwa_set
+        #     )
+        #     end_round_early_result = self._calculate_best_move(qs_dict, new_gs, depth)
+        #     if solver_utils.roughly_gt_2tup(best_node_cost, end_round_early_result):
+        #         if found_moves and (sd.num_end_round_early_states_printed < 10):
+        #             # An example of a state where ending the round early even if you don't have to is the better answer. Can print out/display info and even mark the evaluations tree with this info, if this state makes it into the best move tree.
+        #             print("Found a state where ending the round earlier than you have to is better!")
+        #             sd.print_game_state(game_state)
+        #             console.print("       Previous result:", best_node_cost, end=" ")
+        #             console.print("End round early result:", end_round_early_result, end=" ")
+        #             console.rule()
+        #             sd.num_end_round_early_states_printed += 1
+        #         best_node_cost = end_round_early_result
+        #     else:
+        #         self.best_move = saved_best_move
 
         self._evaluations_cache[cache_game_state] = best_node_cost
         return best_node_cost
