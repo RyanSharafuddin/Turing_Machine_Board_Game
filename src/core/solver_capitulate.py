@@ -118,7 +118,7 @@ class Solver_Capitulate(Solver):
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
 
-    def initial_calc_best_move(self):
+    def called_by_solve(self):
         self._calculate_best_move(
             qs_dict=self.qs_dict,
             game_state=self.initial_game_state

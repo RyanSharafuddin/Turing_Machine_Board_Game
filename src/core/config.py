@@ -85,8 +85,6 @@ PRINT_COMBOS          = True  # print remaining combos after every query in play
 # Solver workings
 A_TOL                        = 1e-8
 REL_TOL                      = 0
-INITIAL_EVAL_DEPTH           = float("inf")
-# INITIAL_EVAL_DEPTH           = 3
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
 STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.

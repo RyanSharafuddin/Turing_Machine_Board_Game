@@ -365,7 +365,6 @@ class Solver:
             round_depth = inf,
         ):
         """
-        Return (cost_tup, worst_round_depth)
         """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
@@ -435,7 +434,6 @@ class Solver:
                         progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
-
             t_evdepth = t_result[0]
             if (t_evdepth < round_depth):
                 t_result = self._calculate_best_move(
@@ -445,15 +443,15 @@ class Solver:
                     round_depth
                 )
                 t_evdepth = t_result[0]
+                assert (t_evdepth >= round_depth)
                 t_lower_bound = t_result[-1]
                 currnode_lower_bound_rqd = self._cost_calculator(
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
-            assert (t_evdepth >= round_depth)
-
-            # TODO: see if getting rid of below if block saves or adds time.
-            if currnode_lower_bound_rqd >= best_rqd_so_far:
-                continue
+                if (currnode_lower_bound_rqd >= best_rqd_so_far):
+                    if depth < self.num_concurrent_tasks:
+                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    continue
 
             # moves that have been horizontally pruned (ruled out) should not affect the min_round_depth.
             if (f_evdepth < min_round_depth):
@@ -461,7 +459,7 @@ class Solver:
             if (t_evdepth < min_round_depth):
                 min_round_depth = t_evdepth
 
-            best_known_currnode_cost_rqd = (
+            currnode_best_known_rqd = (
                 currnode_lower_bound_rqd
                 if ((f_evdepth == inf) and (t_evdepth == inf))
                 else self._cost_calculator(mcost, p_tup, (f_result[1], t_result[1]))
@@ -469,18 +467,20 @@ class Solver:
             if (currnode_lower_bound_rqd < current_evdepth_lower_bound_rqd):
                 current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
 
-            if(best_known_currnode_cost_rqd < best_rqd_so_far):
-                best_rqd_so_far = best_known_currnode_cost_rqd
+            if(currnode_best_known_rqd < best_rqd_so_far):
+                best_rqd_so_far = currnode_best_known_rqd
                 best_move = move
-                if (best_known_currnode_cost_rqd[0] == is_begin_round_state):
+                if (currnode_best_known_rqd[0] == is_begin_round_state):
                     evdepth_infinity = True
-                    assert ((round_depth == 0) or (round_depth == inf)), round_depth
-                    if (best_known_currnode_cost_rqd[1] == 1):
+                    assert (round_depth == 0), round_depth
+                    if (currnode_best_known_rqd[1] == 1):
                         break
 
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
+        # WARN: below assert statement fails on f43 due to rounding error caused by floating point arithmetic
+        assert (current_evdepth_lower_bound_rqd <= best_rqd_so_far), f"\nlower bound: {current_evdepth_lower_bound_rqd}\nbest so far: {best_rqd_so_far}\n{game_state}"
         if found_moves:
             if (evdepth_infinity or (current_evdepth_lower_bound_rqd >= best_rqd_so_far)):
                 evdepth = inf
@@ -523,49 +523,38 @@ class Solver:
         self._evaluations_cache[cache_game_state] = answer # NOTE: keep this
         return answer
 
-    def iterative_deepen(self, qs_dict, gs: Game_State):
-        evdepth = 0
-        received_evdepth = 0
-        while (received_evdepth != inf):
-            evdepth += 1
-            result = self._calculate_best_move(qs_dict, gs, 0, evdepth)
-            received_evdepth = result[0]
-            print()
-
-    def iterative_deepen_root(self):
-        evdepth = 0
-        received_evdepth = 0
-        # moves_to_examine = list(self.get_and_apply_moves(self.initial_game_state, self.qs_dict))
-        while (received_evdepth != inf):
-            evdepth += 1
-            console.print(f"Calculating root to depth: {evdepth:,}")
-            if self.num_concurrent_tasks:
-                progress.start()
+    # Same for all solvers.
+    def iterative_deepen(self, working_gs: Game_State, calc_fn, display):
+        evdepth = int(working_gs.proposal_used_this_round is None)
+        while True:
+            if display:
+                console.print(f"Calculating root to depth: {evdepth:,}")
+                if self.num_concurrent_tasks:
+                    progress.start()
             try:
-                result = self._calculate_best_move(self.qs_dict, self.initial_game_state, 0, evdepth)
+                result = calc_fn(working_gs, evdepth)
             finally:
                 # finally block ensures progress.stop() is always called.
-                if self.num_concurrent_tasks:
+                if (display and self.num_concurrent_tasks):
                     progress.stop()
-            console.print(f"Received evdepth: {result[0]:,}")
-            console.print(f"Best known cost : {result[1]}")
-            if (len(result) > 2):
-                console.print(f"Best lower bound: {result[2]}")
-            received_evdepth = result[0]
-            print()
+            if display:
+                console.print(f"Received evdepth: {result[0]:,}")
+                console.print(f"Best known cost : {result[1]}")
+                if (len(result) > 2):
+                    console.print(f"Best lower bound: {result[2]}")
+                print()
+            if (result[0] == inf):
+                break
+            evdepth += 1
+        return result
 
-    # Same for all solvers.
     def solve(self):
         """
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
-        # if self.num_concurrent_tasks:
-        #     progress.start()
         start = time.time()
-        # self.initial_calc_best_move()
-        # if self.num_concurrent_tasks:
-        #     progress.stop()
-        self.iterative_deepen_root()
+        # WARN need a way to handle capitulate solvers, which don't do iterative deepening.
+        self.called_by_solve()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
@@ -796,6 +785,9 @@ class Solver:
     ############################### SAME FOR ALL SOLVERS ###############################
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
+    def called_by_solve(self):
+        self.iterative_deepen(self.initial_game_state, self.initial_calc_best_move, display=True)
+
     def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move):
         """
         Given a working game state and a move, return a 2-tup of (avg round cost, avg query cost) of solving the state if you have to start with making the given move.
@@ -863,7 +855,11 @@ class Solver:
 
     def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
             prev_gs_eval = self.handle_delete_eval(curr_working_gs, curr_cache_gs)
-            current_gs_eval = self._filter_calculate_best_move(curr_working_gs)
+            current_gs_eval = self.iterative_deepen(
+                curr_working_gs,
+                self._filter_calculate_best_move,
+                display=False
+            )
             self.filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
             new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
             (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
@@ -880,13 +876,12 @@ class Solver:
             pass
         print(working_gs)
         print(cache_gs)
-        (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
-            working_gs,
-            sort=True,
-            round_depth=config.INITIAL_EVAL_DEPTH - 1
-        )
-        for (index, (move, rqd)) in enumerate(move_rqd_tups):
-            console.print(f"{index:>3}", display.get_move_text(move), rqd, end=" ")
+        # (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
+        #     working_gs,
+        #     sort=True,
+        # )
+        # for (index, (move, rqd)) in enumerate(move_rqd_tups):
+        #     console.print(f"{index:>3}", display.get_move_text(move), rqd, end=" ")
         if end_program:
             console.print("Exiting.", style=config.BIG_WARN)
             exit()
@@ -962,25 +957,24 @@ class Solver:
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
 
-    def initial_calc_best_move(self):
+    def initial_calc_best_move(self, working_gs, evdepth):
         """
-        Each solver defines their own way to initially calculate everything. Could even use iterative deepening here.
+        Each solver defines their own way to initially calculate everything.
         """
-        self._calculate_best_move(
-            qs_dict     = self.qs_dict,
-            game_state  = self.initial_game_state,
-            depth       = 0,
-            round_depth = config.INITIAL_EVAL_DEPTH,
-        )
-
-    def _filter_calculate_best_move(self, curr_working_gs, round_depth=config.INITIAL_EVAL_DEPTH):
         return self._calculate_best_move(
             qs_dict     = self.qs_dict,
-            game_state  = curr_working_gs,
+            game_state  = working_gs,
             depth       = 0,
-            round_depth = round_depth
-            # TODO: Think about whether a value of 1 works here.
-            # I don't think it does, due to pruning. Consider tracking the evdepth to go in the stack in filter cache and passing it as an argument to this function.
+            round_depth = evdepth
+        )
+
+    def _filter_calculate_best_move(self, working_gs, evdepth):
+        # in the base solver, this happens to be the same as initial_calc_best_move, but it is different in nightmare solver.
+        return self._calculate_best_move(
+            qs_dict     = self.qs_dict,
+            game_state  = working_gs,
+            depth       = 0,
+            round_depth = evdepth
         )
 
     def new_res_to_og_res(self, new_cache_result):
@@ -1004,7 +998,7 @@ class Solver:
     def _easy_get_list_move_infos(self, working_gs:Game_State):
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, force_set_intersect=True))
 
-    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State):
+    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State, warn=True):
         """
         Deletes the evaluation of the cache_gs from the cache if it is in the cache and returns the result. Displays warning messages as appropriate.
         """
@@ -1013,11 +1007,12 @@ class Solver:
             del self._evaluations_cache[cache_gs]
             return result
         # not in cache:
-        console.print("WARN!!", style=config.BIG_WARN)
-        message = (
-            "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
-        )
-        self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
+        if warn:
+            console.print("WARN!!", style=config.BIG_WARN)
+            message = (
+                "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
+            )
+            self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
 
     def filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
@@ -1089,7 +1084,7 @@ class Solver:
 
     # TODO: update
     def move_rqd_tups_from_working_gs(
-            self, working_gs: Game_State, sort=True, round_depth=config.INITIAL_EVAL_DEPTH
+            self, working_gs: Game_State, sort=True, round_depth=inf
         ):
         """
         Given a working game state, returns `(move_rqd_tups, move_infos)`. WARN: do not use for performance-sensitive calculations. Used on *pre-filter* cache.
@@ -1108,20 +1103,21 @@ class Solver:
         move_infos: list
             A list of move_infos corresponding to the move_cost_tups
         """
-        move_rqd_tups = []
-        move_infos = self._easy_get_list_move_infos(working_gs)
-        for mi in move_infos:
-            (move, mcost, (gsf, gst), p_tup) = mi
-            (false_rqd, false_evdepth) = self._filter_calculate_best_move(gsf, round_depth)
-            (true_rqd, true_evdepth) = self._filter_calculate_best_move(gst, round_depth)
-            move_rqd = self._cost_calculator(mcost, p_tup, (false_rqd, true_rqd))
-            move_rqd_tups.append((move, move_rqd))
-        if (sort and bool(move_rqd_tups)):
-            mvrqd_mi_combined = list(zip(move_rqd_tups, move_infos, strict=True))
-            # mvrqd_mi_combined = [(mvrqd, mi), (mvrqd, mi)]
-            mvrqd_mi_combined.sort(key = lambda x: x[0][1])
-            (move_rqd_tups, move_infos) = zip(*mvrqd_mi_combined)
-        return (move_rqd_tups, move_infos)
+        raise NotImplementedError()
+        # move_rqd_tups = []
+        # move_infos = self._easy_get_list_move_infos(working_gs)
+        # for mi in move_infos:
+        #     (move, mcost, (gsf, gst), p_tup) = mi
+        #     (false_rqd, false_evdepth) = self._filter_calculate_best_move(gsf, round_depth)
+        #     (true_rqd, true_evdepth) = self._filter_calculate_best_move(gst, round_depth)
+        #     move_rqd = self._cost_calculator(mcost, p_tup, (false_rqd, true_rqd))
+        #     move_rqd_tups.append((move, move_rqd))
+        # if (sort and bool(move_rqd_tups)):
+        #     mvrqd_mi_combined = list(zip(move_rqd_tups, move_infos, strict=True))
+        #     # mvrqd_mi_combined = [(mvrqd, mi), (mvrqd, mi)]
+        #     mvrqd_mi_combined.sort(key = lambda x: x[0][1])
+        #     (move_rqd_tups, move_infos) = zip(*mvrqd_mi_combined)
+        # return (move_rqd_tups, move_infos)
 
     # TODO: update
     def _experiment(self):
