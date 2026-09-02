@@ -811,8 +811,16 @@ class Solver:
         p_false = len(false_gs.cwa_set) / len(working_gs.cwa_set)
         p_true = len(true_gs.cwa_set) / len(working_gs.cwa_set)
         p_tup = (p_false, p_true)
-        false_cost = self._filter_calculate_best_move(false_gs)
-        true_cost = self._filter_calculate_best_move(true_gs)
+        false_cost = self.iterative_deepen(
+            false_gs,
+            self._filter_calculate_best_move,
+            display=False
+        )
+        true_cost = self.iterative_deepen(
+            true_gs,
+            self._filter_calculate_best_move,
+            display=False
+        )
         false_cost_og = self.new_res_to_og_res(false_cost)
         true_cost_og = self.new_res_to_og_res(true_cost)
         og_cost = solver_utils.calculate_expected_cost(mcost, p_tup, (false_cost_og, true_cost_og))
@@ -863,17 +871,20 @@ class Solver:
         self._handle_state_helper(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache)
 
     def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
-            prev_gs_eval = self.handle_delete_eval(curr_working_gs, curr_cache_gs)
-            current_gs_eval = self.iterative_deepen(
-                curr_working_gs,
-                self._filter_calculate_best_move,
-                display=False
-            )
-            self.filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
-            new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
-            (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
-            stack.append(gs_false)
-            stack.append(gs_true)
+        """
+        Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
+        """
+        prev_gs_eval = self.handle_delete_eval(curr_working_gs, curr_cache_gs)
+        current_gs_eval = self.iterative_deepen(
+            curr_working_gs,
+            self._filter_calculate_best_move,
+            display=False
+        )
+        self.filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
+        new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
+        (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
+        stack.append(gs_false)
+        stack.append(gs_true)
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message, end_program=False):
         console.print(message)
