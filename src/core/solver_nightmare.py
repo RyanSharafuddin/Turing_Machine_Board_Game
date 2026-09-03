@@ -245,6 +245,7 @@ class Solver_Nightmare(Solver):
                 game_state=new_gs,
                 depth=depth+1
             )
+
         self._evaluations_cache[cache_game_state] = best_node_cost
         return best_node_cost
 
