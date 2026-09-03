@@ -29,18 +29,21 @@ _EXTREME_PROB_TUPS = [
 _NIGHTMARE_PROB_TUPS = [
     ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
 ]
-_IDS_TO_COMMENTS_DICT = {
-    "B63YRW4"   : "Zero query",
-    "C630YVB"   : "Mult. combos",
-    "F5XTDF"    : "Formerly ~180s",
-    "F63EZQM"   : "Excellent tree",
-    "F52LUJG"   : "Excellent tree",
-    "F435FE"    : "Formerly ~3,500s",
-    "INVALID"   : "Example test",
-    "INVALID_N" : "Example test",
-    "C630YVB_N" : "Killed 9",
-}
 _ACCEPTABLE_MODES = ["S", "E", "N"]
+def _problem_info_text_file_to_dict(filename):
+    if not os.path.isfile(filename):
+        file_dir = os.path.dirname(filename)
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+        with open(filename, 'w') as f:
+            pass # created an empty file
+        return dict()
+    d = dict()
+    with open(filename, 'r') as prob_info_text_file:
+        for line in prob_info_text_file:
+            line = [item.strip() for item in line.split(PROB_INFO_SEPARATOR)]
+            d[line[0]] = line[1:]
+    return d
 def _add_problem_to_both_dicts(problem: Problem):
     """
     Adds problem to ID_TO_PROBLEM_DICT and also PREFIX_ID_TO_PROBLEM_LIST_DICT, which is a pre-requisite for getting the problem with get_local_problem_by_id.
@@ -271,7 +274,7 @@ def print_all_local_problems():
             p.identity,
             sec_col_item,
             Text(MODE_NAMES[p.mode][0], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
-            _IDS_TO_COMMENTS_DICT.get(p.identity, ""),
+            _PROBLEM_INFO_FROM_TEXT.get(p.identity, [""])[0],
             Text(time_pickle_str, style=""),
             cost_text
         ]
@@ -414,6 +417,10 @@ if not os.path.isfile(PROB_INFO_PICKLE_FILE_NAME):
         pickle.dump(_PICKLED_PROB_INFO_DICT, _f, protocol=pickle.HIGHEST_PROTOCOL)
 with open(PROB_INFO_PICKLE_FILE_NAME, 'rb') as _f:
     _PICKLED_PROB_INFO_DICT: dict = pickle.load(_f)
+_PROBLEM_INFO_FROM_TEXT = _problem_info_text_file_to_dict(PROBLEM_INFO_TXT_FILE_NAME)
+# _PROBLEM_INFO_FROM_TEXT is a dictionary. Call it d. d[full_problem_id] = [info items about problems]
+# In that list l, l[0] is the comment about the problem. Currently, there is nothing else in l, but l is extensible without breaking the program.
+
 # NOTE: _PICKLED_PROB_INFO_DICT[problem.identity] = (time_taken_in_seconds, (round_cost, query_cost))
 #        The tuple in the comment above can be extended to include additional info w/o breaking program.
 # TODO: use a trie instead of the wildly inefficient prefix dict
