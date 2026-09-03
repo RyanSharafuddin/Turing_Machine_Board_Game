@@ -126,5 +126,5 @@ DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginn
 PICKLE_DIRECTORY           = "src/problems/Pickles/no_store_moves_upgrade" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = "src/problems/Pickles/prob_info_pickle_file.bin"
-PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/master/problem_comments.txt"
+PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
 PROB_INFO_SEPARATOR        = '│'
