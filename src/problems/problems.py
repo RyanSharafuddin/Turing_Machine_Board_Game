@@ -334,27 +334,29 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
     p_ids_to_delete = [p_id for p_id in _PICKLED_PROB_INFO_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
     for p_id in p_ids_to_delete:
         del(_PICKLED_PROB_INFO_DICT[p_id])
-    if(s.seconds_to_solve < previous_best):
-        if(previous_best != inf):
-            console.print(
-                f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
-            )
-    if (
-        (previous_cost is not None) and
-        (not np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL))
-    ):
+    changed_time = s.seconds_to_solve < previous_best
+    if changed_time and (previous_best != inf):
+        console.print(
+            f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
+        )
+    changed_cost = (
+        (previous_cost is None)
+        or (not np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL))
+    )
+    if ((previous_cost is not None) and changed_cost):
         console.print("Warn:", style=SMALL_WARN)
         console.print(
             f"The cost on this solver run is not approximately equal to the cost on the pickled solver run. This may be acceptable.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}."
         )
-    if(bool(p_ids_to_delete) or (s.seconds_to_solve < previous_best) or (previous_cost is None)):
-        print(f"Pickling time dict . . .")
-        if ((s.seconds_to_solve < previous_best) or (previous_cost is None)):
+    update_this_problem = changed_time or changed_cost
+    if(bool(p_ids_to_delete) or update_this_problem):
+        print(f"Pickling problem info dict . . .")
+        if update_this_problem:
             _PICKLED_PROB_INFO_DICT[s.problem.identity] = (s.seconds_to_solve, s.expected_cost)
         f = open(PROB_INFO_PICKLE_FILE_NAME, "wb")
         pickle.dump(_PICKLED_PROB_INFO_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()
-        print("Done pickling the time dict.")
+        print("Done pickling the problem info dict.")
 def get_best_time(problem: Problem):
     """
     Return the number of seconds of the best recorded solver performance on this problem, or inf if there is no recorded performance.
