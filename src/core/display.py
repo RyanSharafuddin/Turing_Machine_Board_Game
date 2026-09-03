@@ -1624,6 +1624,10 @@ def _get_node_background_color(tree: Tree, result):
     (best_move, best_move_cost, gs_tup, total_expected_cost) = result
     # things to use: see the fields of a Tree. Can use cost to get here, remaining expected cost, etc.
     if (best_move_cost[0] == 1):
+        # if this was NOT a begin round state AND there were non-begin-round moves available,
+        # then this started a new round early
+        if ((tree.gs.proposal_used_this_round is not None) and tree.solver.exist_moves(tree.gs)):
+            return NEW_ROUND_EARLY_BG_COLOR
         return NEW_ROUND_BACKGROUND_COLOR
     return TREE_BACKGROUND_COLOR
 

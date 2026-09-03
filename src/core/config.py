@@ -48,7 +48,8 @@ COLORS = [
 # Displaying
 # TREE_BACKGROUND_COLOR      = "#690969"
 TREE_BACKGROUND_COLOR      = "#420342" # Both seem reasonable
-NEW_ROUND_BACKGROUND_COLOR = "#D102D1" #"#FF0048"
+NEW_ROUND_BACKGROUND_COLOR = "#D102D1"
+NEW_ROUND_EARLY_BG_COLOR   = "#FF0048"
 SHOW_RC_NUMS_IN_PROBLEM    = True          # Display rule card numbers when displaying a problem?
 PROBLEM_TITLE_COLOR        = "#FFAF00" # problem titles when displaying problem; not in the problem table.
 PROPOSAL_COLOR             = "#00FFAA" # currently only used in partition tables
@@ -87,7 +88,7 @@ A_TOL                        = 1e-8
 REL_TOL                      = 0
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
-CONSIDER_END_ROUND_EARLY     = True  # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
+CONSIDER_END_ROUND_EARLY     = False # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
 STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
@@ -125,3 +126,5 @@ DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginn
 PICKLE_DIRECTORY           = "src/problems/Pickles/Horizontal_Pruning" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
+PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
+PROB_INFO_SEPARATOR        = '│'
