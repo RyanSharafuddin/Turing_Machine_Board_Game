@@ -361,22 +361,20 @@ class Solver:
             self,
             qs_dict,
             game_state: Game_State,
-            depth=0,
+            depth       = 0,
             round_depth = inf,
         ):
-        """
-        """
         # self.called_calculate += 1
         cache_game_state = self.convert_working_gs_to_cache_gs(game_state, self.all_cwa_bitsets)
         result = self._evaluations_cache.get(cache_game_state)
         if result is None:
-            best_rqd_so_far = self.triple_inf
+            search_best_rqd = self.triple_inf
         else:
             # result is (evdepth, best_known_rqd, optional_lower_bound_rqd)
             if (result[0] >= round_depth):
                 # self.cache_hits += 1
                 return result
-            best_rqd_so_far = result[1]
+            search_best_rqd = result[1]
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return self.end_game_eval
         is_begin_round_state = game_state.proposal_used_this_round is None
@@ -396,7 +394,7 @@ class Solver:
         evdepth_infinity = False
         best_move = None # NOTE: keep this, b/c if there are moves, but none of them are evaluated deeply enough to yield an answer, then the line that assigns to self.best_move will reference best_move before the latter has been assigned to.
         # move_rqd_tups = [] # TODO: delete
-        current_evdepth_lower_bound_rqd = self.triple_inf
+        search_curr_evdepth_LB_rqd = self.triple_inf
         # TODO: see if reordering the moves in the same way as vertical pruning improves time and/or memory usage.
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
@@ -410,9 +408,9 @@ class Solver:
             currnode_lower_bound_rqd = self._cost_calculator(
                 mcost, p_tup, (f_lower_bound, t_lower_bound)
             )
-            if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
-                # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
-                #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+            if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, search_best_rqd):
+                # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+                #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
                     progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
@@ -431,9 +429,9 @@ class Solver:
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
                 # TODO: maybe don't also compare depth? i.e. only compare tuple[0:2] for rq? See effect on timing/mem usage.
-                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
-                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
-                    #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, search_best_rqd):
+                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+                    #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
                         progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
@@ -452,9 +450,9 @@ class Solver:
                 currnode_lower_bound_rqd = self._cost_calculator(
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
-                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, best_rqd_so_far):
-                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
-                    #     current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+                if solver_utils.roughly_geq_rqd(currnode_lower_bound_rqd, search_best_rqd):
+                    # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+                    #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
                         progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
@@ -470,11 +468,11 @@ class Solver:
                 if ((f_evdepth == inf) and (t_evdepth == inf))
                 else self._cost_calculator(mcost, p_tup, (f_result[1], t_result[1]))
             )
-            if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, current_evdepth_lower_bound_rqd):
-                current_evdepth_lower_bound_rqd = currnode_lower_bound_rqd
+            if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+                search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
 
-            if solver_utils.roughly_lt_rqd(currnode_best_known_rqd, best_rqd_so_far):
-                best_rqd_so_far = currnode_best_known_rqd
+            if solver_utils.roughly_lt_rqd(currnode_best_known_rqd, search_best_rqd):
+                search_best_rqd = currnode_best_known_rqd
                 best_move = move
                 if (currnode_best_known_rqd[0] == is_begin_round_state):
                     evdepth_infinity = True
@@ -485,18 +483,22 @@ class Solver:
             if depth < self.num_concurrent_tasks:
                 progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
-        assert (current_evdepth_lower_bound_rqd is self.triple_inf) or solver_utils.roughly_geq_rqd(best_rqd_so_far, current_evdepth_lower_bound_rqd), f"\nlower bound: {current_evdepth_lower_bound_rqd}\nbest so far: {best_rqd_so_far}\n{game_state}"
+        assert (
+            (search_curr_evdepth_LB_rqd is self.triple_inf)
+            or solver_utils.roughly_geq_rqd(search_best_rqd, search_curr_evdepth_LB_rqd)
+            ), f"\nlower bound: {search_curr_evdepth_LB_rqd}\nbest so far: {search_best_rqd}\n{game_state}"
         if found_moves:
             if (
                 evdepth_infinity
-                # NOTE: if uncomment the lines updating current_evdepth_lower_bound_rqd when pruning a move, replace below comparison w/fp_eq_tup, since current_evdepth_lower_bound_rqd should never be > best_rqd_so_far.
-                or solver_utils.roughly_geq_rqd(current_evdepth_lower_bound_rqd, best_rqd_so_far)
+                # NOTE: if uncomment the lines updating search_curr_evdepth_LB_rqd when pruning a move, replace below comparison w/fp_eq_tup, since search_curr_evdepth_LB_rqd should never be > search_best_rqd.
+                or solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd)
             ):
                 evdepth = inf
-                answer = (evdepth, best_rqd_so_far)
+                answer = (evdepth, search_best_rqd)
             else:
                 evdepth = min_round_depth + is_begin_round_state
-                answer = (evdepth, best_rqd_so_far, current_evdepth_lower_bound_rqd)
+                assert (evdepth != inf) # TODO: delete this assert statement.
+                answer = (evdepth, search_best_rqd, search_curr_evdepth_LB_rqd)
             self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
         else:
             new_gs = Game_State(
@@ -522,7 +524,7 @@ class Solver:
         #     )
         #     end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_tz)
         #     end_round_early_lower_bound_rqd = end_round_early_result[-1]
-        #     if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, best_rqd_so_far):
+        #     if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
         #         self._evaluations_cache[cache_game_state] = answer
         #         return answer
         #     end_round_early_result_evdepth = end_round_early_result[0]
@@ -536,58 +538,54 @@ class Solver:
         #         end_round_early_result_evdepth = end_round_early_result[0]
         #         assert (end_round_early_result_evdepth >= round_depth)
         #         end_round_early_lower_bound_rqd = end_round_early_result[-1]
-        #         if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, best_rqd_so_far):
+        #         if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
         #             self.best_move = saved_best_move # NOTE: can clobber self.best_move (again)
         #             self._evaluations_cache[cache_game_state] = answer
         #             return answer
         #     # have not been able to rule out end_round_early result based on best known rqd and early end lower bound rqd.
         #     end_round_early_best_known_rqd = end_round_early_result[1]
-        #     if solver_utils.roughly_lt_rqd(end_round_early_lower_bound_rqd, current_evdepth_lower_bound_rqd):
-        #         current_evdepth_lower_bound_rqd = end_round_early_lower_bound_rqd
+        #     if solver_utils.roughly_lt_rqd(end_round_early_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+        #         search_curr_evdepth_LB_rqd = end_round_early_lower_bound_rqd
 
-        #     if solver_utils.roughly_lt_rqd(end_round_early_best_known_rqd, best_rqd_so_far):
-        #         if (
-        #             found_moves
-        #             and (sd.num_end_round_early_states_printed < 10)
-        #             and (solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd))
-        #         ):
-        #             # console.print(
-        #             #     f"{sd.num_end_round_early_states_printed}: Found a state where ending the round earlier than you have to is better!"
-        #             # )
-        #             # sd.print_game_state(game_state)
-        #             # console.print("       Previous result:", answer, end=" ")
-        #             # console.print("End round early result:", end_round_early_result, end=" ")
-        #             # console.print(game_state)
-        #             # sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
-        #             # console.rule()
-        #             sd.num_end_round_early_states_printed += 1
-        #         best_rqd_so_far = end_round_early_best_known_rqd
+        #     if solver_utils.roughly_lt_rqd(end_round_early_best_known_rqd, search_best_rqd):
+        #         # uncomment if block to see states where ending round early despite having moves is better.
+        #         # if (
+        #         #     found_moves
+        #         #     and (sd.num_end_round_early_states_printed < 10)
+        #         #     and (solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd))
+        #         # ):
+        #         #     console.print(
+        #         #         f"{sd.num_end_round_early_states_printed}: Found a state where ending the round earlier than you have to is better!"
+        #         #     )
+        #         #     sd.print_game_state(game_state)
+        #         #     console.print("       Previous result:", answer, end=" ")
+        #         #     console.print("End round early result:", end_round_early_result, end=" ")
+        #         #     console.print(game_state)
+        #         #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
+        #         #     console.rule()
+        #         #     sd.num_end_round_early_states_printed += 1
+        #         search_best_rqd = end_round_early_best_known_rqd # do NOT comment out.
         #     else:
         #         self.best_move = saved_best_move # NOTE: can clobber self.best_move
 
         #     if (
         #         (not found_moves)
         #         or (end_round_early_result_evdepth < evdepth)
-        #         or solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd)
+        #         or solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd) # left terminal
         #     ):
         #         # short circuit evaluation necessary, since evdepth and answer are not defined in the case that not found_moves.
         #         evdepth = end_round_early_result_evdepth
 
-        #     # end_round_early_lower_bound_rqd is not >= best_rqd_so_far, b/c then we wouldn't be here.
-        #     if solver_utils.roughly_geq_rqd(current_evdepth_lower_bound_rqd, best_rqd_so_far):
-        #         # if (evdepth != inf):
-        #         #     progress.stop()
-        #         #     print("evdepth is not inf:", evdepth)
-        #         #     sd.print_game_state(game_state)
-        #         #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
-        #         #     console.print(game_state)
-        #         assert (evdepth == inf)
-        #         answer = (evdepth, best_rqd_so_far)
+        #     # end_round_early_lower_bound_rqd is not >= search_best_rqd, b/c then we wouldn't be here.
+        #     # if solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd): # right terminal
+        #     if (evdepth == inf): # left terminal
+        #         # assert solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd)
+        #         answer = (evdepth, search_best_rqd) # left terminal
+        #         # answer = (inf, search_best_rqd) # right terminal
         #     else:
-        #         answer = (evdepth, best_rqd_so_far, current_evdepth_lower_bound_rqd)
+        #         answer = (evdepth, search_best_rqd, search_curr_evdepth_LB_rqd)
         #     self._evaluations_cache[cache_game_state] = answer
         #     return answer
-
 
         # self.update_biggest_counterexamples(move_rqd_tups, game_state) # TODO: delete if not visualizing
         self._evaluations_cache[cache_game_state] = answer # NOTE: keep this
@@ -596,6 +594,7 @@ class Solver:
     # Same for all solvers.
     def iterative_deepen(self, working_gs: Game_State, calc_fn, display):
         evdepth = int(working_gs.proposal_used_this_round is None)
+        # NOTE: self.triple_inf will need to be changed if switch format from rqd.
         (best_move, best_known_rqd) = (None, self.triple_inf)
         while True:
             if display:
