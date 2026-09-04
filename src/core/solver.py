@@ -135,7 +135,7 @@ class Solver:
     triple_inf = (inf, inf, inf)
     double_inf = (inf, inf)
     triple_z_in_tup = (triple_zero,)
-    neg1_tz = (-1, triple_zero)
+    neg1_titz = (-1, triple_inf, triple_zero)
 
     end_game_eval = (inf, triple_zero) # (evdepth, best_known_rqd)
     end_game_eval_no_evdepth = triple_zero
@@ -399,10 +399,11 @@ class Solver:
         move_iterable = self.tasks_initialize(depth, self.get_and_apply_moves(game_state, qs_dict))
         for move_info in move_iterable:
             found_moves = True
-            (move, mcost, (f_state, t_state), p_tup) = move_info
-            # WARN In below 2 lines, really should convert convert f_state and t_state into their cache versions using the convert function before looking them up in the cache. Fine for now, since the convert function does nothing, but you should be able to easily switch to using int or hashable np array cache states.
-            f_result = self._evaluations_cache.get(f_state, self.neg1_tz)
-            t_result = self._evaluations_cache.get(t_state, self.neg1_tz)
+            (move, mcost, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
+            f_state_Cgs = self.convert_working_gs_to_cache_gs(f_state_Wgs, self.all_cwa_bitsets)
+            t_state_Cgs = self.convert_working_gs_to_cache_gs(t_state_Wgs, self.all_cwa_bitsets)
+            f_result = self._evaluations_cache.get(f_state_Cgs, self.neg1_titz)
+            t_result = self._evaluations_cache.get(t_state_Cgs, self.neg1_titz)
             f_lower_bound = f_result[-1]
             t_lower_bound = t_result[-1]
             currnode_lower_bound_rqd = self._cost_calculator(
@@ -418,7 +419,7 @@ class Solver:
             if (f_evdepth < round_depth):
                 f_result = self._calculate_best_move(
                     qs_dict,
-                    f_state,
+                    f_state_Wgs,
                     depth+1,
                     round_depth
                 )
@@ -440,7 +441,7 @@ class Solver:
             if (t_evdepth < round_depth):
                 t_result = self._calculate_best_move(
                     qs_dict,
-                    t_state,
+                    t_state_Wgs,
                     depth+1,
                     round_depth
                 )
@@ -522,7 +523,7 @@ class Solver:
         #         proposal_used_this_round=None,
         #         cwa_set=cache_game_state.cwa_set
         #     )
-        #     end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_tz)
+        #     end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_titz)
         #     end_round_early_lower_bound_rqd = end_round_early_result[-1]
         #     if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
         #         self._evaluations_cache[cache_game_state] = answer
@@ -660,22 +661,24 @@ class Solver:
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
-        try:
-            if one_answer_left(self.full_cwas_list, self.initial_game_state.cwa_set):
-                initial_evdepth = inf
-            else:
-                initial_state_res = self._evaluations_cache.get(self.initial_game_state)
-                (initial_evdepth, (r, q, d)) = initial_state_res[0:2]
-            console.print(
-                "Depth the initial state was evaluated to:",
-                display.Text(f"{initial_evdepth}", style="b cyan")
-            )
-        except TypeError: # couldn't unpack the (rqd, evdepth) tuple.
-            console.print("Could not determine initial evdepth.")
+        if one_answer_left(self.full_cwas_list, self.initial_game_state.cwa_set):
+            initial_evdepth = inf
+        else:
+            initial_state_cache_gs = self._easy_working_gs_to_cache_gs(self.initial_game_state)
+            initial_state_res = self._evaluations_cache.get(initial_state_cache_gs)
+            if (initial_state_res is None):
+                console.print(
+                    "WARN!! For some reason, the initial state cache gs is not in self._evaluations_cache."
+                )
+            initial_evdepth = initial_state_res[0]
+        console.print(
+            "Depth the initial state was evaluated to:",
+            display.Text(f"{initial_evdepth}", style="b cyan")
+        )
         from .display import Solver_Displayer
         sd = Solver_Displayer(self)
 
-        if(config.PRINT_POST_SOLVE_DEBUG_INFO):
+        if config.PRINT_POST_SOLVE_DEBUG_INFO:
             # NOTE: post solve debug info is based on original (pre-filter) cache.
             # global asizeof
             # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
@@ -689,14 +692,15 @@ class Solver:
             # # console.print(f"{useful_queries:,} useful queries")
             # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
             print("\nCalculating post-solve debug information.")
-            gs: Game_State
-            num_begin_round_states = 0
-            for gs in self._evaluations_cache:
-                num_begin_round_states += (gs.proposal_used_this_round is None)
-            print(f"Number of begin round states: {num_begin_round_states:,}")
-            print(f"Total number of states: {len(self._evaluations_cache):,}")
+            num_begin_round_states = sum(
+                (gs.proposal_used_this_round is None) for gs in self._evaluations_cache
+            )
+            total_state_number_str = f'{len(self._evaluations_cache):,}'
+            begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
+            console.print(f"Number of begin round states: {begin_round_number_str}")
+            console.print(f"      Total number of states: {total_state_number_str}")
             if len(self._evaluations_cache):
-                print(
+                console.print(
                     f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
                 )
         sys.stdout.flush()
