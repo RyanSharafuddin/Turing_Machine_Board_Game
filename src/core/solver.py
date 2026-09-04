@@ -511,82 +511,82 @@ class Solver:
 
         # To consider all moves that end the round early, set config.CONSIDER_END_ROUND_EARLY to True
         # and also uncomment the below if block and comment out the above else block.
-        # if not (is_begin_round_state or evdepth_infinity):
-        #     saved_best_move = self.best_move # NOTE: this can save a clobbered best move
-        #     new_round_early_working_gs = Game_State(
-        #         num_queries_this_round=0,
-        #         proposal_used_this_round=None,
-        #         cwa_set=game_state.cwa_set
-        #     )
-        #     new_round_early_cache_gs = Game_State(
-        #         num_queries_this_round=0,
-        #         proposal_used_this_round=None,
-        #         cwa_set=cache_game_state.cwa_set
-        #     )
-        #     end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_titz)
-        #     end_round_early_lower_bound_rqd = end_round_early_result[-1]
-        #     if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
-        #         self._evaluations_cache[cache_game_state] = answer
-        #         return answer
-        #     end_round_early_result_evdepth = end_round_early_result[0]
-        #     if (end_round_early_result_evdepth < round_depth):
-        #         end_round_early_result = self._calculate_best_move(
-        #             qs_dict,
-        #             new_round_early_working_gs,
-        #             depth + 1,
-        #             round_depth
-        #         )
-        #         end_round_early_result_evdepth = end_round_early_result[0]
-        #         assert (end_round_early_result_evdepth >= round_depth)
-        #         end_round_early_lower_bound_rqd = end_round_early_result[-1]
-        #         if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
-        #             self.best_move = saved_best_move # NOTE: can clobber self.best_move (again)
-        #             self._evaluations_cache[cache_game_state] = answer
-        #             return answer
-        #     # have not been able to rule out end_round_early result based on best known rqd and early end lower bound rqd.
-        #     end_round_early_best_known_rqd = end_round_early_result[1]
-        #     if solver_utils.roughly_lt_rqd(end_round_early_lower_bound_rqd, search_curr_evdepth_LB_rqd):
-        #         search_curr_evdepth_LB_rqd = end_round_early_lower_bound_rqd
+        if not (is_begin_round_state or evdepth_infinity):
+            saved_best_move = self.best_move # NOTE: this can save a clobbered best move
+            new_round_early_working_gs = Game_State(
+                num_queries_this_round=0,
+                proposal_used_this_round=None,
+                cwa_set=game_state.cwa_set
+            )
+            new_round_early_cache_gs = Game_State(
+                num_queries_this_round=0,
+                proposal_used_this_round=None,
+                cwa_set=cache_game_state.cwa_set
+            )
+            end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_titz)
+            end_round_early_lower_bound_rqd = end_round_early_result[-1]
+            if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
+                self._evaluations_cache[cache_game_state] = answer
+                return answer
+            end_round_early_result_evdepth = end_round_early_result[0]
+            if (end_round_early_result_evdepth < round_depth):
+                end_round_early_result = self._calculate_best_move(
+                    qs_dict,
+                    new_round_early_working_gs,
+                    depth + 1,
+                    round_depth
+                )
+                end_round_early_result_evdepth = end_round_early_result[0]
+                assert (end_round_early_result_evdepth >= round_depth)
+                end_round_early_lower_bound_rqd = end_round_early_result[-1]
+                if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
+                    self.best_move = saved_best_move # NOTE: can clobber self.best_move (again)
+                    self._evaluations_cache[cache_game_state] = answer
+                    return answer
+            # have not been able to rule out end_round_early result based on best known rqd and early end lower bound rqd.
+            end_round_early_best_known_rqd = end_round_early_result[1]
+            if solver_utils.roughly_lt_rqd(end_round_early_lower_bound_rqd, search_curr_evdepth_LB_rqd):
+                search_curr_evdepth_LB_rqd = end_round_early_lower_bound_rqd
 
-        #     if solver_utils.roughly_lt_rqd(end_round_early_best_known_rqd, search_best_rqd):
-        #         # uncomment if block to see states where ending round early despite having moves is better.
-        #         # if (
-        #         #     found_moves
-        #         #     and (sd.num_end_round_early_states_printed < 10)
-        #         #     and (solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd))
-        #         # ):
-        #         #     console.print(
-        #         #         f"{sd.num_end_round_early_states_printed}: Found a state where ending the round earlier than you have to is better!"
-        #         #     )
-        #         #     sd.print_game_state(game_state)
-        #         #     console.print("       Previous result:", answer, end=" ")
-        #         #     console.print("End round early result:", end_round_early_result, end=" ")
-        #         #     console.print(game_state)
-        #         #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
-        #         #     console.rule()
-        #         #     sd.num_end_round_early_states_printed += 1
-        #         search_best_rqd = end_round_early_best_known_rqd # do NOT comment out.
-        #     else:
-        #         self.best_move = saved_best_move # NOTE: can clobber self.best_move
+            if solver_utils.roughly_lt_rqd(end_round_early_best_known_rqd, search_best_rqd):
+                # uncomment if block to see states where ending round early despite having moves is better.
+                # if (
+                #     found_moves
+                #     and (sd.num_end_round_early_states_printed < 10)
+                #     and (solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd))
+                # ):
+                #     console.print(
+                #         f"{sd.num_end_round_early_states_printed}: Found a state where ending the round earlier than you have to is better!"
+                #     )
+                #     sd.print_game_state(game_state)
+                #     console.print("       Previous result:", answer, end=" ")
+                #     console.print("End round early result:", end_round_early_result, end=" ")
+                #     console.print(game_state)
+                #     sd.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
+                #     console.rule()
+                #     sd.num_end_round_early_states_printed += 1
+                search_best_rqd = end_round_early_best_known_rqd # do NOT comment out.
+            else:
+                self.best_move = saved_best_move # NOTE: can clobber self.best_move
 
-        #     if (
-        #         (not found_moves)
-        #         or (end_round_early_result_evdepth < evdepth)
-        #         or solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd) # left terminal
-        #     ):
-        #         # short circuit evaluation necessary, since evdepth and answer are not defined in the case that not found_moves.
-        #         evdepth = end_round_early_result_evdepth
+            if (
+                (not found_moves)
+                or (end_round_early_result_evdepth < evdepth)
+                or solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd) # left terminal
+            ):
+                # short circuit evaluation necessary, since evdepth and answer are not defined in the case that not found_moves.
+                evdepth = end_round_early_result_evdepth
 
-        #     # end_round_early_lower_bound_rqd is not >= search_best_rqd, b/c then we wouldn't be here.
-        #     # if solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd): # right terminal
-        #     if (evdepth == inf): # left terminal
-        #         # assert solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd)
-        #         answer = (evdepth, search_best_rqd) # left terminal
-        #         # answer = (inf, search_best_rqd) # right terminal
-        #     else:
-        #         answer = (evdepth, search_best_rqd, search_curr_evdepth_LB_rqd)
-        #     self._evaluations_cache[cache_game_state] = answer
-        #     return answer
+            # end_round_early_lower_bound_rqd is not >= search_best_rqd, b/c then we wouldn't be here.
+            # if solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd): # right terminal
+            if (evdepth == inf): # left terminal
+                # assert solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd, search_best_rqd)
+                answer = (evdepth, search_best_rqd) # left terminal
+                # answer = (inf, search_best_rqd) # right terminal
+            else:
+                answer = (evdepth, search_best_rqd, search_curr_evdepth_LB_rqd)
+            self._evaluations_cache[cache_game_state] = answer
+            return answer
 
         # self.update_biggest_counterexamples(move_rqd_tups, game_state) # TODO: delete if not visualizing
         self._evaluations_cache[cache_game_state] = answer # NOTE: keep this
@@ -665,17 +665,20 @@ class Solver:
             initial_evdepth = inf
         else:
             initial_state_cache_gs = self._easy_working_gs_to_cache_gs(self.initial_game_state)
+            # Always use cache_gs here, since this done on PRE-filter cache.
             initial_state_res = self._evaluations_cache.get(initial_state_cache_gs)
             if (initial_state_res is None):
                 console.print(
-                    "WARN!! For some reason, the initial state cache gs is not in self._evaluations_cache."
+                    "WARN!! For some reason, the initial state cache gs is not in self._evaluations_cache.",
+                    style=config.BIG_WARN
                 )
             initial_evdepth = initial_state_res[0]
         console.print(
             "Depth the initial state was evaluated to:",
             display.Text(f"{initial_evdepth}", style="b cyan")
         )
-        from .display import Solver_Displayer
+        # NOTE: consider moving this entire function to the Solver_Displayer class inside display.py, so don't have to import anything here.
+        from .display import Solver_Displayer, Text
         sd = Solver_Displayer(self)
 
         if config.PRINT_POST_SOLVE_DEBUG_INFO:
@@ -697,11 +700,16 @@ class Solver:
             )
             total_state_number_str = f'{len(self._evaluations_cache):,}'
             begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
-            console.print(f"Number of begin round states: {begin_round_number_str}")
-            console.print(f"      Total number of states: {total_state_number_str}")
+            total_state_number_Text = Text(total_state_number_str, style="repr.number")
+            begin_round_number_Text = Text(begin_round_number_str, style="repr.number")
+            percent_Text = Text(
+                f"{100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%", style="repr.number"
+            )
+            console.print(f"Number of begin round states:", begin_round_number_Text, sep=" ")
+            console.print(f"      Total number of states:", total_state_number_Text, sep=" ")
             if len(self._evaluations_cache):
                 console.print(
-                    f"Percent of states that are begin round: {100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%."
+                    f"Percent of states that are begin round:", percent_Text, sep=" "
                 )
         sys.stdout.flush()
 
