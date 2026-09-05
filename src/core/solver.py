@@ -378,14 +378,14 @@ class Solver:
             return self.end_game_eval
         is_begin_round_state = game_state.proposal_used_this_round is None
         if is_begin_round_state:
-            # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
-            # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
             if (round_depth == 0):
                 # NOTE: surprisingly, the line below somehow saves a lot of time.
                 # commenting it out causes problem f43 to take over 7 times longer.
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
                 return self.round_depth_cutoff # refuse to search more rounds
+            # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
+            # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
             round_depth -= 1
 
         # move_rqd_tups = [] # TODO: delete
