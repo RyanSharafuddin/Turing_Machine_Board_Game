@@ -116,6 +116,7 @@ N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progres
     6: 7,
 }
 N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
+MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have less than this # of moves
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
@@ -123,7 +124,7 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY           = "src/problems/Pickles/Horizontal_Pruning" # Where all pickled solvers go.
+PICKLE_DIRECTORY           = "src/problems/Pickles/Horizontal_Pruning_Iterate" # Where all pickled solvers go.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
 PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"

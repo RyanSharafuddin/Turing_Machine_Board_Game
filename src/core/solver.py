@@ -126,8 +126,6 @@ def testing_stuff(self):
     sd = display.Solver_Displayer(self)
     return sd
 
-progress = solver_utils.progress_initialize()
-
 class Solver:
     double_zero = (0, 0)
     triple_zero = (0, 0, 0)
@@ -174,6 +172,8 @@ class Solver:
 
         "best_move",
         "put_cache_gs_in_new_ev_cache",
+
+        "progress",
     )
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -209,10 +209,7 @@ class Solver:
             config.N_MODE_DEFAULT_PROGRESS_BARS if self.n_mode else config.S_MODE_DEFAULT_PROGRESS_BARS
         )
         self.num_concurrent_tasks = progress_bars_dict.get(self.num_rcs, default_progress_bars)
-        self.depth_to_tasks_l     = [
-            progress.add_task(f"Calculating depth {depth}:", total=0, visible=False)
-            for depth in range(self.num_concurrent_tasks)
-        ]
+        self.progress = None
         ############################### PROGRESS WERK ########################################################
         # expected cost is the expected cost to to solve the problem from the initial state.
         self.expected_cost                      = None # have not called solve() yet.
@@ -286,7 +283,7 @@ class Solver:
             move_iterable = list(move_generator)
             total = len(move_iterable)
             task_id = self.depth_to_tasks_l[depth]
-            progress.reset(task_id, total=total, visible=True)
+            self.progress.reset(task_id, total=total, visible=(total >= config.MIN_MOVES_TO_SHOW))
         else:
             move_iterable = move_generator
         return move_iterable
@@ -358,6 +355,7 @@ class Solver:
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(
+            # WARN: changing these arguments will require changing the function const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
             self,
             qs_dict,
             game_state: Game_State,
@@ -413,7 +411,7 @@ class Solver:
                 # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
-                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
             f_evdepth = f_result[0]
             if (f_evdepth < round_depth):
@@ -429,6 +427,7 @@ class Solver:
                 f_evdepth = f_result[0]
                 assert (f_evdepth >= round_depth)
                 f_lower_bound = f_result[-1]
+                # TODO: instead of re-computing this from scratch, only compute the increase, then add it.
                 currnode_lower_bound_rqd = self._cost_calculator(
                     mcost, p_tup, (f_lower_bound, t_lower_bound)
                 )
@@ -436,7 +435,7 @@ class Solver:
                     # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                     #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
-                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                        self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
             t_evdepth = t_result[0]
@@ -460,7 +459,7 @@ class Solver:
                     # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                     #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
-                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                        self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
             # moves that have been horizontally pruned (ruled out) should not affect the min_round_depth.
@@ -487,7 +486,7 @@ class Solver:
                         break
 
             if depth < self.num_concurrent_tasks:
-                progress.update(self.depth_to_tasks_l[depth], advance=1)
+                self.progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         assert (
             (search_curr_evdepth_LB_rqd is self.triple_inf)
@@ -611,48 +610,38 @@ class Solver:
         # NOTE: self.triple_inf will need to be changed if switch format from rqd.
         evdepth = int(working_gs.proposal_used_this_round is None)
         (best_move, best_known_rqd) = (None, self.triple_inf)
-        cache_state = self._easy_working_gs_to_cache_gs(working_gs)
         result = self.neg1_titz
-        args_to_calc = {
-            "qs_dict"             : self.qs_dict,
-            "game_state"          : working_gs,
-            "cache_game_state"    : cache_state,
-            # "pre_existing_result" : result,
-            "check_one_answer"    : False,
-            "depth"               : 0,
-            # "round_depth"         : evdepth
-        }
-        if self.n_mode:
-            args_to_calc["minimal_vs_list"] = self._calculate_minimal_vs_list(working_gs)
-            args_to_calc["working_cwa_set_convert_cache"] = dict()
-        while True:
+        const_args = self.const_args_to_calc(working_gs)
+        while (evdepth != inf):
             if display:
-                console.print(f"Calculating root to depth: {evdepth:,}")
+                console.print(f"Calculating root to round depth: {evdepth:,}")
                 if self.num_concurrent_tasks:
-                    progress.start()
+                    self.progress = solver_utils.progress_initialize()
+                    self.depth_to_tasks_l = [
+                        self.progress.add_task(f"Calculating move depth {depth}:", total=0, visible=False)
+                        for depth in range(self.num_concurrent_tasks)
+                    ]
+                    self.progress.start()
             try:
                 # remember that handle_state calls iterative deepen on non-begin round working_gs.
-                args_to_calc["pre_existing_result"] = result
-                args_to_calc["round_depth"] = evdepth
-                result = self._calculate_best_move(**args_to_calc)
+                result = self._calculate_best_move(
+                    pre_existing_result=result, round_depth=evdepth, **const_args
+                )
             finally:
                 # finally block ensures progress.stop() is always called.
                 if (display and self.num_concurrent_tasks):
-                    progress.stop()
+                    self.progress.stop()
             evdepth = result[0]
             result_best_rqd = result[1]
             if solver_utils.roughly_lt_rqd(result_best_rqd, best_known_rqd):
                 assert (self.best_move is not None)
                 (best_move, best_known_rqd) = (self.best_move, result_best_rqd)
             if display:
-                console.print(f"Received evdepth: {evdepth}")
+                console.print(f"Received evdepth: [repr.number]{evdepth}[/repr.number]")
                 console.print(f"Best known cost : {result[1]}")
                 if (len(result) > 2):
                     console.print(f"Best lower bound: {result[2]}")
-                    print()
                 print()
-            if (evdepth == inf):
-                break
             evdepth += 1
         self.best_move = best_move
         return result
@@ -694,22 +683,6 @@ class Solver:
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
-        if one_answer_left(self.full_cwas_list, self.initial_game_state.cwa_set):
-            initial_evdepth = inf
-        else:
-            initial_state_cache_gs = self._easy_working_gs_to_cache_gs(self.initial_game_state)
-            # Always use cache_gs here, since this done on PRE-filter cache.
-            initial_state_res = self._evaluations_cache.get(initial_state_cache_gs)
-            if (initial_state_res is None):
-                console.print(
-                    "WARN!! For some reason, the initial state cache gs is not in self._evaluations_cache.",
-                    style=config.BIG_WARN
-                )
-            initial_evdepth = initial_state_res[0]
-        console.print(
-            "Depth the initial state was evaluated to:",
-            display.Text(f"{initial_evdepth}", style="b cyan")
-        )
         # NOTE: consider moving this entire function to the Solver_Displayer class inside display.py, so don't have to import anything here.
         from .display import Solver_Displayer, Text
         sd = Solver_Displayer(self)
@@ -1088,6 +1061,19 @@ class Solver:
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
 
     ######################### MAY BE DIFFERENT B/T NIGHTMARE AND STANDARD #########################
+    def const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
+        """
+        Return a dictionary containing the arguments to self._calculate_best_move that remain constant when iterative deepening on `working_gs`.
+        """
+        cache_state = self._easy_working_gs_to_cache_gs(working_gs)
+        return {
+            "qs_dict"          : self.qs_dict,
+            "game_state"       : working_gs,
+            "cache_game_state" : cache_state,
+            "check_one_answer" : False,
+            "depth"            : 0,
+        }
+
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """
         A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.

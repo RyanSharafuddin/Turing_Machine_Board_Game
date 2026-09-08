@@ -155,6 +155,7 @@ class Solver_Nightmare(Solver):
         )
 
     def _calculate_best_move(
+        # WARN: changing these arguments will require changing the function const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
         self,
         qs_dict,
         game_state: Game_State,
@@ -181,20 +182,9 @@ class Solver_Nightmare(Solver):
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
             round_depth -= 1
 
-        # TODO: eliminate
-        # cache_game_state = self.convert_working_gs_to_cache_gs(
-        #     self,
-        #     game_state,
-        #     working_cwa_set_convert_cache,
-        # )
         ######################################## DEBUGGING ###################################################
         # self._print_canonical_form_info(game_state, cache_game_state, max_num_forms=500)
         ######################################## DEBUGGING ###################################################
-        # TODO: eliminate
-        # result = self._evaluations_cache.get(cache_game_state, None)
-        # if result is not None:
-        #     # self.cache_hits += 1
-        #     return result
 
         search_best_rqd = pre_existing_result[1]
         search_curr_evdepth_LB_rqd = Solver.triple_inf
@@ -230,7 +220,7 @@ class Solver_Nightmare(Solver):
                 # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
-                    progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
             f_evdepth = f_result[0]
             if (f_evdepth < round_depth):
@@ -254,7 +244,7 @@ class Solver_Nightmare(Solver):
                     # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                     #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
-                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                        self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
             t_evdepth = t_result[0]
@@ -279,7 +269,7 @@ class Solver_Nightmare(Solver):
                     # if solver_utils.roughly_lt_rqd(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                     #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                     if depth < self.num_concurrent_tasks:
-                        progress.update(self.depth_to_tasks_l[depth], advance=1)
+                        self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
             if (f_evdepth < min_round_depth):
@@ -305,7 +295,7 @@ class Solver_Nightmare(Solver):
                         break
 
             if depth < self.num_concurrent_tasks:
-                progress.update(self.depth_to_tasks_l[depth], advance=1)
+                self.progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         assert (
             (search_curr_evdepth_LB_rqd is self.triple_inf)
@@ -355,6 +345,20 @@ class Solver_Nightmare(Solver):
         # TODO: code to consider ending a round early despite having useful moves.
         self._evaluations_cache[cache_game_state] = answer
         return answer
+
+    def const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
+        cache_state = self._easy_working_gs_to_cache_gs(working_gs)
+        minimal_vs_list = self._calculate_minimal_vs_list(working_gs)
+        return {
+            "qs_dict"          : self.qs_dict,
+            "game_state"       : working_gs,
+            "cache_game_state" : cache_state,
+            "check_one_answer" : False,
+            "depth"            : 0,
+            # Additional args specific to nightmare solvers.
+            "minimal_vs_list"               : minimal_vs_list,
+            "working_cwa_set_convert_cache" : dict(),
+        }
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """
