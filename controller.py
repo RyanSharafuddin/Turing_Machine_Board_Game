@@ -83,10 +83,11 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     # sd.print_eval_cache_size()
     if solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
-        print()
-        console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
-        sd.print_eval_cache_size()
-        s.post_filter_printing()
+        if display_problem:
+            print()
+            console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
+            sd.print_eval_cache_size()
+            s.post_filter_printing()
     else:
         sd.print_all_possible_answers(
             full_cwa,
@@ -101,10 +102,11 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
             base_16=CWA_BITSETS_BASE_16,
             active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
         )
-        print()
-        console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
-        sd.print_eval_cache_size()
-        s.post_filter_printing()
+        if display_problem:
+            print()
+            console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
+            sd.print_eval_cache_size()
+            s.post_filter_printing()
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 def unpickle_solver(identity):
