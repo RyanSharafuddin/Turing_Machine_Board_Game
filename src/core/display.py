@@ -1397,6 +1397,32 @@ class Solver_Displayer:
                 self.display_best_move_tree(None, game_state) # best move tree lowest cost move w/higher depth
                 console.print("\nLower depth tree with higher cost:")
                 self.display_best_move_tree(min_depth_move, game_state) # tree with best lowest depth move
+
+    def display_end_round_early_benefit(
+            self,
+            found_moves,
+            ere_better,
+            game_state,
+            prev_answer,
+            ere_result,
+            qs_dict
+        ):
+        if (
+            found_moves
+            and (self.num_end_round_early_states_printed < 10)
+            and ere_better
+        ):
+            console.print(
+                f"{self.num_end_round_early_states_printed:,}: Found a state where ending the round earlier than you have to is better!"
+            )
+            self.print_game_state(game_state)
+            console.print("       Previous result:", prev_answer, end=" ")
+            console.print("End round early result:", ere_result, end=" ")
+            console.print(game_state)
+            self.print_useful_qs_dict_info(qs_dict, game_state.cwa_set)
+            console.rule()
+            self.num_end_round_early_states_printed += 1
+
     ############################### BITSET WERK #######################################################
     def get_bitset_Texts(self, bitset, base_16=False, verifier_colors=None) -> list[Text]:
         """
