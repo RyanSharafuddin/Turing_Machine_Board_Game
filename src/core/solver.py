@@ -626,7 +626,7 @@ class Solver:
     # May be overriden by other solvers.
     def post_solve_printing(self):
         """
-        Define what you would like to print after solving. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
+        Define what you would like to print after solving. Based on pre-filter cache. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
         """
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
@@ -635,18 +635,6 @@ class Solver:
         sd = Solver_Displayer(self)
 
         if config.PRINT_POST_SOLVE_DEBUG_INFO:
-            # NOTE: post solve debug info is based on original (pre-filter) cache.
-            # global asizeof
-            # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
-            # # WARN: The line below itself uses up a lot of memory and time.
-            # # Make sure PRINT_POST_SOLVE_DEBUG_INFO is off when doing memory-intensive problems.
-            # self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
-            # sd.print_eval_cache_size()
-            # self.print_eval_cache_stats()
-            # self.print_cache_by_size()
-            # # console.print(f"{useless_queries:,} useless queries")
-            # # console.print(f"{useful_queries:,} useful queries")
-            # # console.print(f"Called calculate: {self.called_calculate:,}.\nCache hits: {self.cache_hits:,}.\nNumber of objects in cache: {len(self.evaluations_cache):,}")
             print("\nCalculating post-solve debug information.")
             num_begin_round_states = sum(
                 (gs.proposal_used_this_round is None) for gs in self._evaluations_cache
@@ -666,6 +654,26 @@ class Solver:
                 console.print(
                     f"Percent of states that are begin round:", percent_Text, sep=" "
                 )
+        if config.CALCULATE_EVCACHE_MEM_USAGE:
+            global asizeof
+            from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+            # WARN: The line below itself uses up a lot of memory and time.
+            print("\nCalculating evaluations cache memory usage . . .")
+            console.print(
+                "[b #af87ff]NOTE[/b #af87ff]: This may take a lot of time. If this is taking too long, press ctrl-c to stop it."
+            )
+            try:
+                self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+                sd.print_eval_cache_size()
+                print()
+                # self.print_eval_cache_stats()
+                # self.print_cache_by_size()
+                # console.print(f"{useless_queries:,} useless queries")
+                # console.print(f"{useful_queries:,} useful queries")
+                # console.print(f"Called calculate: {self.called_calculate:,}.")
+            except KeyboardInterrupt:
+                print("\nDiscontinuing calculating evaluations cache memory usage.\n")
+                self.size_of_evaluations_cache_in_bytes = -1
         sys.stdout.flush()
 
     ############################### SAME FOR ALL SOLVERS ###############################

@@ -119,7 +119,8 @@ N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightm
 MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have less than this # of moves
 
 # Change Whether Debugging Informations Is Displayed
-PRINT_POST_SOLVE_DEBUG_INFO = True  # WARN: takes a lot of memory/time. See post_solve_printing() for details.
+PRINT_POST_SOLVE_DEBUG_INFO = True
+CALCULATE_EVCACHE_MEM_USAGE = False # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
 
