@@ -1,6 +1,5 @@
 import time, sys, git
 from typing import NamedTuple
-from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
 
@@ -681,8 +680,9 @@ class Solver:
         """
         if self.n_mode:
             console.print(
-                f"There are {len(self.full_cwas_list):,} total possible combos (including rearrangement)."
+                f"There are {len(self.full_cwas_list):,}", end=""
             )
+            print(" total possible combos (including rearrangement).")
         console.print(
             f"{self.expected_cost[0]:0.3f}  {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
         )

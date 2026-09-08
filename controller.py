@@ -76,12 +76,17 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     This function assumes that the solver s has already been solved.
     """
     sd = display.Solver_Displayer(s)
-    if(display_problem):
+    if display_problem:
         sd.print_problem(s.rcs_list, s.problem, active=True)
-        s.post_filter_printing()
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    if(solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set)):
+    # console.print(Text.assemble(f"Seconds to solve: ", (f"{s.seconds_to_solve:,}", COLOR_OF_TIME)))
+    # sd.print_eval_cache_size()
+    if solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set):
         sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
+        print()
+        console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
+        sd.print_eval_cache_size()
+        s.post_filter_printing()
     else:
         sd.print_all_possible_answers(
             full_cwa,
@@ -97,6 +102,9 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
             active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
         )
         print()
+        console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
+        sd.print_eval_cache_size()
+        s.post_filter_printing()
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 def unpickle_solver(identity):
@@ -368,9 +376,6 @@ def unpickle_solver_from_f_name(f_name):
         s = Solver_Nightmare(pr) if (pr.mode == NIGHTMARE) else Solver(pr)
         s.set_saved_info(s_info)
     print("Done.")
-    sd = display.Solver_Displayer(s)
-    console.print(Text.assemble(f"Seconds to solve: ", (f"{s.seconds_to_solve:,}", COLOR_OF_TIME)))
-    sd.print_eval_cache_size()
     return s
 
 def display_problem_solution_from_file(f_name):

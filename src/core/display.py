@@ -211,9 +211,15 @@ def conduct_query(query_tup, expected_total_score, query_this_round, total_query
     q_this_round_line = f"\nQuery: {query_this_round}. Total Query: {total_query}."
     console.print(q_this_round_line, justify="center", highlight=False)
     (proposal, verifier_to_query) = (query_tup[0], letters[query_tup[1]])
-    round_display_str = f"Rounds: {expected_winning_round:.3f}"
-    query_display_str = f"Queries: {expected_total_queries:.3f}"
-    longest_line = f"Expected Final Score: {round_display_str}. {query_display_str}."
+    round_display_Text = Text(f"{expected_winning_round:.3f}", style="repr.number")
+    query_display_Text = Text(f"{expected_total_queries:.3f}", style="repr.number")
+    longest_line = Text.assemble(
+        "Expected Final Score: Rounds: ",
+        round_display_Text,
+        ". Queries: ",
+        query_display_Text,
+        "."
+    )
 
     g = Table.grid()
     # g.add_row(q_this_round_line)
@@ -1312,7 +1318,13 @@ class Solver_Displayer:
         q_history_table = _get_query_history_table(query_history, self.solver.num_rcs)
         ans_num_style = f'b {self._answer_to_color_dict[answer]}'
         ans_line = f"Answer: [{ans_num_style}]{answer}[/{ans_num_style}]"
-        score_line = f"Final Score: Rounds: {current_score[0]}. Total Queries: {current_score[1]}."
+        score_line = Text.assemble(
+            f"Final Score: Rounds: ",
+            (f"{current_score[0]}", "repr.number"),
+            ". Total Queries: ",
+            (f"{current_score[1]}", "repr.number"),
+            "."
+        )
         console.print(_combine(answers_table, q_history_table, ans_line, score_line), justify="center")
     def get_problem_id_text(self):
         return(Text(self.solver.problem.identity, style=PROBLEM_TITLE_COLOR))
