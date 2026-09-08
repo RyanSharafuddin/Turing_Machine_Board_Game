@@ -7,6 +7,7 @@ from src.core.config import *
 import src.problems.website as website
 import src.problems.problems as problems
 from src.core import display, solver
+from src.core.solver import Solver
 from src.core.solver_capitulate import Solver_Capitulate
 from src.core.solver_nightmare import Solver_Nightmare
 
@@ -110,17 +111,14 @@ def f_name_from_id(identity):
     if(identity[0] == '#'):
         identity = identity[1:]
     f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
-    return(f_name)
+    return f_name
 
 def make_solver(problem: Problem, capitulate=False):
     """ Makes a solver and solve()s the problem. """
     if capitulate:
         s = Solver_Capitulate(problem)
     else:
-        if(problem.mode == NIGHTMARE):
-            s = Solver_Nightmare(problem)
-        else:
-            s = solver.Solver(problem)
+        s = Solver_Nightmare(problem) if(problem.mode == NIGHTMARE) else Solver(problem)
     sd = display.Solver_Displayer(s)
     sd.print_problem(s.rcs_list, s.problem, active=DISPLAY)
     if(not(s.full_cwas_list)):
@@ -152,7 +150,7 @@ def make_solver(problem: Problem, capitulate=False):
 
 def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     """
-    Given a Problem named tuple, if the solver for it hasn't already been pickled, makes it and pickles it; otherwise it does nothing. 
+    Given a Problem named tuple, if the solver for it hasn't already been pickled, makes it and pickles it; otherwise it does nothing.
     If pickle_entire is True, pickles the entire solver. If it's false, sets the solver's evaluation cache to only the parts accessed during a best game (all that is needed to display tree and play game), so that unpickling it is much faster.
     If force_overwrite is true, then it remakes the solver regardless of whether the corresponding file exists, and overwrites the file if it does exist.
     """
@@ -166,11 +164,8 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     s = make_solver(problem)
     f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
     console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
-    git_hash = git.Repo(search_parent_directories=True).head.object.hexsha
-    git_message = git.Repo(search_parent_directories=True).head.object.message
-    s.git_hash = git_hash
-    s.git_message = git_message
-    pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
+    solver_info_to_save = s.get_info_to_save()
+    pickle.dump(solver_info_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
     f.close()
     console.print("Done.")
     problems.update_pickled_time_dict_if_necessary(s)
@@ -365,25 +360,18 @@ def do_two_funcs(do_func_1: bool, func_1: callable, do_func_2: bool, func_2: cal
     if(do_func_2):
         func_2(*args, **kwargs)
 
-# For Testing purposes
 def unpickle_solver_from_f_name(f_name):
     console.print(Text.assemble("\nUnpickling ", display.get_filename_text(f_name), ". . ."))
-    f = open(f_name, 'rb')
-    s: solver.Solver = pickle.load(f)
-    f.close()
+    with open(f_name, 'rb') as f:
+        s_info: solver.Info_To_Save = pickle.load(f)
+        pr = s_info.problem
+        s = Solver_Nightmare(pr) if (pr.mode == NIGHTMARE) else Solver(pr)
+        s.set_saved_info(s_info)
     print("Done.")
     sd = display.Solver_Displayer(s)
-    # if(hasattr(s, "git_hash")):
-    #     console.print(f"This solver was created in git commit {s.git_hash}.")
-    #     if(hasattr(s, "git_message")):
-    #         console.print(f"Commit message: {s.git_message}", end="")
-    #     else:
-    #         print("Commit message was not recorded.")
-    # else:
-    #     print("This solver did not record the git commit it was created in.")
     console.print(Text.assemble(f"Seconds to solve: ", (f"{s.seconds_to_solve:,}", COLOR_OF_TIME)))
     sd.print_eval_cache_size()
-    return(s)
+    return s
 
 def display_problem_solution_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)

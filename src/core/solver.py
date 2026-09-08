@@ -1,4 +1,5 @@
-import time, sys
+import time, sys, git
+from typing import NamedTuple
 from rich import progress
 from . import rules, config, solver_utils
 from .definitions import *
@@ -125,6 +126,16 @@ def testing_stuff(self):
     global sd
     sd = display.Solver_Displayer(self)
     return sd
+
+class Info_To_Save(NamedTuple):
+    """ Represents the info of Solver to be saved (pickled)."""
+    problem                            : Problem
+    evaluations_cache                  : dict
+    expected_cost                      : tuple
+    seconds_to_solve                   : int
+    git_hash                           : str
+    git_message                        : str
+    size_of_evaluations_cache_in_bytes : int
 
 class Solver:
     double_zero = (0, 0)
@@ -880,6 +891,26 @@ class Solver:
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
     def called_by_solve(self):
         self.iterative_deepen(self.initial_game_state, display=True)
+
+    def get_info_to_save(self):
+        return Info_To_Save(
+            problem           = self.problem,
+            evaluations_cache = self._evaluations_cache,
+            expected_cost     = self.expected_cost,
+            seconds_to_solve  = self.seconds_to_solve,
+            git_hash          = git.Repo(search_parent_directories=True).head.object.hexsha,
+            git_message       = git.Repo(search_parent_directories=True).head.object.message,
+            size_of_evaluations_cache_in_bytes = self.size_of_evaluations_cache_in_bytes
+        )
+
+    def set_saved_info(self, info: Info_To_Save):
+        assert (self.problem == info.problem)
+        self._evaluations_cache = info.evaluations_cache
+        self.expected_cost      = info.expected_cost
+        self.seconds_to_solve   = info.seconds_to_solve
+        self.git_hash           = info.git_hash
+        self.git_message        = info.git_message
+        self.size_of_evaluations_cache_in_bytes = info.size_of_evaluations_cache_in_bytes
 
     def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move):
         """
