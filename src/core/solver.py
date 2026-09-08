@@ -298,70 +298,6 @@ class Solver:
             move_iterable = move_generator
         return move_iterable
 
-    def _print_debug_info(
-            self,
-            condition: bool,
-            game_state: Game_State,
-            qs_dict_1: dict,
-            qs_dict_2=None
-        ):
-        """
-        Print out debug info (partition info about the queries dicts and game state) if `condition` is True.
-        """
-        if not condition:
-            return
-        global printed_table_num
-        if('printed_table_num' not in globals()):
-            printed_table_num = 1
-        else:
-            printed_table_num += 1
-        # Print out an id for each game state so you can easily find it again while scrolling.
-        game_state_name = display.Text.assemble(
-            f' Printed Game State # ',
-            sd.get_problem_id_text(),
-            (f' {printed_table_num:,}', "#FF69D7"),
-            ".",
-        )
-        sd.print_game_state(game_state, name=game_state_name)
-        # console.print(repr(game_state))
-        # for s_to_print in solver_utils.iso_filter_list_to_print:
-        #     console.print(s_to_print)
-        print(f"Some queries have been eliminated.")
-        console.print(
-            f'{solver_utils.get_num_queries_in_qs_dict(qs_dict_2)} -> {solver_utils.get_num_queries_in_qs_dict(qs_dict_1)} queries'
-        )
-        verifiers_to_sort_by=[A]
-        if(qs_dict_2 is not None):
-            sd.print_useful_qs_dict_info(
-                qs_dict_2,
-                game_state.cwa_set,
-                title=display.Text.assemble(("Original Qs", "bright_white"),),
-                verifier_indexes=None,
-                proposals_to_examine=None,
-                short=True,
-                verifiers_to_sort_by=verifiers_to_sort_by
-            )
-            print()
-        sd.print_useful_qs_dict_info(
-            qs_dict_1,
-            game_state.cwa_set,
-            title=display.Text.assemble(("Updated Qs", "bright_white"),),
-            verifier_indexes=None,
-            proposals_to_examine=None,
-            short=True,
-            verifiers_to_sort_by=verifiers_to_sort_by
-        )
-        console.rule()
-        return
-    def _qs_dict_debugging(self, original_qs_dict, current_qs_dict, gs: Game_State):
-        len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
-        len_now = solver_utils.get_num_queries_in_qs_dict(current_qs_dict)
-        self._print_debug_info(
-            len_now < len_before,
-            gs,
-            qs_dict_1=current_qs_dict,
-            qs_dict_2=original_qs_dict,
-        )
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(
@@ -391,9 +327,9 @@ class Solver:
                 # TODO: profile memory and time effects of commenting out below line.
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
                 return self.round_depth_cutoff # refuse to search more rounds
-            # original_qs_dict = qs_dict                                     # uncomment to debug qs dict
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)  # KEEP this line always
-            # self._qs_dict_debugging(original_qs_dict, qs_dict, game_state) # uncomment to debug qs dict
+            # original_qs_dict = qs_dict                                         # partition show
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)    # KEEP always
+            # sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
             round_depth -= 1
 
         # move_rqd_tups = [] # TODO: delete

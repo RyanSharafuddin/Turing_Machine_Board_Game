@@ -288,6 +288,7 @@ class Solver_Displayer:
         self.solver = solver
         self.n_mode = (self.solver.n_mode)
         self.num_end_round_early_states_printed = 0
+        self.num_partition_filtered_tables_printed = 0
         try:
             from . import solver_utils
             initial_gs_cache = solver._easy_working_gs_to_cache_gs(solver.initial_game_state)
@@ -988,6 +989,54 @@ class Solver_Displayer:
             bits_per_verifier = 8 * num_unint8_per_verifier,
             verifier_colors=verifier_colors,
         )
+    def _show_partition_helper(
+            self,
+            condition: bool,
+            game_state: Game_State,
+            qs_dict_1: dict,
+            qs_dict_2: dict
+        ):
+        """
+        Print out partition info about the queries dicts and game state if `condition` is True.
+        """
+        if not condition:
+            return
+        self.num_partition_filtered_tables_printed += 1
+        # Print out an id for each game state so you can easily find it again while scrolling.
+        game_state_name = Text.assemble(
+            f' Printed Game State # ',
+            self.get_problem_id_text(),
+            (f' {self.num_partition_filtered_tables_printed:,}', "#FF69D7"),
+            ".",
+        )
+        self.print_game_state(game_state, name=game_state_name)
+        print(f"Some queries have been eliminated.")
+        console.print(
+            f'{solver_utils.get_num_queries_in_qs_dict(qs_dict_2)} -> {solver_utils.get_num_queries_in_qs_dict(qs_dict_1)} queries'
+        )
+        verifiers_to_sort_by=[A]
+        self.print_useful_qs_dict_info(
+            qs_dict_2,
+            game_state.cwa_set,
+            title=Text.assemble(("Original Qs", "bright_white"),),
+            verifier_indexes=None,
+            proposals_to_examine=None,
+            short=True,
+            verifiers_to_sort_by=verifiers_to_sort_by
+        )
+        print()
+        self.print_useful_qs_dict_info(
+            qs_dict_1,
+            game_state.cwa_set,
+            title=Text.assemble(("Updated Qs", "bright_white"),),
+            verifier_indexes=None,
+            proposals_to_examine=None,
+            short=True,
+            verifiers_to_sort_by=verifiers_to_sort_by
+        )
+        console.rule()
+        return
+
 
     @staticmethod
     def get_partition_sort_criteria(partition):
@@ -1024,6 +1073,19 @@ class Solver_Displayer:
             for (sp_text, lp_text, sp) in zip(sp_texts, lp_texts, small_partitions)
         ]
         return(combined_texts)
+
+    def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
+        """
+        Given a pre-filtered qs_dict and a post-filtered qs_dict, show information about partition filtering if the post-filtered qs_dict is smaller than the pre-filtered one.
+        """
+        len_before = solver_utils.get_num_queries_in_qs_dict(original_qs_dict)
+        len_now = solver_utils.get_num_queries_in_qs_dict(current_qs_dict)
+        self._show_partition_helper(
+            len_now < len_before,
+            gs,
+            qs_dict_1=current_qs_dict,
+            qs_dict_2=original_qs_dict,
+        )
 
     def print_problem(self, rcs_list, problem, justify="center", active=True):
         """ if active is True, print a table representing the problem's rule cards, otherwise do nothing. """
