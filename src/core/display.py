@@ -1224,7 +1224,7 @@ class Solver_Displayer:
     def print_useful_qs_dict_info(
         self,
         useful_qs_dict,
-        cwa_set_when_q_dict_made,
+        cwa_set_qs_dict_acts_upon,
         title : str | Text ="Queries Dictionary",
         verifier_indexes: list[int] | int | None = None,
         proposals_to_examine : list[int] | int | None = None,
@@ -1241,8 +1241,8 @@ class Solver_Displayer:
             The query dict to print information about.
         title : str | Text
             What to title the partition table when displaying in `short` form. Can be a string or a Text object.
-        cwa_set_when_q_dict_made: set of cwa
-            The set of all cwas that were possible when the `useful_qs_dict` was created.
+        cwa_set_qs_dict_acts_upon: set of cwa
+            The cwa_set that `useful_qs_dict` will act upon (print info about what `useful_qs_dict` would do when applied to a state with this cwa_set).
         verifier_indexes: list[int] | int | None
             The verifiers, or single verifier, for which this will print queries. If None, will print queries about all verifiers.
         proposals_to_examine: list[proposals] | proposal | None
@@ -1272,7 +1272,7 @@ class Solver_Displayer:
         if(short):
             self._short_q_info_printer_helper(
                 useful_qs_dict,
-                cwa_set_when_q_dict_made,
+                cwa_set_qs_dict_acts_upon,
                 title,
                 verifier_indexes,
                 proposals_to_examine,
@@ -1283,7 +1283,7 @@ class Solver_Displayer:
             if((verifier_indexes is None) or (possible_v_index in verifier_indexes)):
                 self._print_useful_qs_dict_info_helper(
                     useful_qs_dict,
-                    cwa_set_when_q_dict_made,
+                    cwa_set_qs_dict_acts_upon,
                     possible_v_index,
                     proposals_to_examine,
                     see_all_combos,

@@ -452,7 +452,7 @@ if(__name__ == "__main__"):
 # sd = display.Solver_Displayer(s)
 # sd.print_useful_qs_dict_info(
 #     qs_dict, # NOTE: fill in with correct qs dict you want to see
-#     s.initial_game_state.cwa_set, # NOTE: fill in with cwa_set when qs dict made
+#     s.initial_game_state.cwa_set, # NOTE: fill in with cwa_set the qs_dict will act upon
 #     "Queries Dictionary", # title
 #     verifier_indexes=None, #list of indexes
 #     proposals_to_examine=None, # list of proposals
