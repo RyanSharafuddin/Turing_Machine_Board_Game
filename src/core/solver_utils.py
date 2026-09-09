@@ -2,8 +2,9 @@ import math, itertools, copy
 import numpy as np
 from rich import progress
 from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
-from .config import REL_TOL, A_TOL
+from .config import REL_TOL, A_TOL, ND_ARR_DTYPE_NUM_BITS, NP_INT_TO_NUM_BITS
 from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
+from . import display # for testing/debugging purposes.
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
@@ -247,54 +248,91 @@ def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set
 def _flat_list_bools_to_int(list_bools):
     return sum((1 << b_index) for (b_index, b) in enumerate(list_bools) if b)
 
-def _nd_array_to_int(ndarr : np.ndarray):
+def _nd_array_to_int(ndarr : np.ndarray, bits_per_int):
     """
     Given a nested packed bit `ndarr`, where `ndarr[i]` is a packed bool list for the ith verifier, and all `ndarr[i]` are the same length, return a corresponding integer.
     """
-    (num_verifiers, num_unint8_per_verifier) = ndarr.shape
+    (num_verifiers, num_ints_per_verifier) = ndarr.shape
     answer = 0
     for v_index in range(num_verifiers):
-        for uint8_index in range(num_unint8_per_verifier):
-            answer += int(ndarr[v_index, uint8_index]) << (
-                (v_index * num_unint8_per_verifier * 8) + (uint8_index * 8)
+        for int_index in range(num_ints_per_verifier):
+            answer += int(ndarr[v_index, int_index]) << (
+                ((v_index * num_ints_per_verifier) + int_index) * bits_per_int
             )
     return answer
 
-def _homogenize_bool_lol(bool_lol):
+def _homogenize_bool_lol(bool_lol, length_to_extend_to):
     """
     Given a list of lists of bools, make a new lol where each list within the list is extended to the same length by appending Falses to the shorter lists. Returns a copy of the bool lol.
     """
     bool_lol_copy = copy.deepcopy(bool_lol)
-    length_to_extend_to = max([len(l) for l in bool_lol_copy])
     for l in bool_lol_copy:
+        assert (length_to_extend_to > len(l))
         for extend_index in range(length_to_extend_to - len(l)):
             l.append(False)
-    return(bool_lol_copy)
+    return bool_lol_copy
 
-def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type):
+def _flat_list_bools_to_int_list(list_bools: list[bool], bits_per_int):
+    int_list = []
+    current_int = 0
+    current_bit_index = -1
+    for b in list_bools:
+        current_bit_index += 1
+        if b:
+            current_int += (1 << current_bit_index)
+        if (current_bit_index == (bits_per_int - 1)):
+            int_list.append(current_int)
+            current_int = 0
+            current_bit_index = -1
+    assert (current_bit_index == -1), "O NOES! bool list not of right length!"
+    return int_list
+
+def _my_packbits(homogenized_bool_lol, ndarr_dtype):
+    int_lol = [_flat_list_bools_to_int_list(l, NP_INT_TO_NUM_BITS[ndarr_dtype]) for l in homogenized_bool_lol]
+    return np.array(int_lol, dtype=ndarr_dtype)
+
+def _true_false_lists_to_bitset(true_false_list_by_verifier: list[list[bool]], set_type, np_int_type=None):
     """
     true_false_list_by_verifier[i] is a list corresponding to verifier i. In that list, l[x] is a bool that says whether rule x is the one assigned to verifier i in the combo the whole list corresponds to.
     """
-    flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
-    if(set_type == int):
+    if set_type is int:
+        if np_int_type is not None:
+            raise TypeError("if set_type is int, you should set np_int_type to None, to avoid confusion.")
+        flat_list_bools = [b for v_list in true_false_list_by_verifier for b in v_list]
         # NOTE: bit[i] corresponds to the ith rule in the flat list of verifier rules
         return _flat_list_bools_to_int(flat_list_bools)
-    if(set_type == np.ndarray):
-        # NOTE: bitset[i] corresponds to verifier i here and is a list of uint8.
-        homogenized_bool_lol = _homogenize_bool_lol(true_false_list_by_verifier)
-        return np.packbits(homogenized_bool_lol, axis=1, bitorder='little')
+    if set_type is np.ndarray:
+        if np_int_type is None:
+            raise TypeError("np_int_type is None, but set_type is np.ndarray.")
+        # NOTE: bitset[i] corresponds to verifier i here and is a list of np ints. The exact type of np int is given by np_int_type.
+        bits_per_int = NP_INT_TO_NUM_BITS[np_int_type]
+        max_bool_l_len = max(len(l) for l in true_false_list_by_verifier)
+        (q, r) = divmod(max_bool_l_len, bits_per_int)
+        length_to_extend_to = (q + (r != 0)) * bits_per_int # smallest multiple
+        homogenized_bool_lol = _homogenize_bool_lol(true_false_list_by_verifier, length_to_extend_to)
+        my_np_arr = _my_packbits(homogenized_bool_lol, np_int_type)
+        # np_packbits_arr = np.packbits(homogenized_bool_lol, axis=1, bitorder='little')
+        # if (bits_per_int == 8) and (not np.array_equal(my_np_arr, np_packbits_arr)):
+        #     console.print("UNEQUAL ARRS.")
+        #     console.print(my_np_arr)
+        #     print()
+        #     console.print(np_packbits_arr)
+        #     exit()
+        # display.print_compare_our_arrs(my_np_arr, np_packbits_arr) # for debugging purposes
+        # print()
+        return my_np_arr
     raise NotImplementedError(
         f"solver_utils._true_false_lists_to_bitset not implemented for bitsets of type {set_type}."
     )
 
-def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, set_type):
+def _single_cwa_to_bitset(single_full_cwa, possible_rules_by_verifier, n_mode, set_type, np_int_type):
     (c, p) = [single_full_cwa[i] for i in [0, 1]]
     true_false_list_by_verifier = []
     for (v_index, verifier_list) in enumerate(possible_rules_by_verifier):
         rule_in_combo = c[p[v_index]] if n_mode else c[v_index]
         true_false_list_this_v_index = [(r is rule_in_combo) for r in verifier_list]
         true_false_list_by_verifier.append(true_false_list_this_v_index)
-    return(_true_false_lists_to_bitset(true_false_list_by_verifier, set_type=set_type))
+    return _true_false_lists_to_bitset(true_false_list_by_verifier, set_type, np_int_type)
 
 def _convert_cache_bitset_to_canonical_nparray(cache_bitset: np.ndarray) -> np.ndarray :
     """
@@ -423,70 +461,71 @@ def get_cwa_bitsets(solver) -> np.ndarray :
 
     Parameters
     ----------
-    full_cwas_list : list[full_cwas]
+    solver.full_cwas_list : list[full_cwas]
         The list of full cwas in the solver object.
 
-    possible_rules_by_verifier : list[list[Rule]]
+    solver.possible_rules_by_verifier : list[list[Rule]]
         a list where list[i] corresponds to verifier i, and verifier_list[i] is the ith rule that is possible for that verifier at the beginning (i.e. out of all rules that are possible for that verifier in this problem).
 
-    n_mode : bool
+    solver.n_mode : bool
         Whether this is a nightmare mode problem.
 
-    set_type : type
+    solver.bitset_type : type
         The type of the bitsets returned. If this is set, will return None, b/c then will use Python sets of int indexes, rather than bitsets.
 
+    solver.ndarr_type: type
+        if solver.bitset_type is np.ndarray, this should be the type of int stored in those bitsets (i.e. np.uint8, np.uint16, etc.). Otherwise, this should be None.
     Returns
     -------
-    cwa_bitsets : np.ndarray (each element of cwa_bitsets is a combo. if set_type is int, each combo is a Python integer. if set_type is np.ndarray, each combo is itself an ndarray where each element of the combo is a np.ndarray of uint8 representing a verifier).
+    cwa_bitsets : np.ndarray (each element of cwa_bitsets is a combo. if bitset_type is int, each combo is a Python integer, and cwa_bitsets has dtype object. If bitset_type is np.ndarray, each combo is itself an ndarray where each element of the combo is a np.ndarray of dtype solver.ndarr_type representing a verifier, and cwa_bitsets has dtype solver.ndarr_dtype).
         cwa_bitsets[i] is the bitset corresponding to the cwa that is solver.full_cwas_list[i].
     """
-    if (solver.bitset_type is set):
+    if solver.bitset_type is set:
         return None
     return np.array(
         [
-            _single_cwa_to_bitset(cwa, solver.possible_rules_by_verifier, solver.n_mode, solver.bitset_type)
+            _single_cwa_to_bitset(
+                cwa, solver.possible_rules_by_verifier, solver.n_mode, solver.bitset_type, solver.ndarr_dtype
+            )
             for cwa in solver.full_cwas_list
         ],
-        dtype=(np.uint8 if (solver.bitset_type is np.ndarray) else object)
+        dtype=(solver.ndarr_dtype if (solver.bitset_type is np.ndarray) else object)
     )
 
 def bitset_to_int(bitset) -> int:
     """
     Given a bitset, return the integer that corresponds to it. Note that bitset may be of different types. Intended for use only for non-performance-sensitive tasks like displaying. Raises NotImplementedError if it receives an unexpected type of bitset (this is a critical part of this function's contract).
     """
-    if(type(bitset) is int):
+    tb = type(bitset)
+    if tb is int:
         return bitset
-    if(type(bitset) is np.ndarray):
-        return _nd_array_to_int(bitset)
-    if(type(bitset) is Hashable_Numpy_Array):
-        return _nd_array_to_int(bitset.nparray)
-    raise NotImplementedError(f"bitset_to_int not implemented for bitsets of type {type(bitset)}")
+    if tb is np.ndarray:
+        bits_per_int = NP_INT_TO_NUM_BITS[bitset.dtype.type]
+        return _nd_array_to_int(bitset, bits_per_int)
+    if tb is Hashable_Numpy_Array:
+        bits_per_int = NP_INT_TO_NUM_BITS[bitset.nparray.dtype.type]
+        return _nd_array_to_int(bitset.nparray, bits_per_int)
+    raise NotImplementedError(f"bitset_to_int not implemented for bitsets of type {tb}")
 
 def get_convert_working_to_cache_gs_standard(bitset_type):
-    if(bitset_type is int):
+    if bitset_type is int:
         return _convert_working_gs_to_cache_gs_standard_int
-    if(bitset_type is np.ndarray):
+    if bitset_type is np.ndarray:
         return _convert_working_gs_to_cache_gs_standard_nparray
-    if(bitset_type is set):
+    if bitset_type is set:
         return _do_not_convert_gs
     raise NotImplementedError(
         f"Convert working game state to cache game state standard not implemented for bitset_type {bitset_type}"
     )
 
 def get_convert_working_to_cache_gs_nightmare(bitset_type):
-    if(bitset_type is int):
+    if bitset_type is int:
         return _convert_working_gs_to_cache_gs_nightmare_int
-    if(bitset_type is np.ndarray):
+    if bitset_type is np.ndarray:
         return _convert_working_gs_to_cache_gs_nightmare_nparray
     raise NotImplementedError(
         f"Convert working game state to cache game state nightmare not implemented for bitset_type {bitset_type}"
     )
-
-def get_index_function(bitset_type):
-    if bitset_type is int:
-        return _python_index
-    if bitset_type is np.ndarray:
-        return _numpy_index
 
 def get_permutation(nightmare_solver, working_gs: Game_State):
     """ WARN: only use for printing visualizations to aid debugging; not for anything performance related."""

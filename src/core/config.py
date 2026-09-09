@@ -98,6 +98,19 @@ NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mod
     int
     # np.ndarray
 )
+ND_ARR_DTYPE                 = (     # the type of int nd_array bitsets store. Choose 1.
+    np.uint8
+    # np.uint16
+    # np.uint32
+    # np.uint64
+)
+NP_INT_TO_NUM_BITS = {
+     np.uint8 :  8,
+    np.uint16 : 16,
+    np.uint32 : 32,
+    np.uint64 : 64,
+}
+ND_ARR_DTYPE_NUM_BITS = NP_INT_TO_NUM_BITS[ND_ARR_DTYPE]
 
 # Change How Debugging Information Is Displayed
 PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
@@ -122,7 +135,7 @@ MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have le
 PRINT_POST_SOLVE_DEBUG_INFO = True
 CALCULATE_EVCACHE_MEM_USAGE = False # WARN: takes a lot of memory/time. See post_solve_printing() for details.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
-DISPLAY_CWA_BITSETS         = False  # Display all the cwa bitsets at the beginning when displaying problem?
+DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY           = "src/problems/Pickles/Horizontal_Pruning_Iterate" # Where all pickled solvers go.

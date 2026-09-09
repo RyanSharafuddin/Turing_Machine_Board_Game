@@ -1,7 +1,9 @@
 import time, sys, git
 from typing import NamedTuple
+import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
+from . import display
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
@@ -171,6 +173,7 @@ class Solver:
         "git_message",
         "possible_rules_by_verifier",
         "bitset_type",
+        "ndarr_dtype",
         "all_cwa_bitsets",
         "convert_working_gs_to_cache_gs",
         "num_concurrent_tasks",
@@ -184,6 +187,7 @@ class Solver:
         "put_cache_gs_in_new_ev_cache",
 
         "progress",
+        "sd",
     )
     def __init__(self, problem: Problem):
         self.problem            = problem
@@ -207,6 +211,7 @@ class Solver:
         ]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
+        self.ndarr_dtype        = config.ND_ARR_DTYPE if (self.bitset_type is np.ndarray) else None
         self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(self)
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
@@ -228,6 +233,7 @@ class Solver:
         self.git_hash                           = None
         self.git_message                        = None
         testing_stuff(self) # WARN TODO: delete
+        self.sd = display.Solver_Displayer(self)
 
         # (bigest_difference, move_cost_tups, game_state, min_depth_move)
         self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3

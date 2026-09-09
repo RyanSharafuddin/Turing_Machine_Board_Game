@@ -272,6 +272,31 @@ def get_filename_text(filename: str):
     Return a Text object of the filename with formatting applied as per config.
     """
     return(Text(filename, style=FILENAME_COLOR))
+def print_compare_our_arrs(my_ndarr, packbits_ndarr):
+    l = len(my_ndarr)
+    assert (l == len(packbits_ndarr))
+    t = Table(
+        # box=box.HORIZONTALS,
+        # title=Text.assemble(title, sorted_by_line_title),
+        title_style="",
+        # collapse_padding=True,
+        # row_styles=PARTITION_TABLE_ROW_STYLES,
+    )
+    for i in range(l):
+        t.add_column(Text(letters[i], style=VERIFIER_COLORS[i]), justify="left")
+    t.add_row(*[f'{", ".join([str(x) for x in my_ndarr[i]])}' for i in range(l)])
+    t.add_row(*[f'{", ".join([str(x) for x in packbits_ndarr[i]])}' for i in range(l)])
+    # t.add_row(*[f'{letters[index]}' for index in range(len(my_ndarr))])
+    console.print(t)
+    print()
+
+def print_ndarr_bitset(ndarr):
+    """
+    `ndarr` is a 2d array, where ndarr[v_index] is a 1-d array of ints representing the bits of verifier v_index.
+    """
+    for one_d_arr in ndarr:
+        print(f'{one_d_arr}', end=" ")
+    print()
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -962,7 +987,7 @@ class Solver_Displayer:
                 else bits_per_verifier
             )
             bitset_for_verifier = (bitset >> right_shift_amount) & ((1 << num_bits) - 1)
-            if(base_16):
+            if base_16:
                 text_this_verifier = Text(
                     f"{hex(bitset_for_verifier).upper()[2:]:0>{math.ceil(num_bits/4)}}",
                     style=HEX_COLOR if (verifier_colors is None) else verifier_colors[v_index],
@@ -980,13 +1005,14 @@ class Solver_Displayer:
                 text_this_verifier = Text.assemble(*text_this_verifier_parts)
             texts.append(text_this_verifier)
         texts.reverse()
-        return(texts)
+        return texts
     def _get_bitset_Texts_ndarr(self, bitset: np.ndarray, base_16, verifier_colors=None):
-        (num_verifiers, num_unint8_per_verifier) = bitset.shape
+        (num_verifiers, num_ints_per_verifier) = bitset.shape
+        bits_per_int = NP_INT_TO_NUM_BITS[bitset.dtype.type]
         return self._get_bitset_Texts_int(
             solver.solver_utils.bitset_to_int(bitset),
             base_16,
-            bits_per_verifier = 8 * num_unint8_per_verifier,
+            bits_per_verifier = bits_per_int * num_ints_per_verifier,
             verifier_colors=verifier_colors,
         )
     def _show_partition_helper(
@@ -1517,11 +1543,11 @@ class Solver_Displayer:
         -------
         list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
         """
-        if(type(bitset) is int):
+        if type(bitset) is int:
             return self._get_bitset_Texts_int(bitset, base_16, verifier_colors=verifier_colors)
-        if(type(bitset) is np.ndarray):
+        if type(bitset) is np.ndarray:
             return self._get_bitset_Texts_ndarr(bitset, base_16, verifier_colors=verifier_colors)
-        if(type(bitset) is Hashable_Numpy_Array):
+        if type(bitset) is Hashable_Numpy_Array:
             return self._get_bitset_Texts_ndarr(bitset.nparray, base_16, verifier_colors=verifier_colors)
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
 
@@ -1559,9 +1585,9 @@ class Solver_Displayer:
         """
         if not active:
             return
-        if(title is None):
+        if title is None:
             title = "CWA Bitset" + ("s" if (len(bitsets) > 1) else '') + (" Hex" if base_16 else "")
-        if(single_bitset):
+        if single_bitset:
             bitsets = [bitsets]
         t = Table(
             header_style="magenta",
