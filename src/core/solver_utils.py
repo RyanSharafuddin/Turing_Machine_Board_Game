@@ -2,9 +2,9 @@ import math, itertools, copy
 import numpy as np
 from rich import progress
 from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
-from .config import REL_TOL, A_TOL, ND_ARR_DTYPE_NUM_BITS, NP_INT_TO_NUM_BITS
+from .config import REL_TOL, A_TOL, NP_INT_TO_NUM_BITS
 from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
-from . import display # for testing/debugging purposes.
+from . import display # pyright: ignore[reportUnusedImport] # for testing/debugging purposes.
 
 ############################## PRIVATE FUNCTIONS #################################################
 def _get_all_rules_combinations(rcs_list):
