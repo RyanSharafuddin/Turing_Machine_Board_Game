@@ -12,7 +12,7 @@ from . import solver
 from . import solver_utils
 from .definitions import *
 from .config import *
-from .hashable_numpy_array import Hashable_Numpy_Array
+from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
 
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 BIT_ONE_TEXT = Text('1', style="bright_green")
