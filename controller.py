@@ -387,6 +387,12 @@ def play_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
     play_from_solver(s)
 
+def solve_all(mode=None, num_vs=None, force_pickle=True):
+    for p in problems.get_all_matching_problems(mode, num_vs):
+        display_problem_solution(
+            p,
+            force_overwrite=force_pickle
+        )
 # Main ways to use:
 #   1) play(problem, pickle_entire, force_overwrite, no_pickles)
 #   2) display_problem_solution(problem, pickle_entire, force_overwrite, no_pickles)

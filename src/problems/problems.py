@@ -380,6 +380,19 @@ def get_perfect_prob_solver_info(p: Problem):
     """
     num_items_to_return = 2
     return _PICKLED_PROB_INFO_DICT.get(p.identity, (None,) * num_items_to_return)
+def get_all_matching_problems(mode=None, num_vs=None):
+    """
+    Return a list of all problems that have a mode of `mode` and `num_vs` number of verifiers. If an arg is None, match that argument with all problems.
+    """
+    l = []
+    p: Problem
+    for p in _ID_TO_PROBLEM_DICT.values():
+        if (
+            ((mode is None) or (p.mode == mode))
+            and ((num_vs is None) or (get_num_verifiers(p) == num_vs))
+        ):
+            l.append(p)
+    return l
 
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
