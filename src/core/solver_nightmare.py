@@ -155,7 +155,7 @@ class Solver_Nightmare(Solver):
         )
 
     def _calculate_best_move(
-        # WARN: changing these arguments will require changing the function const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
+        # WARN: changing these arguments will require changing the function _const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
         self,
         qs_dict,
         game_state: Game_State,
@@ -346,7 +346,7 @@ class Solver_Nightmare(Solver):
         self._evaluations_cache[cache_game_state] = answer
         return answer
 
-    def const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
+    def _const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
         cache_state = self._easy_working_gs_to_cache_gs(working_gs)
         minimal_vs_list = self._calculate_minimal_vs_list(working_gs)
         return {
@@ -384,11 +384,9 @@ class Solver_Nightmare(Solver):
         min_vs_list = [set([i]) for i in range(self.num_rcs)]
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, min_vs_list, force_set_intersect=True))
 
-    def move_rqd_tups_from_working_gs(self, working_gs, sort=True):
+    def _move_rqd_tups_from_working_gs(self, working_gs, sort=True):
         raise NotImplementedError()
         return []
 
     def _experiment(self):
         return
-
-    # post_solve_printing empty for now?

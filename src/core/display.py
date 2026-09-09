@@ -1,4 +1,4 @@
-import string, math, os
+import string, math, os, sys
 from itertools import zip_longest
 from collections import deque
 import numpy as np
@@ -828,7 +828,7 @@ class Solver_Displayer:
             criteria = []
             for v_index in vs_in_sort_order:
                 small_partition_this_verifier = raw_row_arg[2 + v_index][0]
-                criteria += Solver_Displayer.get_partition_sort_criteria(small_partition_this_verifier)
+                criteria += Solver_Displayer._get_partition_sort_criteria(small_partition_this_verifier)
             criteria.append(proposal)
             return(criteria)
         return sort_key
@@ -847,7 +847,7 @@ class Solver_Displayer:
                 sum(small_partitions_col_widths) + num_elts_small_partition + 1
             )
 
-            full_partition_texts_by_verifier[verifier_index] = self.get_full_partitions_texts(
+            full_partition_texts_by_verifier[verifier_index] = self._get_full_partitions_texts(
                 small_partitions,
                 large_partitions,
                 cwas_when_dict_made
@@ -1062,43 +1062,80 @@ class Solver_Displayer:
         )
         console.rule()
         return
-
-
     @staticmethod
-    def get_partition_sort_criteria(partition):
+    def _get_partition_sort_criteria(partition):
         """
         Given a partition, return the sort key for that partition.
         """
         return([len(partition), partition])
-
-    def get_small_partitions_texts(self, small_partitions, full_cwas=None):
+    def _get_small_partitions_texts(self, small_partitions, full_cwas=None):
         """
         Given a list of `small_partitions`, return a list of Texts to print that represent them.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
         col_widths = self._get_col_widths_small_partition(small_partitions)
         return(self._get_small_partitions_texts_helper(small_partitions, col_widths, full_cwas))
-
-    def get_large_partitions_texts(self, large_partitions, full_cwas=None):
+    def _get_large_partitions_texts(self, large_partitions, full_cwas=None):
         """
         Given a list of `large_partitions`, return a list of Texts to print that represent them.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
         col_widths = self._get_col_widths_large_partition(large_partitions)
         return(self._get_large_partitions_texts_helper(large_partitions, col_widths, full_cwas))
-
-    def get_full_partitions_texts(self, small_partitions, large_partitions, full_cwas=None):
+    def _get_full_partitions_texts(self, small_partitions, large_partitions, full_cwas=None):
         """
         Given a list of `small_partitions` and a list of `large_partitions` in corresponding order, return a list of Texts to print that represent the full partitions.
         If using for cwa indexes that are 1-based and from a smaller cwas list, then `full_cwas` should be set to the list. If the cwa indexes are 0-based and from the solver full_cwas_list, then `full_cwas` should be None.
         """
-        sp_texts = self.get_small_partitions_texts(small_partitions, full_cwas)
-        lp_texts = self.get_large_partitions_texts(large_partitions, full_cwas)
+        sp_texts = self._get_small_partitions_texts(small_partitions, full_cwas)
+        lp_texts = self._get_large_partitions_texts(large_partitions, full_cwas)
         combined_texts = [
             (self._combine_small_large_partition_texts(sp_text, lp_text) if(len(sp) > 0) else '')
             for (sp_text, lp_text, sp) in zip(sp_texts, lp_texts, small_partitions)
         ]
         return(combined_texts)
+    def _get_bitset_Texts(self, bitset, base_16=False, verifier_colors=None) -> list[Text]:
+        """
+        Given a bitset, return a list of Texts that can be used to pretty print it.
+
+        Parameters
+        ---------
+        bitset : int
+            Currently only accepts bitsets that are integers.
+
+        hex : bool
+            Whether to return the Texts for each verifier in base 16
+
+        verifier_colors: list[colors] | None
+            A list of what color to use for the Text of what verifier (only colors the 0s if displaying bits). Can be None to use default colors for the verifier texts.
+
+        Returns
+        -------
+        list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
+        """
+        if type(bitset) is int:
+            return self._get_bitset_Texts_int(bitset, base_16, verifier_colors=verifier_colors)
+        if type(bitset) is np.ndarray:
+            return self._get_bitset_Texts_ndarr(bitset, base_16, verifier_colors=verifier_colors)
+        if type(bitset) is Hashable_Numpy_Array:
+            return self._get_bitset_Texts_ndarr(bitset.nparray, base_16, verifier_colors=verifier_colors)
+        raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
+    @staticmethod
+    def _process_underperformance_str(underperformance_float: float):
+        s = f"{underperformance_float:0.3f}"
+        if (s == "-0.000"):
+            return "0.000"
+        return s
+    def _get_row_args_evcache_size(self, size):
+        row_args_l = []
+        if (size <= 0):
+            return row_args_l
+        if(size >= (2 ** 30)):
+            row_args_l.append(["Gigabytes:", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE)])
+        if(size >= (2 ** 20)):
+            row_args_l.append(["Megabytes:", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
+        row_args_l.append([Text("Bytes:", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
+        return row_args_l
 
     def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
         """
@@ -1386,13 +1423,12 @@ class Solver_Displayer:
             return
         size = self.solver.size_of_evaluations_cache_in_bytes
         table = Table.grid(padding=(0, 1))
-        if(size > 0):
-            if(size >= (2 ** 30)):
-                table.add_row("       Gigabytes:", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE))
-            if(size >= (2 ** 20)):
-                table.add_row("       Megabytes:", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE))
-            table.add_row(Text("     Bytes:", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE))
+        row_args_l = self._get_row_args_evcache_size(size)
+        for row_args in row_args_l:
+            table.add_row(*row_args)
+        if row_args_l:
             console.print(table)
+            print()
 
     def end_play_display(self, current_gs, v_to_sort_by, query_history, current_score):
         """
@@ -1523,34 +1559,6 @@ class Solver_Displayer:
             console.rule()
             self.num_end_round_early_states_printed += 1
 
-    ############################### BITSET WERK #######################################################
-    def get_bitset_Texts(self, bitset, base_16=False, verifier_colors=None) -> list[Text]:
-        """
-        Given a bitset, return a list of Texts that can be used to pretty print it.
-
-        Parameters
-        ---------
-        bitset : int
-            Currently only accepts bitsets that are integers.
-
-        hex : bool
-            Whether to return the Texts for each verifier in base 16
-
-        verifier_colors: list[colors] | None
-            A list of what color to use for the Text of what verifier (only colors the 0s if displaying bits). Can be None to use default colors for the verifier texts.
-
-        Returns
-        -------
-        list[Text], where list[0] corresponds to last verifier, and in general, the list[i] is in reverse order of the verifiers.
-        """
-        if type(bitset) is int:
-            return self._get_bitset_Texts_int(bitset, base_16, verifier_colors=verifier_colors)
-        if type(bitset) is np.ndarray:
-            return self._get_bitset_Texts_ndarr(bitset, base_16, verifier_colors=verifier_colors)
-        if type(bitset) is Hashable_Numpy_Array:
-            return self._get_bitset_Texts_ndarr(bitset.nparray, base_16, verifier_colors=verifier_colors)
-        raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
-
     def print_table_bitsets(
             self,
             bitsets,
@@ -1610,7 +1618,7 @@ class Solver_Displayer:
                 Text(f"{bitset_int:,}", style="cyan"),
                 Text(f"{hex(bitset_int).upper()[2:]}", style=HEX_COLOR),
             ]
-            row_args = index_list + int_list + self.get_bitset_Texts(
+            row_args = index_list + int_list + self._get_bitset_Texts(
                 bs,
                 base_16=base_16,
                 verifier_colors=verifier_colors
@@ -1656,7 +1664,62 @@ class Solver_Displayer:
             single_bitset=True,
             verifier_colors=verifier_colors,
         )
-    ############################### BITSET WERK #######################################################
+
+    def non_capitulate_post_solve_printing(self):
+        print(f"Finished.")
+        # console.print(f"It took {self.solver.seconds_to_solve:,} seconds.")
+        t = Table(show_header=False)
+        t.add_column(justify="right") # description
+        t.add_column(justify="right") # info
+        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+
+        if PRINT_POST_SOLVE_DEBUG_INFO:
+            print("\nCalculating post-solve debug information.")
+            num_begin_round_states = self.solver.get_num_begin_round_states()
+            total_state_number = self.solver.get_total_states()
+            total_state_number_str = f'{total_state_number:,}'
+            begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
+            total_state_number_Text = Text(total_state_number_str, style="repr.number")
+            begin_round_number_Text = Text(begin_round_number_str, style="repr.number")
+            t.add_row(f"Total number of states", total_state_number_Text)
+            t.add_row(f"Number of begin round states", begin_round_number_Text)
+            if total_state_number:
+                # NOTE: only calculate and display this if total_state_number != 0, since otherwise divide by 0.
+                percent_Text = Text(
+                    f"{100 * num_begin_round_states / total_state_number:0.2f}%",
+                    style="repr.number"
+                )
+                t.add_row(f"% of states that are begin round", percent_Text)
+        if CALCULATE_EVCACHE_MEM_USAGE:
+            self.solver.calculate_evcache_size()
+            row_args_l = self._get_row_args_evcache_size(self.solver.size_of_evaluations_cache_in_bytes)
+            for row_arg in row_args_l:
+                t.add_row(*row_arg)
+        console.print(t)
+        sys.stdout.flush()
+    def capitulate_post_filter_printing(self, num_combos, best_cost, underperformance):
+        (r, q) = self.solver.expected_cost
+        if self.solver.n_mode:
+            console.print(f"Number of combos, including rearrangement: {num_combos:,}")
+        if underperformance is not None:
+            (ur, uq) = underperformance
+            (bcr, bcq) = best_cost
+            ur_str = self._process_underperformance_str(ur)
+            uq_str = self._process_underperformance_str(uq)
+            ur_Text = Text(ur_str, style='green' if ur_str[0] == '-' else 'red')
+            uq_Text = Text(uq_str, style='green' if uq_str[0] == '-' else 'red')
+            underperformance_Text = Text.assemble(ur_Text, ' ', uq_Text)
+            max_len = max(len(ur_str), len(uq_str))
+            t = Table(show_header=False)
+            t.add_column(justify="right") # description
+            t.add_column(justify="right", style="repr.number") # info
+            t.add_row("Perfect Cost", f'{bcr:0.3f} {bcq:{max_len}.3f}')
+            t.add_row("Capitulate's Cost", f'{r:0.3f} {q:{max_len}.3f}')
+            t.add_row("Underperformance", underperformance_Text)
+            console.print(t)
+        else:
+            console.print("Capitulate's cost:", f'{r:0.3f} {q:0.3f}', sep=" ")
+
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer
     max_combos_by_depth = []    # array[i] is the maximum number of combos of an internal node at depth i, considering the root to be at depth 0. Set when making each tree.

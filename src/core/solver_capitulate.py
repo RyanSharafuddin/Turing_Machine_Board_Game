@@ -88,7 +88,7 @@ class Solver_Capitulate(Solver):
     def _filter_cache(self):
         filtered_cache = dict()
         self._calculate_actual_expected_for_capitulation(self.initial_game_state, filtered_cache)
-        self.validate_filtered_cache(filtered_cache, alternate_first_state=None)
+        self._validate_filtered_cache(filtered_cache, alternate_first_state=None)
         return filtered_cache
 
     def get_perfect_and_underperformance(self):
@@ -118,7 +118,7 @@ class Solver_Capitulate(Solver):
         print(f"Finished.")
         console.print(f"It took {self.seconds_to_solve:,} seconds.")
 
-    def called_by_solve(self):
+    def _called_by_solve(self):
         self._calculate_best_move(
             qs_dict=self.qs_dict,
             game_state=self.initial_game_state
@@ -127,20 +127,13 @@ class Solver_Capitulate(Solver):
     def _experiment(self):
         return
 
-    @staticmethod
-    def process_underperformance_str(underperformance_float: float):
-        s = f"{underperformance_float:0.3f}"
-        if (s == "-0.000"):
-            return "0.000"
-        return s
-
     def post_filter_printing(self):
-        super().post_filter_printing()
+        num_combos = len(self.full_cwas_list)
         (best_cost, underperformance) = self.get_perfect_and_underperformance()
-        if underperformance is not None:
-            (ur, uq) = underperformance
-            (bcr, bcq) = best_cost
-            ur_str = self.process_underperformance_str(ur)
-            uq_str = self.process_underperformance_str(uq)
-            console.print(f"{bcr:0.3f}  {bcq:0.3f} : best cost")
-            console.print(f"{ur_str} {uq_str:>6} : underperformance")
+        self.sd.capitulate_post_filter_printing(num_combos, best_cost, underperformance)
+
+    def get_num_begin_round_states(self):
+        raise NotImplementedError("You should not be calling this on a capitulate solver.")
+
+    def get_total_states(self):
+        raise NotImplementedError("You should not be calling this on a capitulate solver.")

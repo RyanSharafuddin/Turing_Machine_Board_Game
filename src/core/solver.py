@@ -307,7 +307,7 @@ class Solver:
     # called_calculate = 0
     # cache_hits = 0
     def _calculate_best_move(
-            # WARN: changing these arguments will require changing the function const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
+            # WARN: changing these arguments will require changing the function _const_args_to_calc in this class, as well as the portion of iterative_deepen that updates the new args.
             self,
             qs_dict,
             game_state: Game_State,
@@ -563,7 +563,7 @@ class Solver:
         evdepth = int(working_gs.proposal_used_this_round is None)
         (best_move, best_known_rqd) = (None, self.triple_inf)
         result = self.neg1_titz
-        const_args = self.const_args_to_calc(working_gs)
+        const_args = self._const_args_to_calc(working_gs)
         while (evdepth != inf):
             if display:
                 console.print(f"Calculating root to round depth: {evdepth:,}")
@@ -603,14 +603,14 @@ class Solver:
         Sets up evaluations_cache with the evaluations of all necessary game states.
         """
         start = time.time()
-        self.called_by_solve()
+        self._called_by_solve()
         print("Cleaning up evaluations dictionary . . .")
         filtered_cache = self._filter_cache()
         end = time.time()
         self.seconds_to_solve = int(end - start)
         self.post_solve_printing()
-        self.display_biggest_counterexamples()
-        self._experiment()
+        # self.display_biggest_counterexamples()
+        # self._experiment()
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
         self.post_filter_printing()
@@ -626,7 +626,7 @@ class Solver:
             )
             print(" total possible combos (including rearrangement).")
         console.print(
-            f"{self.expected_cost[0]:0.3f}  {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
+            f"{self.expected_cost[0]:0.3f} {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
         )
 
     # May be overriden by other solvers.
@@ -634,53 +634,7 @@ class Solver:
         """
         Define what you would like to print after solving. Based on pre-filter cache. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
         """
-        print(f"Finished.")
-        console.print(f"It took {self.seconds_to_solve:,} seconds.")
-        # NOTE: consider moving this entire function to the Solver_Displayer class inside display.py, so don't have to import anything here.
-        from .display import Solver_Displayer, Text
-        sd = Solver_Displayer(self)
-
-        if config.PRINT_POST_SOLVE_DEBUG_INFO:
-            print("\nCalculating post-solve debug information.")
-            num_begin_round_states = sum(
-                (gs.proposal_used_this_round is None) for gs in self._evaluations_cache
-            )
-            total_state_number_str = f'{len(self._evaluations_cache):,}'
-            begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
-            total_state_number_Text = Text(total_state_number_str, style="repr.number")
-            begin_round_number_Text = Text(begin_round_number_str, style="repr.number")
-            console.print(f"Number of begin round states:", begin_round_number_Text, sep=" ")
-            console.print(f"      Total number of states:", total_state_number_Text, sep=" ")
-            if self._evaluations_cache:
-                # NOTE: only calculate and display this if self._evaluations_cache is nonempty, since otherwise divide by 0.
-                percent_Text = Text(
-                    f"{100 * num_begin_round_states / len(self._evaluations_cache):0.2f}%",
-                    style="repr.number"
-                )
-                console.print(
-                    f"Percent of states that are begin round:", percent_Text, sep=" "
-                )
-        if config.CALCULATE_EVCACHE_MEM_USAGE:
-            global asizeof
-            from pympler.asizeof import asizeof # only import this if printing post solve debug info.
-            # WARN: The line below itself uses up a lot of memory and time.
-            print("\nCalculating evaluations cache memory usage . . .")
-            console.print(
-                "[b #af87ff]NOTE[/b #af87ff]: This may take a lot of time. If this is taking too long, press ctrl-c to stop it."
-            )
-            try:
-                self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
-                sd.print_eval_cache_size()
-                print()
-                # self.print_eval_cache_stats()
-                # self.print_cache_by_size()
-                # console.print(f"{useless_queries:,} useless queries")
-                # console.print(f"{useful_queries:,} useful queries")
-                # console.print(f"Called calculate: {self.called_calculate:,}.")
-            except KeyboardInterrupt:
-                print("\nDiscontinuing calculating evaluations cache memory usage.\n")
-                self.size_of_evaluations_cache_in_bytes = -1
-        sys.stdout.flush()
+        self.sd.non_capitulate_post_solve_printing()
 
     ############################### SAME FOR ALL SOLVERS ###############################
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -697,6 +651,60 @@ class Solver:
             else working_game_state
         )
         return self._evaluations_cache.get(gs_in_cache, default)
+    def _validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
+        """
+        Note: expects the cache to be filtered to have 2-tups as cost. So, *post-filtered* cache.
+        """
+        first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
+        self._validate_fcache_helper(filtered_cache, first_state)
+    def _validate_fcache_helper(self, fcache: dict, wgs: Game_State):
+        """
+        Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
+        """
+        if one_answer_left(self.full_cwas_list, wgs.cwa_set):
+            return Solver.double_zero # TODO: return an rq-tuple of Fractions.
+        cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
+        (best_move, purported_cost) = fcache[cache_gs] # cache_gs should always be in fcache at this point.
+        (gs_false, gs_true) = self.apply_move_to_state(best_move, wgs)
+        # cwa_set representation_change
+        gsf_prob = len(gs_false.cwa_set) / len(wgs.cwa_set) # TODO: use Fractions
+        gst_prob = len(gs_true.cwa_set) / len(wgs.cwa_set)
+        p_tup = (gsf_prob, gst_prob)
+        fcost = self._validate_fcache_helper(fcache, gs_false)
+        tcost = self._validate_fcache_helper(fcache, gs_true)
+        cost_tup = (fcost, tcost)
+        mcost = (int(Solver.does_move_cost_round(best_move, wgs)), 1)
+        actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
+        self._validate_filter_compare_evals(purported_cost, actual_cost, wgs)
+        fcache[cache_gs] = (best_move, actual_cost)
+        return actual_cost
+    def _validate_filter_compare_evals(self, old_eval, new_eval, wgs: Game_State):
+        """
+        Although this function may look similar to self._filter_compare_evals, this one is used on *post-filter* costs, unlike the previous one.
+
+        Params
+        -----
+
+        old_eval: a cost
+            The old cost. Guaranteed to not be None.
+
+        new_eval: a cost.
+            Guaranteed to not be None.
+
+        wgs: working Game_State
+        """
+        if not solver_utils.roughly_geq_2tup(old_eval, new_eval):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print("The new evaluation is somehow strictly worse than the old evaluation!")
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
+            self._filter_cache_error_show(wgs, None, message="", end_program=False)
+        elif not (solver_utils.fp_eq_tup(old_eval, new_eval)):
+            console.print("Note:", style=config.SMALL_WARN)
+            print(
+                "The new evaluation is strictly less than the old evaluation. This is acceptable."
+            )
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
+
     def get_move_mcost_gs_ncost_from_cache(self, working_game_state: Game_State, default=None):
         """
         Given a working game state, return the best move, the cost of the best move, the resulting (gs_false, gs_true) tuple, and the cost of the game_state, or default if the game state is not in the cache. This function makes it so that solvers can easily change what they put in the evaluations cache for their own purposes, without necessitating changes to controller.py or display.py. Applies to *post-filtered* caches.
@@ -839,28 +847,8 @@ class Solver:
     ############################### SAME FOR ALL SOLVERS ###############################
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
-    def called_by_solve(self):
+    def _called_by_solve(self):
         self.iterative_deepen(self.initial_game_state, display=True)
-
-    def get_info_to_save(self):
-        return Info_To_Save(
-            problem           = self.problem,
-            evaluations_cache = self._evaluations_cache,
-            expected_cost     = self.expected_cost,
-            seconds_to_solve  = self.seconds_to_solve,
-            git_hash          = git.Repo(search_parent_directories=True).head.object.hexsha,
-            git_message       = git.Repo(search_parent_directories=True).head.object.message,
-            size_of_evaluations_cache_in_bytes = self.size_of_evaluations_cache_in_bytes
-        )
-
-    def set_saved_info(self, info: Info_To_Save):
-        assert (self.problem == info.problem)
-        self._evaluations_cache = info.evaluations_cache
-        self.expected_cost      = info.expected_cost
-        self.seconds_to_solve   = info.seconds_to_solve
-        self.git_hash           = info.git_hash
-        self.git_message        = info.git_message
-        self.size_of_evaluations_cache_in_bytes = info.size_of_evaluations_cache_in_bytes
 
     def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move):
         """
@@ -913,11 +901,11 @@ class Solver:
                 one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set)
             ):
                 continue
-            self.handle_state(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, filtered_cache)
-        self.validate_filtered_cache(filtered_cache, alternate_first_state=alternate_first_state)
+            self._handle_state(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, filtered_cache)
+        self._validate_filtered_cache(filtered_cache, alternate_first_state=alternate_first_state)
         return filtered_cache
 
-    def handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
+    def _handle_state(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
         moves_exist = self.exist_moves(curr_working_gs)
         if (
             config.CONSIDER_END_ROUND_EARLY
@@ -929,9 +917,9 @@ class Solver:
                 num_queries_this_round=0,
                 cwa_set=curr_cache_gs.cwa_set
             )
-            self.handle_delete_eval(curr_working_gs, new_round_early_cache_gs, warn=False)
+            self._handle_delete_eval(curr_working_gs, new_round_early_cache_gs, warn=False)
         if not moves_exist:
-            self.handle_delete_eval(curr_working_gs, curr_cache_gs)
+            self._handle_delete_eval(curr_working_gs, curr_cache_gs)
             curr_cache_gs = Game_State(
                 proposal_used_this_round=None,
                 num_queries_this_round=0,
@@ -941,16 +929,16 @@ class Solver:
 
     def _handle_state_helper(self, curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, new_ev_cache):
         """
-        Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
+        Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls _filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
         """
-        prev_gs_eval = self.handle_delete_eval(curr_working_gs, curr_cache_gs)
+        prev_gs_eval = self._handle_delete_eval(curr_working_gs, curr_cache_gs)
         current_gs_eval = self.iterative_deepen(curr_working_gs, display=False)
         if (self.best_move is None):
             console.print("O NOES! self.best_move is None!", style=config.BIG_WARN)
             console.print(curr_working_gs)
             sd.print_game_state(curr_working_gs)
             exit()
-        self.filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
+        self._filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
         new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
         (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
         stack.append(gs_false)
@@ -966,7 +954,7 @@ class Solver:
             pass
         print(working_gs)
         print(cache_gs)
-        # (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
+        # (move_rqd_tups, move_infos) = self._move_rqd_tups_from_working_gs(
         #     working_gs,
         #     sort=True,
         # )
@@ -976,34 +964,7 @@ class Solver:
             console.print("Exiting.", style=config.BIG_WARN)
             exit()
 
-    def validate_filtered_cache(self, filtered_cache, alternate_first_state=None):
-        """
-        Note: expects the cache to be filtered to have 2-tups as cost. So, *post-filtered* cache.
-        """
-        first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
-        self.validate_fcache_helper(filtered_cache, first_state)
 
-    def validate_fcache_helper(self, fcache: dict, wgs: Game_State):
-        """
-        Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
-        """
-        if one_answer_left(self.full_cwas_list, wgs.cwa_set):
-            return Solver.double_zero # TODO: return an rq-tuple of Fractions.
-        cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
-        (best_move, purported_cost) = fcache[cache_gs] # cache_gs should always be in fcache at this point.
-        (gs_false, gs_true) = self.apply_move_to_state(best_move, wgs)
-        # cwa_set representation_change
-        gsf_prob = len(gs_false.cwa_set) / len(wgs.cwa_set) # TODO: use Fractions
-        gst_prob = len(gs_true.cwa_set) / len(wgs.cwa_set)
-        p_tup = (gsf_prob, gst_prob)
-        fcost = self.validate_fcache_helper(fcache, gs_false)
-        tcost = self.validate_fcache_helper(fcache, gs_true)
-        cost_tup = (fcost, tcost)
-        mcost = (int(Solver.does_move_cost_round(best_move, wgs)), 1)
-        actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
-        self.validate_filter_compare_evals(purported_cost, actual_cost, wgs)
-        fcache[cache_gs] = (best_move, actual_cost)
-        return actual_cost
 
     def update_biggest_counterexamples(self, move_rqd_tups, game_state):
         raise NotImplementedError()
@@ -1025,6 +986,7 @@ class Solver:
             self.biggest_depth_difference_info = (depth_difference,) + info_last_3
 
     def display_biggest_counterexamples(self):
+        raise NotImplementedError("Haven't updated this to fit with new changes.")
         items = (
             self.biggest_avg_difference_info,
             self.biggest_begin_round_avg_difference_info,
@@ -1039,10 +1001,30 @@ class Solver:
         for (item, compare, message) in zip(items, compares, messages, strict=True):
             sd.display_counterexample(item, compare, message)
 
+    def get_info_to_save(self):
+        return Info_To_Save(
+            problem           = self.problem,
+            evaluations_cache = self._evaluations_cache,
+            expected_cost     = self.expected_cost,
+            seconds_to_solve  = self.seconds_to_solve,
+            git_hash          = git.Repo(search_parent_directories=True).head.object.hexsha,
+            git_message       = git.Repo(search_parent_directories=True).head.object.message,
+            size_of_evaluations_cache_in_bytes = self.size_of_evaluations_cache_in_bytes
+        )
+
+    def set_saved_info(self, info: Info_To_Save):
+        assert (self.problem == info.problem)
+        self._evaluations_cache = info.evaluations_cache
+        self.expected_cost      = info.expected_cost
+        self.seconds_to_solve   = info.seconds_to_solve
+        self.git_hash           = info.git_hash
+        self.git_message        = info.git_message
+        self.size_of_evaluations_cache_in_bytes = info.size_of_evaluations_cache_in_bytes
+
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
 
     ######################### MAY BE DIFFERENT B/T NIGHTMARE AND STANDARD #########################
-    def const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
+    def _const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
         """
         Return a dictionary containing the arguments to self._calculate_best_move that remain constant when iterative deepening on `working_gs`.
         """
@@ -1054,35 +1036,14 @@ class Solver:
             "check_one_answer" : False,
             "depth"            : 0,
         }
-
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
         """
         A convenience function for converting a `working_game_state` to a cache_game_state (no permutation info needed). This is used by filter_cache.
         """
         return self.convert_working_gs_to_cache_gs(working_game_state, self.all_cwa_bitsets)
-
-    def new_res_to_og_res(self, new_cache_result):
-        """
-        Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
-        """
-        # evdepth = new_cache_result[0]
-        (r, q, d) = new_cache_result[1]
-        if len(new_cache_result) > 2:
-            console.print("O NOES from new_res_to_og_res!", style=config.BIG_WARN)
-        return (r, q)
-
-    def exist_moves(self, curr_working_gs):
-        """
-        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is None, return True if there are useful moves to be made this round using any proposal.
-        """
-        for mi in self.get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
-            return True
-        return False
-
     def _easy_get_list_move_infos(self, working_gs:Game_State):
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, force_set_intersect=True))
-
-    def handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State, warn=True):
+    def _handle_delete_eval(self, working_gs: Game_State, cache_gs: Game_State, warn=True):
         """
         Deletes the evaluation of the cache_gs from the cache if it is in the cache and returns the result. Displays warning messages as appropriate.
         """
@@ -1098,8 +1059,7 @@ class Solver:
             )
             self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
-
-    def filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
+    def _filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
         """
         Used on *pre-filter* costs.
 
@@ -1138,36 +1098,8 @@ class Solver:
                 "The new evaluation is strictly less than the old evaluation. This is acceptable."
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
-
-    def validate_filter_compare_evals(self, old_eval, new_eval, wgs: Game_State):
-        """
-        Although this function may look similar to self.filter_compare_evals, this one is used on *post-filter* costs, unlike the previous one.
-
-        Params
-        -----
-
-        old_eval: a cost
-            The old cost. Guaranteed to not be None.
-
-        new_eval: a cost.
-            Guaranteed to not be None.
-
-        wgs: working Game_State
-        """
-        if not solver_utils.roughly_geq_2tup(old_eval, new_eval):
-            console.print("WARN!!", style=config.BIG_WARN)
-            print("The new evaluation is somehow strictly worse than the old evaluation!")
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-            self._filter_cache_error_show(wgs, None, message="", end_program=False)
-        elif not (solver_utils.fp_eq_tup(old_eval, new_eval)):
-            console.print("Note:", style=config.SMALL_WARN)
-            print(
-                "The new evaluation is strictly less than the old evaluation. This is acceptable."
-            )
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-
     # TODO: update
-    def move_rqd_tups_from_working_gs(
+    def _move_rqd_tups_from_working_gs(
             self, working_gs: Game_State, sort=True, round_depth=inf
         ):
         """
@@ -1202,12 +1134,11 @@ class Solver:
         #     mvrqd_mi_combined.sort(key = lambda x: x[0][1])
         #     (move_rqd_tups, move_infos) = zip(*mvrqd_mi_combined)
         # return (move_rqd_tups, move_infos)
-
     # TODO: update
     def _experiment(self):
         pass
         # sd = testing_stuff(self)
-        # (move_rqd_tups, move_infos) = self.move_rqd_tups_from_working_gs(
+        # (move_rqd_tups, move_infos) = self._move_rqd_tups_from_working_gs(
         #     self.initial_game_state,
         #     sort=True,
         #     round_depth=config.INITIAL_EVAL_DEPTH - 1
@@ -1228,3 +1159,52 @@ class Solver:
         # )
         # if is_counterexample:
         #     sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
+
+
+    def get_num_begin_round_states(self):
+        """
+        Returns the number of begin-round states stored in the *pre-filter* cache. Not for capitulate solvers.
+        """
+        return sum((gs.proposal_used_this_round is None) for gs in self._evaluations_cache)
+
+    def get_total_states(self):
+        """
+        Returns the total number of states stored in the *pre-filter* cache. Not for capitulate solvers.
+        """
+        return len(self._evaluations_cache)
+
+    def calculate_evcache_size(self):
+        """
+        Calculate the memory usage of self._evaluations_cache and set self.size_of_evaluations_cache_in_bytes accordingly.
+        """
+        print("\nCalculating evaluations cache memory usage . . .")
+        console.print(
+            "[b #af87ff]NOTE[/b #af87ff]: This may take a lot of time. If this is taking too long, press ctrl-c to stop it."
+        )
+        from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+        try:
+            # WARN: The line below itself uses up a lot of memory and time.
+            self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+            # self.print_eval_cache_stats()
+            # self.print_cache_by_size()
+        except KeyboardInterrupt:
+            print("\nDiscontinuing calculating evaluations cache memory usage.\n")
+            self.size_of_evaluations_cache_in_bytes = -1
+
+    def new_res_to_og_res(self, new_cache_result):
+        """
+        Converts a cost tuple as stored in solver._evaluations_cache before any processing into an (avg_rounds, avg_queries) cost tuple.
+        """
+        # evdepth = new_cache_result[0]
+        (r, q, d) = new_cache_result[1]
+        if len(new_cache_result) > 2:
+            console.print("O NOES from new_res_to_og_res!", style=config.BIG_WARN)
+        return (r, q)
+
+    def exist_moves(self, curr_working_gs):
+        """
+        Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is None, return True if there are useful moves to be made this round using any proposal.
+        """
+        for mi in self.get_and_apply_moves(curr_working_gs, self.qs_dict, force_set_intersect=True):
+            return True
+        return False
