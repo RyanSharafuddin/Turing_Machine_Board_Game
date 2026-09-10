@@ -1127,14 +1127,17 @@ class Solver_Displayer:
             return "0.000"
         return s
     def _get_row_args_evcache_size(self, size):
+        """
+        Get a list of row args that represent the arguments to pass to table.add_row(*row_args) to add information about memory usage to a table. i.e. each element of row_args_l is a list representing a table row.
+        """
         row_args_l = []
-        if (size <= 0):
+        if (size < 0):
             return row_args_l
         if(size >= (2 ** 30)):
-            row_args_l.append(["Gigabytes:", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE)])
+            row_args_l.append(["Gigabytes", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE)])
         if(size >= (2 ** 20)):
-            row_args_l.append(["Megabytes:", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
-        row_args_l.append([Text("Bytes:", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
+            row_args_l.append(["Megabytes", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
+        row_args_l.append([Text("Bytes", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
         return row_args_l
 
     def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
@@ -1414,22 +1417,6 @@ class Solver_Displayer:
                     see_all_combos,
                 )
 
-    def print_eval_cache_size(self):
-        """
-        Print out the memory usage of the evaluation cache of the solver, if the solver has chosen to record it.
-        """
-        if (self.solver.size_of_evaluations_cache_in_bytes < 0):
-            console.print("This solver did not record the size of its evaluations cache.")
-            return
-        size = self.solver.size_of_evaluations_cache_in_bytes
-        table = Table.grid(padding=(0, 1))
-        row_args_l = self._get_row_args_evcache_size(size)
-        for row_args in row_args_l:
-            table.add_row(*row_args)
-        if row_args_l:
-            console.print(table)
-            print()
-
     def end_play_display(self, current_gs, v_to_sort_by, query_history, current_score):
         """
         Used by controller.play_from_solver to play a game.
@@ -1665,15 +1652,23 @@ class Solver_Displayer:
             verifier_colors=verifier_colors,
         )
 
-    def non_capitulate_post_solve_printing(self):
+    def non_capitulate_final_printing(
+        self,
+        show_debug_info: bool,
+        show_ec_mem_usage: bool,
+        original_cache: dict,
+        filtered_cache: dict
+    ):
+        """
+        NOTE: do not mutate any fields of self.solver, with the possible exception of self.solver.size_of_evaluations_cache_in_bytes. Also do not mutate the arguments. Furthermore, do not rely on the value of self.solver._evaluations_cache; use the provided original_cache and filtered_cache instead.
+        """
         print(f"Finished.")
         # console.print(f"It took {self.solver.seconds_to_solve:,} seconds.")
         t = Table(show_header=False)
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
-
-        if PRINT_POST_SOLVE_DEBUG_INFO:
+        if show_debug_info:
             print("\nCalculating post-solve debug information.")
             num_begin_round_states = self.solver.get_num_begin_round_states()
             total_state_number = self.solver.get_total_states()
@@ -1690,35 +1685,81 @@ class Solver_Displayer:
                     style="repr.number"
                 )
                 t.add_row(f"% of states that are begin round", percent_Text)
-        if CALCULATE_EVCACHE_MEM_USAGE:
-            self.solver.calculate_evcache_size()
+        if show_ec_mem_usage:
+            self.solver.calculate_evcache_size(original_cache)
             row_args_l = self._get_row_args_evcache_size(self.solver.size_of_evaluations_cache_in_bytes)
             for row_arg in row_args_l:
                 t.add_row(*row_arg)
+        if self.solver.n_mode:
+            t.add_row(
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+            )
+        (r, q) = self.solver.expected_cost
+        t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
         console.print(t)
         sys.stdout.flush()
-    def capitulate_post_filter_printing(self, num_combos, best_cost, underperformance):
+    def capitulate_final_printing(self, best_cost, underperformance):
+        print("Finished.")
         (r, q) = self.solver.expected_cost
+        t = Table(show_header=False)
+        t.add_column(justify="right") # description
+        t.add_column(justify="right") # info
+        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
         if self.solver.n_mode:
-            console.print(f"Number of combos, including rearrangement: {num_combos:,}")
+            t.add_row(
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+            )
         if underperformance is not None:
             (ur, uq) = underperformance
             (bcr, bcq) = best_cost
-            ur_str = self._process_underperformance_str(ur)
-            uq_str = self._process_underperformance_str(uq)
-            ur_Text = Text(ur_str, style='green' if ur_str[0] == '-' else 'red')
-            uq_Text = Text(uq_str, style='green' if uq_str[0] == '-' else 'red')
+            ur_str = self._process_underperformance_str(ur) # underperformance rounds
+            uq_str = self._process_underperformance_str(uq) # queries
+            bcr_str = f'{bcr:0.3f}' # best cost rounds
+            bcq_str = f'{bcq:0.3f}' # best cost queries
+            ccr_str = f'{r:0.3f}'   # capitulate cost rounds
+            ccq_str = f'{q:0.3f}'   # capitulate cost queries
+            max_len_right = max([len(i) for i in (uq_str, ccq_str, bcq_str)])
+            max_len_left = max([len(i) for i in (ur_str, ccr_str, bcr_str)])
+
+            ur_Text = Text(f'{ur_str:>{max_len_left }}', style='green' if (float(ur_str) <= 0) else 'red')
+            uq_Text = Text(f'{uq_str:>{max_len_right}}', style='green' if (float(uq_str) <= 0) else 'red')
             underperformance_Text = Text.assemble(ur_Text, ' ', uq_Text)
-            max_len = max(len(ur_str), len(uq_str))
-            t = Table(show_header=False)
-            t.add_column(justify="right") # description
-            t.add_column(justify="right", style="repr.number") # info
-            t.add_row("Perfect Cost", f'{bcr:0.3f} {bcq:{max_len}.3f}')
-            t.add_row("Capitulate's Cost", f'{r:0.3f} {q:{max_len}.3f}')
+            t.add_row(
+                "Perfect Cost", Text(f'{bcr:{max_len_left}.3f} {bcq:{max_len_right}.3f}', "repr.number")
+            )
+            t.add_row(
+                "Capitulate's Cost", Text(f'{r:{max_len_left}.3f} {q:{max_len_right}.3f}', "repr.number")
+            )
             t.add_row("Underperformance", underperformance_Text)
-            console.print(t)
         else:
-            console.print("Capitulate's cost:", f'{r:0.3f} {q:0.3f}', sep=" ")
+            t.add_row("Perfect Cost", "❓")
+            t.add_row("Capitulate's Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
+        console.print(t)
+    def pickled_display_print(self):
+        """
+        Will be shown when controller displays a solver from a pickle. Note that this will not apply to capitulate solvers, since those are never pickled.
+        """
+        print()
+        t = Table(show_header=False)
+        t.add_column(justify="right") # description
+        t.add_column(justify="right") # info
+        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+        if (self.solver.size_of_evaluations_cache_in_bytes < 0):
+            t.add_row("Memory Usage", '❓')
+        else:
+            mem_usage_row_args = self._get_row_args_evcache_size(
+                self.solver.size_of_evaluations_cache_in_bytes
+            )
+            for mem_row in mem_usage_row_args:
+                t.add_row(*mem_row)
+        if self.solver.n_mode:
+            t.add_row(
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+            )
+        (r, q) = self.solver.expected_cost
+        t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
+        console.print(t)
+        sys.stdout.flush()
 
 class Tree:
     show_combos_in_tree = False # a class variable so don't have to include it in every tree initializer

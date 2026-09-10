@@ -608,33 +608,21 @@ class Solver:
         filtered_cache = self._filter_cache()
         end = time.time()
         self.seconds_to_solve = int(end - start)
-        self.post_solve_printing()
         # self.display_biggest_counterexamples()
         # self._experiment()
+        original_cache = self._evaluations_cache
         self._evaluations_cache = filtered_cache
         self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
-        self.post_filter_printing()
+        self._final_printing(original_cache, filtered_cache)
 
-    # Happens for all solvers; other solvers may add their own additional statements in their own versions.
-    def post_filter_printing(self):
+    # May be overriden by other types of solvers.
+    def _final_printing(self, original_cache: dict, filtered_cache: dict):
         """
-        NOTE: happens even on solvers retrieved from pickles.
+        Print out all the info learned from solving a problem. At this point, solver.expected_cost has been set to the rq value. NOTE: Do not mutate `filtered_cache` or `original_cache`, or any fields of Solver, with the possible exception of self.size_of_evaluations_cache_in_bytes.
         """
-        if self.n_mode:
-            console.print(
-                f"There are {len(self.full_cwas_list):,}", end=""
-            )
-            print(" total possible combos (including rearrangement).")
-        console.print(
-            f"{self.expected_cost[0]:0.3f} {self.expected_cost[1]:0.3f} : Expected cost to solve from start"
-        )
-
-    # May be overriden by other solvers.
-    def post_solve_printing(self):
-        """
-        Define what you would like to print after solving. Based on pre-filter cache. Only called on newly solve()d solvers; not on pre-existing pickled solvers. capitulate solver has its own version of this function.
-        """
-        self.sd.non_capitulate_post_solve_printing()
+        show_debug = config.PRINT_POST_SOLVE_DEBUG_INFO
+        show_ec_mem = config.CALCULATE_EVCACHE_MEM_USAGE
+        self.sd.non_capitulate_final_printing(show_debug, show_ec_mem, original_cache, filtered_cache)
 
     ############################### SAME FOR ALL SOLVERS ###############################
     def _get_best_move_and_ncost_from_cache(self, working_game_state: Game_State, default=(None, None)):
@@ -750,6 +738,9 @@ class Solver:
         proposal = move[0]
         # if num_queries_this_round is 0, then gs.proposal_used.. should be None
         return(gs.proposal_used_this_round != proposal)
+    def get_num_combos(self):
+        """ Get the total number of cwas, (including nightmare rearranging). """
+        return len(self.full_cwas_list)
     def default_cwa_sort_key(self, full_cwa):
         """
         Sort by answer, then by the unique_ids of the combo.
@@ -874,7 +865,7 @@ class Solver:
     def _filter_cache(self, alternate_first_move=None, alternate_first_state=None):
         """
         Return a new cache that *only* contains the information needed to play the problem perfectly i.e. `cache[state] = (best_move, (avg_rounds, avg_queries))`. Useful because pickling is very slow. The current evaluations cache does not contain best moves, only cache states and their evaluations. Therefore, this filter cache will reconstruct the best moves from the evaluations.
-        WARN: using an alternate first state will change self.initial_game_state. If want to restore it later, be sure to save and restore.
+        WARN: using an alternate first state will change self.initial_game_state. If want to restore it later, be sure to save and restore. TODO: implement using an alternate_first_state without modifying any fields of self. Will need to go into print_best_move_tree and display_best_move_tree and make sure they're not modifying solver or relying on self.initial_game_state or any non-public fields of solver.
         """
         filtered_cache = dict()
         if alternate_first_state is not None:
@@ -1173,18 +1164,18 @@ class Solver:
         """
         return len(self._evaluations_cache)
 
-    def calculate_evcache_size(self):
+    def calculate_evcache_size(self, original_cache: dict):
         """
-        Calculate the memory usage of self._evaluations_cache and set self.size_of_evaluations_cache_in_bytes accordingly.
+        Calculate the memory usage of original_cache and set self.size_of_evaluations_cache_in_bytes accordingly.
         """
-        print("\nCalculating evaluations cache memory usage . . .")
+        print("Calculating evaluations cache memory usage . . .")
         console.print(
             "[b #af87ff]NOTE[/b #af87ff]: This may take a lot of time. If this is taking too long, press ctrl-c to stop it."
         )
         from pympler.asizeof import asizeof # only import this if printing post solve debug info.
         try:
             # WARN: The line below itself uses up a lot of memory and time.
-            self.size_of_evaluations_cache_in_bytes = asizeof(self._evaluations_cache)
+            self.size_of_evaluations_cache_in_bytes = asizeof(original_cache)
             # self.print_eval_cache_stats()
             # self.print_cache_by_size()
         except KeyboardInterrupt:

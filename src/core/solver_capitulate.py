@@ -63,14 +63,10 @@ class Solver_Capitulate(Solver):
     def _calculate_actual_expected_for_capitulation(self, game_state: Game_State, new_ev_cache: dict):
         if game_state in new_ev_cache:
             return new_ev_cache[game_state]
-        if not game_state.cwa_set:
-            print(game_state)
-            exit()
+        assert bool(game_state.cwa_set)
         if one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return((None, (0, 0)))
-        if game_state not in self._evaluations_cache:
-            print(game_state)
-            exit()
+        assert (game_state in self._evaluations_cache)
         (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
         (gs_false, gs_true) = self.apply_move_to_state(best_move, game_state)
         p_false = len(gs_false.cwa_set) / len(game_state.cwa_set)
@@ -91,7 +87,7 @@ class Solver_Capitulate(Solver):
         self._validate_filtered_cache(filtered_cache, alternate_first_state=None)
         return filtered_cache
 
-    def get_perfect_and_underperformance(self):
+    def _get_perfect_and_underperformance(self):
         """
         Returns
         -------
@@ -114,10 +110,6 @@ class Solver_Capitulate(Solver):
         underperformance = (r - bcr, q - bcq)
         return (best_cost, underperformance)
 
-    def post_solve_printing(self):
-        print(f"Finished.")
-        console.print(f"It took {self.seconds_to_solve:,} seconds.")
-
     def _called_by_solve(self):
         self._calculate_best_move(
             qs_dict=self.qs_dict,
@@ -127,10 +119,10 @@ class Solver_Capitulate(Solver):
     def _experiment(self):
         return
 
-    def post_filter_printing(self):
-        num_combos = len(self.full_cwas_list)
-        (best_cost, underperformance) = self.get_perfect_and_underperformance()
-        self.sd.capitulate_post_filter_printing(num_combos, best_cost, underperformance)
+    def _final_printing(self, original_cache: dict, filtered_cache: dict):
+        # Overrides _final_printing in Solver. Needs to keep same function signature.
+        (best_cost, underperformance) = self._get_perfect_and_underperformance()
+        self.sd.capitulate_final_printing(best_cost, underperformance)
 
     def get_num_begin_round_states(self):
         raise NotImplementedError("You should not be calling this on a capitulate solver.")

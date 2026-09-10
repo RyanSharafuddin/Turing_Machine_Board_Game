@@ -133,7 +133,7 @@ MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have le
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True
-CALCULATE_EVCACHE_MEM_USAGE = True # WARN: Takes a lot of memory/time.
+CALCULATE_EVCACHE_MEM_USAGE = True  # WARN: Takes a lot of memory/time.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 

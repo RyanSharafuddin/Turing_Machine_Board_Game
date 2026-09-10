@@ -75,19 +75,15 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     """
     This function assumes that the solver s has already been solved.
     """
-    sd = display.Solver_Displayer(s)
+    sd = s.sd
     if display_problem:
         sd.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    # console.print(Text.assemble(f"Seconds to solve: ", (f"{s.seconds_to_solve:,}", COLOR_OF_TIME)))
-    # sd.print_eval_cache_size()
     if solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set):
-        sd.print_all_possible_answers(full_cwa, "\nANSWER", permutation_order=P_ORDER)
+        title = "\nANSWER" + (" (Without Rearrangement)" if s.n_mode else "")
+        sd.print_all_possible_answers(full_cwa, title, unique_perm=True)
         if display_problem:
-            print()
-            console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
-            sd.print_eval_cache_size()
-            s.post_filter_printing()
+            sd.pickled_display_print()
     else:
         sd.print_all_possible_answers(
             full_cwa,
@@ -103,10 +99,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
             active=((DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)))
         )
         if display_problem:
-            print()
-            console.print(f"Seconds to solve:", Text(f"{s.seconds_to_solve:,}", style=COLOR_OF_TIME), sep=" ")
-            sd.print_eval_cache_size()
-            s.post_filter_printing()
+            sd.pickled_display_print()
         display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
 
 def unpickle_solver(identity):
@@ -246,7 +239,7 @@ def display_problem_solution(
     (s, made_from_scatch) = get_or_make_solver(
         problem, pickle_entire, force_overwrite, no_pickles, capitulate
     )
-    display_solution_from_solver(s, display_problem=not(made_from_scatch))
+    display_solution_from_solver(s, display_problem = not made_from_scatch)
 def play(problem: Problem, pickle_entire=False, force_overwrite=False, no_pickles=False, capitulate=False):
     """
     Given a `problem`, gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
@@ -409,7 +402,7 @@ if(__name__ == "__main__"):
         parser = make_parser()
         args = parser.parse_args()
 
-        if(args.from_file):
+        if args.from_file:
             do_two_funcs(
                 args.display,
                 display_problem_solution_from_file,
@@ -428,7 +421,7 @@ if(__name__ == "__main__"):
             args.verifiers,
             args.new_problem
         )
-        args.no_pickles = True if (args.capitulate) else args.no_pickles # capitulate turns on no pickles
+        args.no_pickles = True if args.capitulate else args.no_pickles # capitulate turns on no pickles
         do_two_funcs(
             args.display,
             display_problem_solution,
