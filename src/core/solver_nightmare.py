@@ -49,20 +49,57 @@ class Solver_Nightmare(Solver):
         return minimal_vs_list
 
 
-    @staticmethod
+    # @staticmethod
     def get_and_apply_moves(
-            game_state: Game_State,
-            qs_dict: dict[int:dict[int:Query_Info]],
-            minimal_vs_list: list[set[int]],
-            force_set_intersect=False
-        ):
+        self,
+        game_state: Game_State,
+        qs_dict: dict[int:dict[int:Query_Info]],
+        minimal_vs_list: list[set[int]],
+        force_set_intersect=False
+    ):
         # cwa_set representation_change Will have to implement a function to get length of set
         num_combos_currently = len(game_state.cwa_set)
         if game_state.proposal_used_this_round is None:
             cost = (1, 1)
             next_num_queries = 1
+            minimal_vs_list_len = len(minimal_vs_list)
             for (proposal, inner_dict) in qs_dict.items():
-                num_v_sets_left_to_hit = len(minimal_vs_list)
+
+
+                for v_set in minimal_vs_list:
+                    # hit the v_set or exhaust it.
+                    # don't have to exhaust v_set b/c min_vs_list always updated on begin-round state.
+                    # verifier_to_query = next(iter(v_set))
+                    list_vs_in_inner_dict = []
+                    list_vs_NOT_in_inner_dict = []
+                    for v_index in v_set:
+                        if v_index in inner_dict:
+                            list_vs_in_inner_dict.append(v_index)
+                        else:
+                            list_vs_NOT_in_inner_dict.append(v_index)
+                    if (bool(list_vs_in_inner_dict) and bool(list_vs_NOT_in_inner_dict)):
+                        self.progress.stop()
+                        console.print("WAOW!")
+                        console.print("Minimal vs list:", minimal_vs_list, end=" ")
+                        console.print("v_set in question:", v_set, end=" ")
+                        console.print("Proposal:", proposal)
+                        console.print("Verifiers in qs_dict:", list_vs_in_inner_dict, end=" ")
+                        console.print("Verifiers NOT in qs_dict:", list_vs_NOT_in_inner_dict, end=" ")
+                        sd.print_game_state(game_state)
+                        cache_gs_NO_reorder = self._convert_wgs_to_cache_gs_NO_reorder(game_state)
+                        sd.print_cache_game_state(cache_gs_NO_reorder)
+                        sd.print_useful_qs_dict_info(
+                            qs_dict,
+                            game_state.cwa_set,
+                            verifier_indexes=[0, 3],
+                            proposals_to_examine=514,
+                            short=True
+                        )
+                        exit()
+
+
+                # don't repeatedly call len() inside a loop.
+                num_v_sets_left_to_hit = minimal_vs_list_len
                 list_hit_v_sets = [False] * num_v_sets_left_to_hit
                 for (verifier_to_query, q_info) in inner_dict.items():
                     move = (proposal, verifier_to_query)
@@ -86,6 +123,7 @@ class Solver_Nightmare(Solver):
                             break
                     if(not num_v_sets_left_to_hit):
                         break
+
         else:
             cost = (0, 1)
             next_num_queries = (game_state.num_queries_this_round + 1) % 3
@@ -117,6 +155,20 @@ class Solver_Nightmare(Solver):
                                     return
                         break
 
+    def _convert_wgs_to_cache_gs_NO_reorder(self, working_game_state):
+        """
+        Given a working game_state, convert it into a cache game state WITHOUT reordering it into canonical form. Only for use to aid in debugging.
+        """
+        cache_state_without_reordering_func = (
+            solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
+            solver_utils._convert_working_gs_to_cache_gs_standard_nparray
+        )
+        cache_state_without_reordering = cache_state_without_reordering_func(
+            working_game_state,
+            self.all_cwa_bitsets
+        )
+        return cache_state_without_reordering
+
     def _print_canonical_form_info(self, game_state, cache_game_state, max_num_forms):
         if ('num_forms' not in globals()):
             global num_forms
@@ -126,14 +178,7 @@ class Solver_Nightmare(Solver):
         if not(num_forms < max_num_forms):
             return
         console.rule()
-        cache_state_without_reordering_func = (
-            solver_utils._convert_working_gs_to_cache_gs_standard_int if self.bitset_type is int else
-            solver_utils._convert_working_gs_to_cache_gs_standard_nparray
-        )
-        cache_state_without_reordering = cache_state_without_reordering_func(
-            game_state,
-            self.all_cwa_bitsets
-        )
+        cache_state_without_reordering = self._convert_wgs_to_cache_gs_NO_reorder(game_state)
         permutation = solver_utils.get_permutation(self, game_state)
         rearranged_colors = [config.VERIFIER_COLORS[num] for num in permutation]
         if not np.array_equal(np.array([i for i in range(self.num_rcs)]), permutation):
