@@ -57,7 +57,7 @@ HEX_COLOR                  = "#FFD7AF" # color of hex numbers when displaying bi
 # verifier colors used for partition table column titles/canonical form bitsets. + look pretti in VSCode c:
 VERIFIER_COLORS = ["#FF00EA", "#D84B60", "#14A990", "#3E53DE", "#FFE600", "#FF7B00"]
 
-# Settings for displaying the available problems table
+# Settings for displaying the available problems table and final printing table.
 SHOW_COST_OTHER            = True # next to all standard mode problem costs, show the cost for equivalent nightmare mode problem, and vice-versa.
 PROBLEM_TABLE_HEADER_COLOR = "#D700D7"
 RULE_CARD_NUMS_COLOR       = "#FFAFFF"
@@ -68,12 +68,14 @@ STACK_EXTREME_RULE_CARDS   = True  # stack the rule card numbers on top of each 
 NUM_V_COLORS               = ['#00FF00', "#FFFF00", "#FF0000"]
 ROUND_COST_STYLE           = "#E34984"
 QUERY_COST_STYLE           = "#7B00FF"
+NUM_COMBOS_STYLE           = "d #00ff95" # consider putting a d in front to make it dim.
+PERFECT_COST_STYLE         = "#FFD700" # #FFFF5F #FFD700 #FFFF00 #FFFF5F #FFD787
 STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
 
 # Used for printing out info related to where pickles are stored and how much time and space solvers used.
 FILENAME_COLOR = "#00FF00"
 COLOR_OF_TIME  = "#FF00B7"
-COLOR_OF_SPACE = "#00FFFF"
+COLOR_OF_SPACE = " #0099FF" # previously #00FFFF
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True

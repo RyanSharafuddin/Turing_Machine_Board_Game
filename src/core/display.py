@@ -1,4 +1,5 @@
 import string, math, os, sys
+from fractions import Fraction
 from itertools import zip_longest
 from collections import deque
 import numpy as np
@@ -1121,6 +1122,7 @@ class Solver_Displayer:
         raise NotImplementedError(f"get_bitset_Texts not implemented for bitsets of type {type(bitset)}")
     @staticmethod
     def _process_underperformance_str(underperformance_float: float):
+        # TODO: once start using Fractions for filtered caches, will no longer need this, b/c rounding Fractions is exact, so can round it to the nearest multiple of Fraction(1, 10 ** ndigits), and result will be exactly Fraction(0, 1) if it rounds to 0.
         s = f"{underperformance_float:0.3f}"
         if (s == "-0.000"):
             return "0.000"
@@ -1138,6 +1140,35 @@ class Solver_Displayer:
             row_args_l.append(["Megabytes", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
         row_args_l.append([Text("Bytes", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
         return row_args_l
+    @staticmethod
+    def _get_expected_cost_Text(
+        rq_cost : tuple[float | Fraction, float | Fraction],
+        r_style=ROUND_COST_STYLE,
+        q_style=QUERY_COST_STYLE,
+        r_justify=0,
+        q_justify=0
+    ) -> Text:
+        """
+        Params
+        ------
+        rq_cost: 2-tuple of floats or Fractions
+            Expected (round, query) cost.
+        r_style: Style
+            Style to apply to rounds. If not given, will be config.ROUND_COST_STYLE.
+        q_style: Style
+            Style to apply to queries. If not given, will be config.QUERY_COST_STYLE
+
+        Returns
+        -------
+        A Text for pretty displaying of expected cost.
+        """
+        (rounds, queries) = rq_cost
+        dec_digits = 3 # number of digits after decimal
+        r_str = f'{rounds:>{r_justify}.{dec_digits}f}'
+        q_str = f'{queries:>{q_justify}.{dec_digits}f}'
+        r_Text = Text(r_str, r_style)
+        q_Text = Text(q_str, q_style)
+        return Text.assemble(r_Text, " ", q_Text)
 
     def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
         """
@@ -1674,15 +1705,15 @@ class Solver_Displayer:
             total_state_number = self.solver.get_total_states(original_cache)
             total_state_number_str = f'{total_state_number:,}'
             begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
-            total_state_number_Text = Text(total_state_number_str, style="repr.number")
-            begin_round_number_Text = Text(begin_round_number_str, style="repr.number")
+            total_state_number_Text = Text(total_state_number_str, style="cyan")
+            begin_round_number_Text = Text(begin_round_number_str, style="cyan")
             t.add_row(f"Total number of states", total_state_number_Text)
             t.add_row(f"Number of begin round states", begin_round_number_Text)
             if total_state_number:
                 # NOTE: only calculate and display this if total_state_number != 0, since otherwise divide by 0.
                 percent_Text = Text(
                     f"{100 * num_begin_round_states / total_state_number:0.2f}%",
-                    style="repr.number"
+                    style="cyan"
                 )
                 t.add_row(f"% of states that are begin round", percent_Text)
             t.add_section()
@@ -1694,11 +1725,11 @@ class Solver_Displayer:
             t.add_section()
         if self.solver.n_mode:
             t.add_row(
-                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", NUM_COMBOS_STYLE)
             )
             t.add_section()
-        (r, q) = self.solver.expected_cost
-        t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
+        rq = self.solver.expected_cost
+        t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
         sys.stdout.flush()
     def capitulate_final_printing(self, best_cost, underperformance):
@@ -1711,7 +1742,8 @@ class Solver_Displayer:
         t.add_section()
         if self.solver.n_mode:
             t.add_row(
-                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+                f"# Combos with rearrangement",
+                Text(f"{self.solver.get_num_combos():,}", f'd {NUM_COMBOS_STYLE}')
             )
             t.add_section()
         if underperformance is not None:
@@ -1730,15 +1762,29 @@ class Solver_Displayer:
             uq_Text = Text(f'{uq_str:>{max_len_right}}', style='green' if (float(uq_str) <= 0) else 'red')
             underperformance_Text = Text.assemble(ur_Text, ' ', uq_Text)
             t.add_row(
-                "Perfect Cost", Text(f'{bcr:{max_len_left}.3f} {bcq:{max_len_right}.3f}', "repr.number")
+                "Perfect Cost",
+                self._get_expected_cost_Text(
+                    best_cost,
+                    r_style = PERFECT_COST_STYLE,
+                    q_style = PERFECT_COST_STYLE,
+                    r_justify=max_len_left,
+                    q_justify=max_len_right
+                )
             )
             t.add_row(
-                "Capitulate's Cost", Text(f'{r:{max_len_left}.3f} {q:{max_len_right}.3f}', "repr.number")
+                "Capitulate's Cost",
+                self._get_expected_cost_Text(
+                    self.solver.expected_cost,
+                    r_style="cyan", # cyan to not conflict w/underperformance cost.
+                    q_style="cyan",
+                    r_justify=max_len_left,
+                    q_justify=max_len_right
+                )
             )
             t.add_row("Underperformance", underperformance_Text)
         else:
             t.add_row("Perfect Cost", "❓")
-            t.add_row("Capitulate's Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
+            t.add_row("Capitulate's Cost", self._get_expected_cost_Text(self.solver.expected_cost))
         console.print(t)
     def pickled_display_print(self):
         """
@@ -1761,11 +1807,11 @@ class Solver_Displayer:
         t.add_section()
         if self.solver.n_mode:
             t.add_row(
-                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", NUM_COMBOS_STYLE)
             )
             t.add_section()
-        (r, q) = self.solver.expected_cost
-        t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
+        rq = self.solver.expected_cost
+        t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
         sys.stdout.flush()
 
