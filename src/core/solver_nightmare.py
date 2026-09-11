@@ -1,12 +1,6 @@
 import numpy as np
 from .solver import *
 
-def testing_stuff(self):
-    global display
-    from . import display
-    global sd
-    sd = display.Solver_Displayer(self)
-
 class Solver_Nightmare(Solver):
     worst_eval = (inf, inf)
     __slots__ = (
@@ -25,8 +19,6 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
-        # NOTE: below is only for testing purposes.
-        testing_stuff(self) # TODO: delete
 
     # TODO: delete entirely and put functionality in same place as converting to cache game state before canonical.
     def _calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
@@ -48,6 +40,48 @@ class Solver_Nightmare(Solver):
                 minimal_vs_list.append(set([v_index]))
         return minimal_vs_list
 
+    def _validate_move_info_list(self, move_info_list, gs):
+        """
+        Validates that all move_infos in the `move_info_list` are not None and are correct (i.e., the gs_tup that results from applying the move in a move_info on `gs` agrees with the gs_tup in the move_info). Only for use in _test_equivalence.
+        """
+        for mi in move_info_list:
+            assert (mi is not None)
+            (move, cost, gs_tup, p_tup) = mi
+            assert (gs_tup == self.apply_move_to_state(move, gs))
+
+    def _min_v_sets_by_proposal(self, move_list, min_vs_l: list[set[int]]) -> dict:
+        """
+        Given a list of minimal vs sets (`min_vs_l`) and a list of moves, return a dictionary where the keys are the proposals of each move, and d[proposal] = an integer representing which v_set indexes were covered by the moves in move_list. Only for use in _test_equivalence.
+        """
+        d = dict()
+        for (proposal, verifier) in move_list:
+            v_sets_covered_int = d.get(proposal, 0)
+            for (v_set_index, v_set) in enumerate(min_vs_l):
+                if (verifier not in v_set):
+                    continue
+                # verifier is in v_set
+                v_sets_covered_int |= (1 << v_set_index)
+                break
+            else: # the inner for loop was not broken out of.
+                raise ValueError(f"The min vs list doesn't contain a set which contains verifier {verifier}!")
+            d[proposal] = v_sets_covered_int
+        return d
+
+    def _test_equivalence(self, move_func_1, move_func_2, gs, qs_dict, min_vs_l):
+        """
+        Not for use in 'production'. A function to test whether 2 different move_generator functions both cover the min_vs_list on the game state gs in the same way.
+        """
+        move_info_lists = [list(move_func(gs, qs_dict, min_vs_l)) for move_func in (move_func_1, move_func_2)]
+        for mi_list in move_info_lists:
+            self._validate_move_info_list(mi_list, gs)
+        move_lists = [[move_info[0] for move_info in move_info_list] for move_info_list in move_info_lists]
+        if (set(move_lists[0]) != set(move_lists[1])):
+            print(
+                "Heyy, the move_funcs returned a different set of moves! This is fine, but breakpoint here and inspect with debugging to learn more."
+            )
+            exit()
+        resultant_ds = [self._min_v_sets_by_proposal(ml, min_vs_l) for ml in move_lists]
+        assert (resultant_ds[0] == resultant_ds[1])
 
     @staticmethod
     def get_and_apply_moves(
@@ -79,6 +113,8 @@ class Solver_Nightmare(Solver):
                                 cost,
                                 force_set_intersect=force_set_intersect
                             )
+                            # TODO: get rid of the force_set_intersect argument and remove the not None check.
+                            # see the Small Improvements section of your todo document for more info.
                             if move_info is not None:
                                 yield move_info
                             break # break outside if is okay b/c min_vs_list updated every begin-round state.
@@ -86,7 +122,7 @@ class Solver_Nightmare(Solver):
         cost = (0, 1)
         next_num_queries = (game_state.num_queries_this_round + 1) % 3
         inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
-        if(inner_dict_this_proposal is None):
+        if inner_dict_this_proposal is None:
             return
         for v_set in minimal_vs_list:
             # hit or exhaust v_set
@@ -106,80 +142,6 @@ class Solver_Nightmare(Solver):
                     if move_info is not None:
                         yield move_info
                         break # TODO: Once start updating minimal_vs_list on *every* call, can break outside of this if statement.
-
-
-    @staticmethod
-    # def get_and_apply_moves(
-    def get_and_apply_moves_OLD(
-        game_state: Game_State,
-        qs_dict: dict[int:dict[int:Query_Info]],
-        minimal_vs_list: list[set[int]],
-        force_set_intersect=False
-    ):
-        # OLD
-        # cwa_set representation_change Will have to implement a function to get length of set
-        num_combos_currently = len(game_state.cwa_set)
-        if game_state.proposal_used_this_round is None:
-            cost = (1, 1)
-            next_num_queries = 1
-            minimal_vs_list_len = len(minimal_vs_list)
-            for (proposal, inner_dict) in qs_dict.items():
-                # don't repeatedly call len() inside a loop.
-                num_v_sets_left_to_hit = minimal_vs_list_len
-                list_hit_v_sets = [False] * num_v_sets_left_to_hit
-                for (verifier_to_query, q_info) in inner_dict.items():
-                    move = (proposal, verifier_to_query)
-                    for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                        if(verifier_to_query in v_set):
-                            if(not(list_hit_v_sets[v_set_index])):
-                                # try it out
-                                move_info = create_move_info(
-                                    num_combos_currently,
-                                    game_state,
-                                    next_num_queries,
-                                    q_info,
-                                    move,
-                                    cost,
-                                    force_set_intersect=force_set_intersect
-                                )
-                                if(move_info is not None):
-                                    list_hit_v_sets[v_set_index] = True
-                                    num_v_sets_left_to_hit -= 1
-                                    yield move_info
-                            break
-                    if(not num_v_sets_left_to_hit):
-                        break
-
-        else:
-            cost = (0, 1)
-            next_num_queries = (game_state.num_queries_this_round + 1) % 3
-            inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round, None)
-            if(inner_dict_this_proposal is None):
-                return
-            num_v_sets_left_to_hit = len(minimal_vs_list)
-            list_hit_v_sets = [False] * num_v_sets_left_to_hit
-            for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
-                move = (game_state.proposal_used_this_round, verifier_to_query)
-                for (v_set_index, v_set) in enumerate(minimal_vs_list):
-                    if(verifier_to_query in v_set):
-                        if(not(list_hit_v_sets[v_set_index])):
-                            # try it out
-                            move_info = create_move_info(
-                                num_combos_currently,
-                                game_state,
-                                next_num_queries,
-                                q_info,
-                                move,
-                                cost,
-                                force_set_intersect=force_set_intersect
-                            )
-                            if(move_info is not None):
-                                list_hit_v_sets[v_set_index] = True
-                                num_v_sets_left_to_hit -= 1
-                                yield(move_info)
-                                if(not num_v_sets_left_to_hit):
-                                    return
-                        break
 
     def _convert_wgs_to_cache_gs_NO_reorder(self, working_game_state):
         """
@@ -212,13 +174,13 @@ class Solver_Nightmare(Solver):
         else:
             form_equal_string = ("Canonical form [green]is[/green] equal!")
         console.print(f"Table # {num_forms + 1:,}. {form_equal_string}\n", justify="center")
-        sd.print_cache_game_state(
+        self.sd.print_cache_game_state(
             cache_state_without_reordering,
             "Original",
             config.VERIFIER_COLORS
         )
         print()
-        sd.print_cache_game_state(
+        self.sd.print_cache_game_state(
             cache_game_state,
             "Canonical",
             rearranged_colors,
@@ -267,10 +229,9 @@ class Solver_Nightmare(Solver):
             depth,
             self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
         )
-        # TODO: make a function to test that original_move_infos is equivalent to new_move_infos, and use it. Iterate over the v_indexes in the inner_dict and see if they hit the same v_sets w/actual moves. Then delete the old function and give the new one the old one's name.
-        # original_move_infos = list(self.get_and_apply_moves_OLD(game_state, qs_dict, minimal_vs_list))
-        # new_move_infos = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
-        # assert (len(original_move_infos) == len(new_move_infos))
+        # self._test_equivalence(
+        #     self.get_and_apply_moves, self.get_and_apply_moves_OLD, game_state, qs_dict, minimal_vs_list
+        # )
         for move_info in move_iterable:
             found_moves = True
             (move, mcost, (f_state_Wgs, t_state_Wgs), p_tup) = move_info

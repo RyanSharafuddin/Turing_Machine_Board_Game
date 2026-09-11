@@ -724,7 +724,7 @@ class Solver:
             proposal_used_this_round=proposal_used_this_round,
             cwa_set=cwa_set_true
         )
-        return((gs_false, gs_true))
+        return (gs_false, gs_true)
     @staticmethod
     def does_move_cost_round(move, gs: Game_State) -> bool:
         proposal = move[0]
