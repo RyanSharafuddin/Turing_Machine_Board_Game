@@ -1,9 +1,9 @@
-import time, sys, git
+import time, git
 from typing import NamedTuple
 import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
-from . import display
+from . import display # TODO: refactor so don't have to import display. Only import Solver_Displayer.
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
@@ -121,13 +121,6 @@ def create_move_info(
     move_info = (move, cost, gs_tuple, p_tuple)
     return move_info
 
-def testing_stuff(self):
-    global display
-    from . import display
-    global sd
-    sd = display.Solver_Displayer(self)
-    return sd
-
 class Info_To_Save(NamedTuple):
     """ Represents the info of Solver to be saved (pickled)."""
     problem                            : Problem
@@ -232,7 +225,6 @@ class Solver:
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
-        testing_stuff(self) # WARN TODO: delete
         self.sd = display.Solver_Displayer(self)
 
         # (bigest_difference, move_cost_tups, game_state, min_depth_move)
@@ -333,9 +325,9 @@ class Solver:
                 # TODO: profile memory and time effects of commenting out below line.
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
                 return self.round_depth_cutoff # refuse to search more rounds
-            # original_qs_dict = qs_dict                                         # partition show
-            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)    # KEEP always
-            # sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
+            # original_qs_dict = qs_dict                                              # partition show
+            qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)           # KEEP always
+            # self.sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
             round_depth -= 1
 
         # move_rqd_tups = [] # TODO: delete
@@ -527,7 +519,7 @@ class Solver:
         #     if solver_utils.roughly_lt_rqd(end_round_early_best_known_rqd, search_best_rqd):
         #         search_best_rqd = end_round_early_best_known_rqd # do NOT comment out.
         #         # uncomment function call to see states where end round early despite having moves is better.
-        #         # sd.display_end_round_early_benefit(found_moves, solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd),game_state,answer,end_round_early_result,qs_dict)
+        #         # self.sd.display_end_round_early_benefit(found_moves, solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd),game_state,answer,end_round_early_result,qs_dict)
         #     else:
         #         self.best_move = saved_best_move # NOTE: can clobber self.best_move
 
@@ -591,7 +583,7 @@ class Solver:
             if display:
                 console.print(f"Received evdepth: [repr.number]{evdepth}[/repr.number]")
                 console.print(f"Best known cost : {result[1]}")
-                if (len(result) > 2):
+                if not self._res_evdepth_infinite(result):
                     console.print(f"Best lower bound: {result[2]}")
                 print()
             evdepth += 1
@@ -618,7 +610,7 @@ class Solver:
     # May be overriden by other types of solvers.
     def _final_printing(self, original_cache: dict, filtered_cache: dict):
         """
-        Print out all the info learned from solving a problem. At this point, solver.expected_cost has been set to the rq value. NOTE: Do not mutate `filtered_cache` or `original_cache`, or any fields of Solver, with the possible exception of self.size_of_evaluations_cache_in_bytes.
+        Print out all the info learned from solving a problem. At this point, solver.expected_cost has been set to the rq value. NOTE: Do not mutate `filtered_cache` or `original_cache`, or any fields of Solver, with the possible exception of self.size_of_evaluations_cache_in_bytes. Also do not rely on the value of self._evaluations_cache. Use the provided original_cache and filtered_cache instead.
         """
         show_debug = config.PRINT_POST_SOLVE_DEBUG_INFO
         show_ec_mem = config.CALCULATE_EVCACHE_MEM_USAGE
@@ -834,7 +826,7 @@ class Solver:
         #         continue
         #     console.rule()
         #     for gs in gs_list:
-        #         sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
+        #         self.sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
     ############################### SAME FOR ALL SOLVERS ###############################
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
@@ -927,7 +919,7 @@ class Solver:
         if (self.best_move is None):
             console.print("O NOES! self.best_move is None!", style=config.BIG_WARN)
             console.print(curr_working_gs)
-            sd.print_game_state(curr_working_gs)
+            self.sd.print_game_state(curr_working_gs)
             exit()
         self._filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
         new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
@@ -937,10 +929,10 @@ class Solver:
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message, end_program=False):
         console.print(message)
-        sd.print_game_state(working_gs, "Working Game State")
+        self.sd.print_game_state(working_gs, "Working Game State")
         try:
             if cache_gs is not None:
-                sd.print_cache_game_state(cache_gs, title="Cache Game State")
+                self.sd.print_cache_game_state(cache_gs, title="Cache Game State")
         except Exception:
             pass
         print(working_gs)
@@ -990,7 +982,7 @@ class Solver:
             "\nShowing the min depth counterexample with the biggest depth difference:"
         )
         for (item, compare, message) in zip(items, compares, messages, strict=True):
-            sd.display_counterexample(item, compare, message)
+            self.sd.display_counterexample(item, compare, message)
 
     def get_info_to_save(self):
         return Info_To_Save(
@@ -1089,6 +1081,14 @@ class Solver:
                 "The new evaluation is strictly less than the old evaluation. This is acceptable."
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
+    def _res_evdepth_infinite(self, new_result) -> bool:
+        """
+        Given a cache result *before* filtering, return a boolean indicating whether it has infinite evdepth, along with some error-checking.
+        """
+        if (new_result[0] == inf):
+            assert (len(new_result) == 2) # NOTE: will need to change this if change cache result format.
+            return True
+        return False
     # TODO: update
     def _move_rqd_tups_from_working_gs(
             self, working_gs: Game_State, sort=True, round_depth=inf
@@ -1128,7 +1128,6 @@ class Solver:
     # TODO: update
     def _experiment(self):
         pass
-        # sd = testing_stuff(self)
         # (move_rqd_tups, move_infos) = self._move_rqd_tups_from_working_gs(
         #     self.initial_game_state,
         #     sort=True,
@@ -1142,27 +1141,27 @@ class Solver:
         #     if (rqd_str not in seen_rqds):
         #         movrqd_filtered_to_unique.append(move_rqd_tup)
         #         seen_rqds.add(rqd_str)
-        # sd.print_table_move_rqd_tups(movrqd_filtered_to_unique)
+        # self.sd.print_table_move_rqd_tups(movrqd_filtered_to_unique)
         # console.print("Lowest expected query move highlighted in light blue.")
         # message = "\nTop-level depth counterexamples:"
         # (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(
         #     movrqd_filtered_to_unique
         # )
         # if is_counterexample:
-        #     sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
+        #     self.sd.print_min_depth_counterexample_table(movrqd_filtered_to_unique, min_depth_index, message)
 
 
-    def get_num_begin_round_states(self):
+    def get_num_begin_round_states(self, original_cache: dict):
         """
-        Returns the number of begin-round states stored in the *pre-filter* cache. Not for capitulate solvers.
+        Returns the number of begin-round states stored in given *pre-filter* cache. Not for capitulate solvers.
         """
-        return sum((gs.proposal_used_this_round is None) for gs in self._evaluations_cache)
+        return sum((gs.proposal_used_this_round is None) for gs in original_cache)
 
-    def get_total_states(self):
+    def get_total_states(self, original_cache: dict):
         """
-        Returns the total number of states stored in the *pre-filter* cache. Not for capitulate solvers.
+        Returns the total number of states stored in given *pre-filter* cache. Not for capitulate solvers.
         """
-        return len(self._evaluations_cache)
+        return len(original_cache)
 
     def calculate_evcache_size(self, original_cache: dict):
         """
@@ -1188,8 +1187,9 @@ class Solver:
         """
         # evdepth = new_cache_result[0]
         (r, q, d) = new_cache_result[1]
-        if len(new_cache_result) > 2:
+        if not self._res_evdepth_infinite(new_cache_result):
             console.print("O NOES from new_res_to_og_res!", style=config.BIG_WARN)
+            # NOTE: the above warning is only b/c the only place this function is currently used is in filtering the cache, where it's expected that all results put into the filtered cache will be to evdepth infinity. If you start using this in places other than filtering the cache, will have to change this warning.
         return (r, q)
 
     def exist_moves(self, curr_working_gs):

@@ -9,7 +9,7 @@ from rich.highlighter import ReprHighlighter
 from rich import box
 # My imports
 from . import solver
-from . import solver_utils
+from . import solver_utils # TODO: Consider refactoring so don't need to import this.
 from .definitions import *
 from .config import *
 from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
@@ -311,11 +311,10 @@ class Solver_Displayer:
         # note that max_possible_rule_length is different from max_rule_name_length,
         # b/c not all rules in the problem are necessarily possible.
         self.solver = solver
-        self.n_mode = (self.solver.n_mode)
+        self.n_mode = self.solver.n_mode
         self.num_end_round_early_states_printed = 0
         self.num_partition_filtered_tables_printed = 0
         try:
-            from . import solver_utils
             initial_gs_cache = solver._easy_working_gs_to_cache_gs(solver.initial_game_state)
             initial_bitset_int = solver_utils.bitset_to_int(initial_gs_cache.cwa_set)
         except NotImplementedError:
@@ -1652,6 +1651,7 @@ class Solver_Displayer:
             verifier_colors=verifier_colors,
         )
 
+    # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
         self,
         show_debug_info: bool,
@@ -1663,15 +1663,14 @@ class Solver_Displayer:
         NOTE: do not mutate any fields of self.solver, with the possible exception of self.solver.size_of_evaluations_cache_in_bytes. Also do not mutate the arguments. Furthermore, do not rely on the value of self.solver._evaluations_cache; use the provided original_cache and filtered_cache instead.
         """
         print(f"Finished.")
-        # console.print(f"It took {self.solver.seconds_to_solve:,} seconds.")
         t = Table(show_header=False)
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
         if show_debug_info:
             print("\nCalculating post-solve debug information.")
-            num_begin_round_states = self.solver.get_num_begin_round_states()
-            total_state_number = self.solver.get_total_states()
+            num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)
+            total_state_number = self.solver.get_total_states(original_cache)
             total_state_number_str = f'{total_state_number:,}'
             begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
             total_state_number_Text = Text(total_state_number_str, style="repr.number")
@@ -1718,8 +1717,8 @@ class Solver_Displayer:
             bcq_str = f'{bcq:0.3f}' # best cost queries
             ccr_str = f'{r:0.3f}'   # capitulate cost rounds
             ccq_str = f'{q:0.3f}'   # capitulate cost queries
-            max_len_right = max([len(i) for i in (uq_str, ccq_str, bcq_str)])
-            max_len_left = max([len(i) for i in (ur_str, ccr_str, bcr_str)])
+            max_len_right = max((len(i) for i in (uq_str, ccq_str, bcq_str)))
+            max_len_left = max((len(i) for i in (ur_str, ccr_str, bcr_str)))
 
             ur_Text = Text(f'{ur_str:>{max_len_left }}', style='green' if (float(ur_str) <= 0) else 'red')
             uq_Text = Text(f'{uq_str:>{max_len_right}}', style='green' if (float(uq_str) <= 0) else 'red')
