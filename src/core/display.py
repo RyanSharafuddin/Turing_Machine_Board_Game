@@ -1667,6 +1667,7 @@ class Solver_Displayer:
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+        t.add_section()
         if show_debug_info:
             print("\nCalculating post-solve debug information.")
             num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)
@@ -1684,15 +1685,18 @@ class Solver_Displayer:
                     style="repr.number"
                 )
                 t.add_row(f"% of states that are begin round", percent_Text)
+            t.add_section()
         if show_ec_mem_usage:
             self.solver.calculate_evcache_size(original_cache)
             row_args_l = self._get_row_args_evcache_size(self.solver.size_of_evaluations_cache_in_bytes)
             for row_arg in row_args_l:
                 t.add_row(*row_arg)
+            t.add_section()
         if self.solver.n_mode:
             t.add_row(
                 f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
             )
+            t.add_section()
         (r, q) = self.solver.expected_cost
         t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
         console.print(t)
@@ -1704,10 +1708,12 @@ class Solver_Displayer:
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+        t.add_section()
         if self.solver.n_mode:
             t.add_row(
                 f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
             )
+            t.add_section()
         if underperformance is not None:
             (ur, uq) = underperformance
             (bcr, bcq) = best_cost
@@ -1743,6 +1749,7 @@ class Solver_Displayer:
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+        t.add_section()
         if (self.solver.size_of_evaluations_cache_in_bytes < 0):
             t.add_row("Memory Usage", '❓')
         else:
@@ -1751,10 +1758,12 @@ class Solver_Displayer:
             )
             for mem_row in mem_usage_row_args:
                 t.add_row(*mem_row)
+        t.add_section()
         if self.solver.n_mode:
             t.add_row(
                 f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", "repr.number")
             )
+            t.add_section()
         (r, q) = self.solver.expected_cost
         t.add_row("Expected Cost", Text(f'{r:0.3f} {q:0.3f}', "repr.number"))
         console.print(t)
