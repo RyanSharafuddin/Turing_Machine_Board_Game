@@ -410,6 +410,39 @@ def alternate_min_vs_list_2(nightmare_solver, working_gs):
             minimal_vs_list[vset_index_this_bitset].add(v_index)
     return minimal_vs_list
 
+def transform_intset_to_pythonset(intset):
+    ps = set()
+    v_index = 0
+    while intset:
+        if (intset & 1):
+            ps.add(v_index)
+        intset >>= 1
+        v_index += 1
+    return ps
+
+def alternate_min_vs_list_2_int_set(nightmare_solver, working_gs):
+    """ bit manipulation 'sets' """
+    cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, nightmare_solver.all_cwa_bitsets)
+    bitset_ints_by_verifier = [
+        ((cache_bitset >> shift_amount) & nightmare_solver.int_verifier_bit_mask)
+        for shift_amount in nightmare_solver.shift_amounts
+    ]
+
+    minimal_vs_list: list[int] = [1]
+    bitset_int_to_vset_index_cache = dict() # DONE!
+    bitset_int_to_vset_index_cache[bitset_ints_by_verifier[0]] = 0
+    minimal_vs_len = 1
+    for v_index in range(1, nightmare_solver.num_rcs):
+        bitset_int = bitset_ints_by_verifier[v_index]
+        vset_index_this_bitset = bitset_int_to_vset_index_cache.get(bitset_int)
+        if vset_index_this_bitset is None:
+            minimal_vs_list.append(1 << v_index)
+            bitset_int_to_vset_index_cache[bitset_int] = minimal_vs_len
+            minimal_vs_len += 1
+        else:
+            minimal_vs_list[vset_index_this_bitset] |= (1 << v_index)
+    return minimal_vs_list
+
 def alternate_calculate_min_vs_list_ndarray_1(nightmare_solver, working_gs):
     # before rearrange
     cache_bitset = _working_cwa_set_to_cache_bitset(working_gs.cwa_set, nightmare_solver.all_cwa_bitsets)

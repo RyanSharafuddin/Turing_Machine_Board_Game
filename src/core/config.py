@@ -97,8 +97,8 @@ STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mod
     # np.ndarray
 )
 NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
-    # int
-    np.ndarray
+    int
+    # np.ndarray
 )
 ND_ARR_DTYPE                 = (     # the type of int nd_array bitsets store. Choose 1.
     np.uint8

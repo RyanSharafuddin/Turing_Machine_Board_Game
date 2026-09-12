@@ -146,6 +146,74 @@ class Solver_Nightmare(Solver):
                         yield move_info
                         break # TODO: Once start updating minimal_vs_list on *every* call, can break outside of this if statement.
 
+    @staticmethod
+    def get_and_apply_moves_BIT_MANIP(
+        game_state: Game_State,
+        qs_dict: dict[int:dict[int:Query_Info]],
+        minimal_vs_list: list[set[int]],
+        force_set_intersect=False
+    ):
+        # cwa_set representation_change Will have to implement a function to get length of set
+        num_combos_currently = len(game_state.cwa_set)
+        if game_state.proposal_used_this_round is None:
+            cost = (1, 1)
+            next_num_queries = 1
+            for (proposal, inner_dict) in qs_dict.items():
+                for v_set in minimal_vs_list:
+                    # hit the v_set or exhaust it. MUST hit or exhaust.
+                    verifier_index = 0
+                    while v_set:
+                        if (v_set & 1):
+                            corresponding_q_info = inner_dict.get(verifier_index)
+                            if corresponding_q_info is not None:
+                                # verifier_index is in inner dict
+                                move = (proposal, verifier_index)
+                                move_info = create_move_info(
+                                    num_combos_currently,
+                                    game_state,
+                                    next_num_queries,
+                                    corresponding_q_info,
+                                    move,
+                                    cost,
+                                    force_set_intersect=force_set_intersect
+                                )
+                                # TODO: get rid of the force_set_intersect argument and remove the not None check.
+                                # see the Small Improvements section of your todo document for more info.
+                                if move_info is not None:
+                                    yield move_info
+                                break # break outside if is okay b/c min_vs_list updated every begin-round state.
+                        v_set >>= 1
+                        verifier_index += 1
+            return
+        cost = (0, 1)
+        next_num_queries = (game_state.num_queries_this_round + 1) % 3
+        inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
+        if inner_dict_this_proposal is None:
+            return
+        for v_set in minimal_vs_list:
+            # hit or exhaust v_set
+            verifier_index = 0
+            while v_set:
+                if (v_set & 1):
+                    pass # verifier_index is in v_set
+                    corresponding_q_info = inner_dict_this_proposal.get(verifier_index)
+                    if corresponding_q_info is not None:
+                        move = (game_state.proposal_used_this_round, verifier_index)
+                        move_info = create_move_info(
+                            num_combos_currently,
+                            game_state,
+                            next_num_queries,
+                            corresponding_q_info,
+                            move,
+                            cost,
+                            force_set_intersect=force_set_intersect
+                        )
+                        if move_info is not None:
+                            yield move_info
+                            break # TODO: Once start updating minimal_vs_list on *every* call, can break outside of this if statement.
+                v_set >>= 1
+                verifier_index += 1
+
     def _convert_wgs_to_cache_gs_NO_reorder(self, working_game_state):
         """
         Given a working game_state, convert it into a cache game state WITHOUT reordering it into canonical form. Only for use to aid in debugging.
@@ -202,6 +270,7 @@ class Solver_Nightmare(Solver):
         working_cwa_set_convert_cache,
         depth,
         round_depth,
+        min_vs_list_BIT_MANIP, # TODO: delete
     ):
         # self.called_calculate += 1
         if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
@@ -216,6 +285,7 @@ class Solver_Nightmare(Solver):
             self.set_begin_round_working_game_states.add(game_state)
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self._calculate_minimal_vs_list(game_state)
+            min_vs_list_BIT_MANIP = solver_utils.alternate_min_vs_list_2_int_set(self, game_state)
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
             round_depth -= 1
 
@@ -236,6 +306,10 @@ class Solver_Nightmare(Solver):
         # self._test_equivalence(
         #     self.get_and_apply_moves, self.get_and_apply_moves_OLD, game_state, qs_dict, minimal_vs_list
         # )
+        # TODO: delete tests below
+        move_info_list_original = list(self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list))
+        move_info_list_BIT_MANIP = list(self.get_and_apply_moves_BIT_MANIP(game_state, qs_dict, min_vs_list_BIT_MANIP))
+        assert (move_info_list_original == move_info_list_BIT_MANIP)
         for move_info in move_iterable:
             found_moves = True
             (move, mcost, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
@@ -274,6 +348,7 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    min_vs_list_BIT_MANIP=min_vs_list_BIT_MANIP
                 )
                 f_evdepth = f_result[0]
                 f_lower_bound = f_result[-1]
@@ -299,6 +374,7 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    min_vs_list_BIT_MANIP=min_vs_list_BIT_MANIP
                 )
                 t_evdepth = t_result[0]
                 t_lower_bound = t_result[-1]
@@ -380,6 +456,7 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = None, # next invocation will create a new one
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    min_vs_list_BIT_MANIP=None, # next invocation will recalculate
                 ) # END COMMENT OUT TO CONSIDER EARLY END ROUND
 
         # TODO: code to consider ending a round early despite having useful moves.
@@ -398,6 +475,7 @@ class Solver_Nightmare(Solver):
             # Additional args specific to nightmare solvers.
             "minimal_vs_list"               : minimal_vs_list,
             "working_cwa_set_convert_cache" : dict(),
+            "min_vs_list_BIT_MANIP"         : solver_utils.alternate_min_vs_list_2_int_set(self, working_gs)
         }
 
     def _easy_working_gs_to_cache_gs(self, working_game_state: Game_State):
@@ -444,27 +522,33 @@ class Solver_Nightmare(Solver):
     # TODO: delete below func when done testing.
     def _final_printing(self, original_cache, filtered_cache):
         super()._final_printing(original_cache, filtered_cache)
-        original = ("self._calculate_minimal_vs_list(gs)", "Original")
+        # original = ("self._calculate_minimal_vs_list(gs)", "Original")
 
         if self.bitset_type is int:
-            alt_1 = ("solver_utils.alternate_calculate_min_vs_list_int(self, gs)", "alt1    ")
-            alt_2 = ("solver_utils.alternate_min_vs_list_2(self, gs)", "alt2    ")
-            for gs in self.set_begin_round_working_game_states:
-                a1 = solver_utils.alternate_calculate_min_vs_list_int(self, gs)
-                a2 = solver_utils.alternate_min_vs_list_2(self, gs)
-                orig = self._calculate_minimal_vs_list(gs)
-                assert ((orig == a1) and (a1 == a2))
-        else:
-            alt_1 = ("solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)", "alt1    ")
-            alt_2 = ("solver_utils.alternate_min_vs_list_ndarray_2(self, gs)", "alt2    ")
-            for gs in self.set_begin_round_working_game_states:
-                a1 = solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)
-                a2 = solver_utils.alternate_min_vs_list_ndarray_2(self, gs)
-                orig = self._calculate_minimal_vs_list(gs)
-                assert ((orig == a1) and (a1 == a2))
+            original=('min_vs_list = solver_utils.alternate_min_vs_list_2(self, gs)\n    self.get_and_apply_moves(gs, self.qs_dict, min_vs_list)', "Original")
+            alt_1=('min_vs_list = solver_utils.alternate_min_vs_list_2_int_set(self, gs)\n    self.get_and_apply_moves_BIT_MANIP(gs, self.qs_dict, min_vs_list)', "BIT_MANI")
+            # alt_1 = ("solver_utils.alternate_calculate_min_vs_list_int(self, gs)", "alt1    ")
+            # alt_2 = ("solver_utils.alternate_min_vs_list_2(self, gs)", "alt2    ")
+            # alt_3 = ("solver_utils.alternate_min_vs_list_2_int_set(self, gs)", "bitmanip")
+            # for gs in self.set_begin_round_working_game_states:
+            #     a1 = solver_utils.alternate_calculate_min_vs_list_int(self, gs)
+            #     a2 = solver_utils.alternate_min_vs_list_2(self, gs)
+            #     orig = self._calculate_minimal_vs_list(gs)
+            #     aa2_int_set_list = solver_utils.alternate_min_vs_list_2_int_set(self, gs)
+            #     aa2_int_set_list_to_p_set_list = [solver_utils.transform_intset_to_pythonset(int_set) for int_set in aa2_int_set_list]
+            #     assert ((orig == a1) and (a1 == a2) and (orig == aa2_int_set_list_to_p_set_list))
+        # else:
+        #     alt_1 = ("solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)", "alt1    ")
+        #     alt_2 = ("solver_utils.alternate_min_vs_list_ndarray_2(self, gs)", "alt2    ")
+        #     for gs in self.set_begin_round_working_game_states:
+        #         a1 = solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)
+        #         a2 = solver_utils.alternate_min_vs_list_ndarray_2(self, gs)
+        #         orig = self._calculate_minimal_vs_list(gs)
+        #         assert ((orig == a1) and (a1 == a2))
 
         self._time_min_vs_func(*original)
         self._time_min_vs_func(*alt_1)
-        self._time_min_vs_func(*alt_2)
+        # self._time_min_vs_func(*alt_2)
+        # self._time_min_vs_func(*alt_3)
         # time_taken = timeit.timeit(stmt=stmt, number=150)
         # console.print(f"It took {time_taken:0.3f} seconds")
