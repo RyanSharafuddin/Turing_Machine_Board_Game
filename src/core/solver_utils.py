@@ -1,8 +1,8 @@
 import math, itertools, copy
 import numpy as np
 from rich import progress
-from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console
-from .config import REL_TOL, A_TOL, NP_INT_TO_NUM_BITS
+from .definitions import Query_Info, all_125_possibilities_set, Rule, Game_State, console, NP_INT_TO_NUM_BITS
+from .config import REL_TOL, A_TOL
 from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
 from . import display # pyright: ignore[reportUnusedImport] # for testing/debugging purposes.
 

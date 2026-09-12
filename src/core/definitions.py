@@ -1,4 +1,5 @@
 from collections import namedtuple
+import numpy as np
 from rich.console import Console
 from rich.traceback import install
 
@@ -54,6 +55,13 @@ Problem = namedtuple(
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
+
+NP_INT_TO_NUM_BITS = {
+     np.uint8 :  8,
+    np.uint16 : 16,
+    np.uint32 : 32,
+    np.uint64 : 64,
+}
 
 # For use anywhere a verifier index is required
 A = 0

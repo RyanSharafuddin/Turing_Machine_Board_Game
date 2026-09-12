@@ -106,13 +106,6 @@ ND_ARR_DTYPE                 = (     # the type of int nd_array bitsets store. C
     # np.uint32
     # np.uint64
 )
-NP_INT_TO_NUM_BITS = {
-     np.uint8 :  8,
-    np.uint16 : 16,
-    np.uint32 : 32,
-    np.uint64 : 64,
-}
-ND_ARR_DTYPE_NUM_BITS = NP_INT_TO_NUM_BITS[ND_ARR_DTYPE]
 
 # Change How Debugging Information Is Displayed
 PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
