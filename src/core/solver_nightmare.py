@@ -7,6 +7,8 @@ class Solver_Nightmare(Solver):
         "num_possible_rules",
         "int_verifier_bit_mask",
         "shift_amounts",
+
+        "set_begin_round_working_game_states", # TODO: delete when done researching
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
@@ -19,6 +21,7 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
+        self.set_begin_round_working_game_states = set() # TODO: delete when done researching
 
     # TODO: delete entirely and put functionality in same place as converting to cache game state before canonical.
     def _calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
@@ -210,6 +213,7 @@ class Solver_Nightmare(Solver):
             if (round_depth == 0):
                 self._evaluations_cache[cache_game_state] = Solver.round_depth_cutoff
                 return Solver.round_depth_cutoff
+            self.set_begin_round_working_game_states.add(game_state)
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self._calculate_minimal_vs_list(game_state)
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
@@ -426,3 +430,41 @@ class Solver_Nightmare(Solver):
 
     def _experiment(self):
         return
+
+    def _time_min_vs_func(self, s, name):
+        import timeit
+        full_s = f'for gs in self.set_begin_round_working_game_states:\n    {s}'
+        t = timeit.Timer(stmt=full_s, globals={'self': self, "solver_utils": solver_utils})
+        (nloops, time) = t.autorange()
+        loops_per_time = nloops / time
+        console.print(
+            f"{name}: # loops: {nloops:>3,}. Time Taken: {time:0,.3f}. Loops / Time: {loops_per_time:10,.3f}"
+        )
+
+    # TODO: delete below func when done testing.
+    def _final_printing(self, original_cache, filtered_cache):
+        super()._final_printing(original_cache, filtered_cache)
+        original = ("self._calculate_minimal_vs_list(gs)", "Original")
+
+        if self.bitset_type is int:
+            alt_1 = ("solver_utils.alternate_calculate_min_vs_list_int(self, gs)", "alt1    ")
+            alt_2 = ("solver_utils.alternate_min_vs_list_2(self, gs)", "alt2    ")
+            for gs in self.set_begin_round_working_game_states:
+                a1 = solver_utils.alternate_calculate_min_vs_list_int(self, gs)
+                a2 = solver_utils.alternate_min_vs_list_2(self, gs)
+                orig = self._calculate_minimal_vs_list(gs)
+                assert ((orig == a1) and (a1 == a2))
+        else:
+            alt_1 = ("solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)", "alt1    ")
+            alt_2 = ("solver_utils.alternate_min_vs_list_ndarray_2(self, gs)", "alt2    ")
+            for gs in self.set_begin_round_working_game_states:
+                a1 = solver_utils.alternate_calculate_min_vs_list_ndarray_1(self, gs)
+                a2 = solver_utils.alternate_min_vs_list_ndarray_2(self, gs)
+                orig = self._calculate_minimal_vs_list(gs)
+                assert ((orig == a1) and (a1 == a2))
+
+        self._time_min_vs_func(*original)
+        self._time_min_vs_func(*alt_1)
+        self._time_min_vs_func(*alt_2)
+        # time_taken = timeit.timeit(stmt=stmt, number=150)
+        # console.print(f"It took {time_taken:0.3f} seconds")
