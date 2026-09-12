@@ -31,38 +31,6 @@ def one_answer_left(full_cwas_list, working_cwa_set):
         current_cwa_representation = next(iterator, None)
     return True
 
-def get_set_r_unique_ids_vs_from_cwas_set_representation(
-        full_cwas_list,
-        cwas_set_representation,
-        num_vs,
-        n_mode: bool,
-    ) ->  list[set[int]]:
-    """
-    Given a cwas_set, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i.
-    """
-    # cwa_set representation_change
-    # TODO: consider optimizing the 'sets' in possible_rule_ids_by_verifier w/ bitsets or ints or numpy packed bits or bools or something.
-    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
-    # NOTE: if replace the output of this with a numpy packed bits, then instead of doing a slow Python loop
-    # here over every CWA, can store a numpy array containing the possible rules by verifier bits for every possible CWA, and replace this with a fast vectorized numpy bitwise OR.
-    # for example, let's say that the first CWA assigns some rules to some verifiers that look
-    # like this: 00110010 (a numpy array representing which rules are assigned to which verifiers for the zeroth CWA)
-    # Then, the next CWA may be 11001010.
-    # If you make a numpy double array (an array of arrays) where the double array corresponds to the whole
-    # CWA list, and each array within it corresponds to the rules assigned to verifiers for that specific CWA,
-    # then, you can get the index the full CWA list double array by which CWAs are present now, and then
-    # numpy bitwise OR that indexed list together, for speed gainz. See if you can index a numpy array with a packed bit array; otherwise will have to unpack to booleans. And pay attention to endianness.
-    for cwa_index in cwas_set_representation:
-        cwa = full_cwas_list[cwa_index]
-        (c, p) = (cwa[0], cwa[1])
-        for v_index in range(num_vs):
-            corresponding_set = possible_rule_ids_by_verifier[v_index]
-            rc_index_for_this_v = p[v_index] if(n_mode) else v_index
-            unique_id = c[rc_index_for_this_v].unique_id
-            corresponding_set.add(unique_id)
-    return possible_rule_ids_by_verifier
-# TODO: define a length method if switch to another set representation
-
 # useless_queries = 0
 # useful_queries = 0
 def create_move_info(

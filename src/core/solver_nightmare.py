@@ -7,6 +7,7 @@ class Solver_Nightmare(Solver):
         "num_possible_rules",
         "int_verifier_bit_mask",
         "shift_amounts",
+        "calc_min_vs_list",
     )
     def __init__(self, problem: Problem):
         Solver.__init__(self, problem)
@@ -19,26 +20,7 @@ class Solver_Nightmare(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_nightmare(
             self.bitset_type
         )
-
-    # TODO: delete entirely and put functionality in same place as converting to cache game state before canonical.
-    def _calculate_minimal_vs_list(self, game_state: Game_State) -> list[set[int]]:
-        minimal_vs_list: list[set[int]] = []
-        r_unique_ids_by_verifier = get_set_r_unique_ids_vs_from_cwas_set_representation(
-            self.full_cwas_list,
-            game_state.cwa_set,
-            self.num_rcs,
-            n_mode=True,
-        )
-        for v_index in range(self.num_rcs):
-            for v_set in minimal_vs_list:
-                for arbitrary_v_set_member in v_set:
-                    break
-                if(r_unique_ids_by_verifier[v_index] == r_unique_ids_by_verifier[arbitrary_v_set_member]):
-                    v_set.add(v_index)
-                    break
-            else:
-                minimal_vs_list.append(set([v_index]))
-        return minimal_vs_list
+        self.calc_min_vs_list = solver_utils.get_calc_min_vs_list(self.bitset_type)
 
     def _validate_move_info_list(self, move_info_list, gs):
         """
@@ -90,7 +72,6 @@ class Solver_Nightmare(Solver):
         minimal_vs_list: list[set[int]],
         force_set_intersect=False
     ):
-        # NEW
         # cwa_set representation_change Will have to implement a function to get length of set
         num_combos_currently = len(game_state.cwa_set)
         if game_state.proposal_used_this_round is None:
@@ -99,25 +80,29 @@ class Solver_Nightmare(Solver):
             for (proposal, inner_dict) in qs_dict.items():
                 for v_set in minimal_vs_list:
                     # hit the v_set or exhaust it. MUST hit or exhaust.
-                    for verifier_index in v_set:
-                        corresponding_q_info = inner_dict.get(verifier_index)
-                        if corresponding_q_info is not None:
-                            # verifier_index is in inner dict
-                            move = (proposal, verifier_index)
-                            move_info = create_move_info(
-                                num_combos_currently,
-                                game_state,
-                                next_num_queries,
-                                corresponding_q_info,
-                                move,
-                                cost,
-                                force_set_intersect=force_set_intersect
-                            )
-                            # TODO: get rid of the force_set_intersect argument and remove the not None check.
-                            # see the Small Improvements section of your todo document for more info.
-                            if move_info is not None:
-                                yield move_info
-                            break # break outside if is okay b/c min_vs_list updated every begin-round state.
+                    verifier_index = 0
+                    while v_set:
+                        if (v_set & 1):
+                            corresponding_q_info = inner_dict.get(verifier_index)
+                            if corresponding_q_info is not None:
+                                # verifier_index is in inner dict
+                                move = (proposal, verifier_index)
+                                move_info = create_move_info(
+                                    num_combos_currently,
+                                    game_state,
+                                    next_num_queries,
+                                    corresponding_q_info,
+                                    move,
+                                    cost,
+                                    force_set_intersect=force_set_intersect
+                                )
+                                # TODO: get rid of the force_set_intersect argument and remove the not None check from this block only.
+                                # see the Small Improvements section of your todo document for more info.
+                                if move_info is not None:
+                                    yield move_info
+                                break # break outside if is okay b/c min_vs_list updated every begin-round state.
+                        v_set >>= 1
+                        verifier_index += 1
             return
         cost = (0, 1)
         next_num_queries = (game_state.num_queries_this_round + 1) % 3
@@ -126,22 +111,27 @@ class Solver_Nightmare(Solver):
             return
         for v_set in minimal_vs_list:
             # hit or exhaust v_set
-            for verifier_index in v_set:
-                corresponding_q_info = inner_dict_this_proposal.get(verifier_index)
-                if corresponding_q_info is not None:
-                    move = (game_state.proposal_used_this_round, verifier_index)
-                    move_info = create_move_info(
-                        num_combos_currently,
-                        game_state,
-                        next_num_queries,
-                        corresponding_q_info,
-                        move,
-                        cost,
-                        force_set_intersect=force_set_intersect
-                    )
-                    if move_info is not None:
-                        yield move_info
-                        break # TODO: Once start updating minimal_vs_list on *every* call, can break outside of this if statement.
+            verifier_index = 0
+            while v_set:
+                if (v_set & 1):
+                    pass # verifier_index is in v_set
+                    corresponding_q_info = inner_dict_this_proposal.get(verifier_index)
+                    if corresponding_q_info is not None:
+                        move = (game_state.proposal_used_this_round, verifier_index)
+                        move_info = create_move_info(
+                            num_combos_currently,
+                            game_state,
+                            next_num_queries,
+                            corresponding_q_info,
+                            move,
+                            cost,
+                            force_set_intersect=force_set_intersect
+                        )
+                        if move_info is not None:
+                            yield move_info
+                            break # Once (if) start updating minimal_vs_list on *every* call, can break outside of this if statement.
+                v_set >>= 1
+                verifier_index += 1
 
     def _convert_wgs_to_cache_gs_NO_reorder(self, working_game_state):
         """
@@ -211,7 +201,7 @@ class Solver_Nightmare(Solver):
                 self._evaluations_cache[cache_game_state] = Solver.round_depth_cutoff
                 return Solver.round_depth_cutoff
             working_cwa_set_convert_cache = dict()
-            minimal_vs_list = self._calculate_minimal_vs_list(game_state)
+            minimal_vs_list = self.calc_min_vs_list(self, game_state)
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
             round_depth -= 1
 
@@ -384,7 +374,7 @@ class Solver_Nightmare(Solver):
 
     def _const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
         cache_state = self._easy_working_gs_to_cache_gs(working_gs)
-        minimal_vs_list = self._calculate_minimal_vs_list(working_gs)
+        minimal_vs_list = self.calc_min_vs_list(self, working_gs)
         return {
             "qs_dict"          : self.qs_dict,
             "game_state"       : working_gs,
@@ -406,7 +396,7 @@ class Solver_Nightmare(Solver):
         """
         Return True if there are any potentially useful moves to be made in this state with the current proposal_used_this_round. If said proposal is none, return True if there are useful moves to be made this round using any proposal.
         """
-        minimal_vs_list = self._calculate_minimal_vs_list(curr_working_gs)
+        minimal_vs_list = self.calc_min_vs_list(self, curr_working_gs)
         for mi in self.get_and_apply_moves(
             curr_working_gs,
             self.qs_dict,
@@ -417,7 +407,7 @@ class Solver_Nightmare(Solver):
         return False
 
     def _easy_get_list_move_infos(self, working_gs):
-        min_vs_list = [set([i]) for i in range(self.num_rcs)]
+        min_vs_list = self.calc_min_vs_list(self, working_gs)
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, min_vs_list, force_set_intersect=True))
 
     def _move_rqd_tups_from_working_gs(self, working_gs, sort=True):
