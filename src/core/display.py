@@ -452,7 +452,7 @@ class Solver_Displayer:
                 q_info: Query_Info = inner_dict[v_index]
                 q_dict_this_card[proposal] = q_info
 
-        possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules Possible When This Qs Dict Was Made"
+        possible_rules_title = f"\nVerifier [b cyan]{letters[v_index]}[/b cyan] Rules In The CWA Set These Queries Act Upon"
         # NOTE print table
         self._print_possible_rules_by_verifier_from_cwas(
             full_cwas,
