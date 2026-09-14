@@ -1,0 +1,8 @@
+ansi2html==1.9.5
+GitPython==3.1.45
+numpy==2.2.6
+PrettyPrintTree==2.0.2
+Pympler==1.1
+requests==2.32.5
+rich==14.1.0
+xxhash==3.5.0
