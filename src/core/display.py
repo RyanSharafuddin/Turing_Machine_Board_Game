@@ -1695,8 +1695,9 @@ class Solver_Displayer:
         html_absolute_path = f'{os.getcwd()}/{html_relative_path}'
         url = file_path_to_url(html_absolute_path)
         link_text = Text(f'{html_relative_path}', f"link={url}")
-        link_text.stylize("blue1")
+        link_text.stylize(LINK_COLOR)
         create_html_of_str(
+            # TODO: since tree is a long string, the following line is inefficient. Fix it.
             "\n"*10 + tree,
             html_relative_path=html_relative_path,
             title=f'Problem: {problem.identity}',
@@ -1712,21 +1713,22 @@ class Solver_Displayer:
         kwargs = {
             # "orientation": PrettyPrintTree.Vertical # set orientation here.
         }
-        colored_tree = get_best_move_tree_str(*pos_args, colored=True, **kwargs)
-        link_text = self._create_html_of_tree(colored_tree)
+        console.print("\nCreating tree display. This may take a few minutes if the tree is huge . . .")
+        colored_tree: str = get_best_move_tree_str(*pos_args, colored=True, **kwargs)
+        link_Text = self._create_html_of_tree(colored_tree)
         console.print(
-            "\nCreated HTML display of best move tree at ",
-            link_text,
+            "Created HTML display of best move tree at ",
+            link_Text,
             ". Cmd-click to view in browser.",
             sep=""
         )
-        do_not_print_tree_console = False
-        if not PRINT_WIDE_TREES:
-            uncolored_tree = get_best_move_tree_str(*pos_args, colored=False, **kwargs)
-            do_not_print_tree_console = _is_string_too_wide(uncolored_tree)
-        if do_not_print_tree_console:
+        colored_tree_Text = Text.from_ansi(colored_tree)
+        if not PRINT_WIDE_TREES and _is_string_too_wide(colored_tree_Text):
             console.print("Best move tree not printed b/c it is too wide for this console.")
         else:
+            # NOTE: do not use console.print here, b/c even with overflow argument,
+            #       it does not play nicely with piping the output into
+            #       less -SR -# 3 to view the whole tree in the terminal.
             print(colored_tree)
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
@@ -1948,9 +1950,12 @@ def _get_children(tree: Tree):
     ]
     return(children)
 
-def _is_string_too_wide(s: str):
-    s_width = max([len(i) for i in s.split("\n")])
-    return (s_width >= console.size.width)
+def _is_string_too_wide(s: str | Text):
+    """
+    Returns True if the input string or Text is too wide to print to the console without wrapping lines.
+    """
+    s_width = max(map(len, s.split("\n")))
+    return (s_width > console.size.width)
 
 def _get_node_background_color(tree: Tree, result):
     """
@@ -2039,6 +2044,7 @@ def get_best_move_tree_str(
         colored = True,
         orientation=PrettyPrintTree.Vertical
     ):
+    # Note: must return string and not Text b/c need to generate html.
     Tree.show_combos_in_tree = show_combos
     tree = Tree(gs=start, solver=s)
     Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)

@@ -85,8 +85,10 @@ LINES_BETWEEN_ANSWERS = False # print a line b/t every unique answer in answer t
 DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
-SMALL_WARN                 = Style.parse("hot_pink")
-BIG_WARN                   = Style.parse("b red")
+SMALL_WARN = Style.parse("hot_pink")
+BIG_WARN   = Style.parse("b red")
+LINK_COLOR = "blue1"
+
 
 # Solver workings
 A_TOL                        = 1e-8
