@@ -230,6 +230,7 @@ class Solver_Nightmare(Solver):
                 f_state_Wgs,
                 working_cwa_set_convert_cache
             )
+            # TODO: How often are you converting t_state_Wgs to a cache gs and getting the t_result when the f_result alone would be enough to stop consideration of this move? Consider writing some code to find out, and see if it's worth it to calculate whether the f_result alone is enough to prune this state by timing.
             t_state_Cgs = self.convert_working_gs_to_cache_gs(
                 self,
                 t_state_Wgs,

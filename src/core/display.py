@@ -2,14 +2,16 @@ import string, math, os, sys
 from fractions import Fraction
 from itertools import zip_longest
 from collections import deque
+import pathlib
 import numpy as np
 from PrettyPrint import PrettyPrintTree
+from ansi2html import Ansi2HTMLConverter
 from rich.table import Table
 from rich.text import Text
 from rich.highlighter import ReprHighlighter
 from rich import box
 # My imports
-from . import solver
+from . import solver, solver_capitulate, solver_nightmare
 from . import solver_utils # TODO: Consider refactoring so don't need to import this.
 from .definitions import *
 from .config import *
@@ -96,9 +98,10 @@ def _get_col_widths(table):
         for (col, elem) in enumerate(row):
             max_length_by_column[col] = max(max_length_by_column[col], len(elem))
     return(max_length_by_column)
-def _rich_obj_to_list_lines(rich_obj) -> list[str]:
-    with console.capture() as capture:
-        console.print(rich_obj)
+def _rich_obj_to_list_lines(rich_obj, colored=True) -> list[str]:
+    c = console if colored else Console(force_terminal=False)
+    with c.capture() as capture:
+        c.print(rich_obj)
     lines = capture.get().split("\n")
     return lines
 def _print_indented_table(table, indent_amount):
@@ -290,7 +293,6 @@ def print_compare_our_arrs(my_ndarr, packbits_ndarr):
     # t.add_row(*[f'{letters[index]}' for index in range(len(my_ndarr))])
     console.print(t)
     print()
-
 def print_ndarr_bitset(ndarr):
     """
     `ndarr` is a 2d array, where ndarr[v_index] is a 1-d array of ints representing the bits of verifier v_index.
@@ -298,11 +300,14 @@ def print_ndarr_bitset(ndarr):
     for one_d_arr in ndarr:
         print(f'{one_d_arr}', end=" ")
     print()
+def file_path_to_url(absolute_path: str):
+    return pathlib.Path(absolute_path).as_uri()
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
         self._rule_to_color_dict = _make_rule_to_color_dict([cwa[0] for cwa in solver.full_cwas_list])
         self._answer_to_color_dict = _make_objs_to_color_dict([cwa[-1] for cwa in solver.full_cwas_list])
+        self.capitulate = isinstance(solver, solver_capitulate.Solver_Capitulate)
         if(PRINT_SD_COLOR_DICT):
             console.print(self._answer_to_color_dict)
         self._max_rule_name_length = max([max([len(r.name) for r in rc]) for rc in solver.rcs_list])
@@ -1682,6 +1687,47 @@ class Solver_Displayer:
             verifier_colors=verifier_colors,
         )
 
+    def _create_html_of_tree(self, tree: str):
+        problem = self.solver.problem
+        os.makedirs(TREE_DIRECTORY, exist_ok=True)
+        capitulate_str = '_capitulate' if self.capitulate else ''
+        html_relative_path=f'{TREE_DIRECTORY}/{problem.identity}{capitulate_str}.html'
+        html_absolute_path = f'{os.getcwd()}/{html_relative_path}'
+        url = file_path_to_url(html_absolute_path)
+        link_text = Text(f'{html_relative_path}', f"link={url}")
+        link_text.stylize("blue1")
+        create_html_of_str(
+            "\n"*10 + tree,
+            html_relative_path=html_relative_path,
+            title=f'Problem: {problem.identity}',
+        )
+        return link_text
+    def display_tree(self, alternate_first_state=None):
+        start = self.solver.initial_game_state if (alternate_first_state is None) else alternate_first_state
+        pos_args = (
+            start,
+            SHOW_COMBOS_IN_TREE,
+            self.solver
+        )
+        kwargs = {
+            # "orientation": PrettyPrintTree.Vertical # set orientation here.
+        }
+        colored_tree = get_best_move_tree_str(*pos_args, colored=True, **kwargs)
+        link_text = self._create_html_of_tree(colored_tree)
+        console.print(
+            "\nCreated HTML display of best move tree at ",
+            link_text,
+            ". Cmd-click to view in browser.",
+            sep=""
+        )
+        do_not_print_tree_console = False
+        if not PRINT_WIDE_TREES:
+            uncolored_tree = get_best_move_tree_str(*pos_args, colored=False, **kwargs)
+            do_not_print_tree_console = _is_string_too_wide(uncolored_tree)
+        if do_not_print_tree_console:
+            console.print("Best move tree not printed b/c it is too wide for this console.")
+        else:
+            print(colored_tree)
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
         self,
@@ -1786,6 +1832,7 @@ class Solver_Displayer:
             t.add_row("Perfect Cost", "❓")
             t.add_row("Capitulate's Cost", self._get_expected_cost_Text(self.solver.expected_cost))
         console.print(t)
+        sys.stdout.flush()
     def pickled_display_print(self):
         """
         Will be shown when controller displays a solver from a pickle. Note that this will not apply to capitulate solvers, since those are never pickled.
@@ -1901,6 +1948,10 @@ def _get_children(tree: Tree):
     ]
     return(children)
 
+def _is_string_too_wide(s: str):
+    s_width = max([len(i) for i in s.split("\n")])
+    return (s_width >= console.size.width)
+
 def _get_node_background_color(tree: Tree, result):
     """
     Function to choose the background color of a tree node. Can make it change color depending on whether the best move here uses a round, and/or the cost to get here, or the cost to go, or etc.
@@ -1915,7 +1966,7 @@ def _get_node_background_color(tree: Tree, result):
         return NEW_ROUND_BACKGROUND_COLOR
     return TREE_BACKGROUND_COLOR
 
-def _node_to_str_table(tree: Tree):
+def _node_to_str_table(tree: Tree, colored=True):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
     if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
@@ -1934,8 +1985,8 @@ def _node_to_str_table(tree: Tree):
         )
         move_str = mov_to_str(best_move)
         # NOTE: comment out below if block to not mark new rounds in the best move tree
-        if(best_move_cost[0] == 1): # if the best move costs a round
-            move_str += ' (R)'
+        # if(best_move_cost[0] == 1): # if the best move costs a round
+        #     move_str += ' (R)'
         background_color = _get_node_background_color(tree, result)
         if(not tree.show_combos_in_tree):
             tree_lines = (
@@ -1964,7 +2015,7 @@ def _node_to_str_table(tree: Tree):
             node_table.title = f'{title}{cost_of_node_str}'
             node_table.caption = move_str
             rich_obj_to_print = node_table
-        node_list_lines = _rich_obj_to_list_lines(rich_obj_to_print)
+        node_list_lines = _rich_obj_to_list_lines(rich_obj_to_print, colored)
         node_str = '\n'.join(node_list_lines).strip()
         return(node_str)
     else: # leaf node
@@ -1978,13 +2029,34 @@ def _node_to_str_table(tree: Tree):
         leaf_style = f"{leaf_foreground_color} on {TREE_BACKGROUND_COLOR}"
         answer_text = Text(f" {str(answer)} ", style=leaf_style)
         t.add_row(answer_text)
-        t_str = ''.join(_rich_obj_to_list_lines(answer_text))
+        t_str = ''.join(_rich_obj_to_list_lines(answer_text, colored))
         return(t_str)
 
-def print_best_move_tree(gs, show_combos, solver):
-    print()
+def get_best_move_tree_str(
+        start: Game_State,
+        show_combos: bool,
+        s: solver.Solver,
+        colored = True,
+        orientation=PrettyPrintTree.Vertical
+    ):
     Tree.show_combos_in_tree = show_combos
-    tree = Tree(gs=gs, solver=solver)
+    tree = Tree(gs=start, solver=s)
     Tree.max_combos_by_depth = _get_max_string_height_by_depth(tree)
-    table_tree = PrettyPrintTree(_get_children, _node_to_str_table, color='')
-    table_tree(tree)
+    node_printer = lambda tree: _node_to_str_table(tree, colored)
+    ppt = PrettyPrintTree(
+        _get_children,
+        node_printer,
+        color='',
+        return_instead_of_print=True,
+        orientation=orientation,
+    )
+    return f'\n{ppt(tree)}'
+
+def print_best_move_tree(gs, show_combos, solver, orientation=PrettyPrintTree.Vertical):
+    # do NOT use console.print; that will print the ANSI color codes directly.
+    print(get_best_move_tree_str(gs, show_combos, solver, True, orientation))
+
+def create_html_of_str(s: str, html_relative_path, title=""):
+    html: str = Ansi2HTMLConverter(title=title, line_wrap=False).convert(s)
+    with open(html_relative_path, 'w+') as f:
+        f.write(html)

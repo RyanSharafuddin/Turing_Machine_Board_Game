@@ -5,6 +5,7 @@ __pycache__/
 **/profiler_output/
 **/user_problems.txt
 **/scratch_experiments/
+**/Tree_Directory/
 .python-version
 todo.txt
 *.svg

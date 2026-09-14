@@ -87,7 +87,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     else:
         sd.print_all_possible_answers(
             full_cwa,
-            "\nAll Possible Answers" + (" (Without Rearrangement)" if (s.problem.mode == NIGHTMARE) else ""),
+            "\nAll Possible Answers" + (" (Without Rearrangement)" if s.n_mode else ""),
             permutation_order=P_ORDER,
             active=display_problem,
             unique_perm=True
@@ -100,7 +100,8 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
         )
         if display_problem:
             sd.pickled_display_print()
-        display.print_best_move_tree(s.initial_game_state, SHOW_COMBOS_IN_TREE, solver=s)
+        sd.display_tree(alternate_first_state=None)
+
 
 def unpickle_solver(identity):
     f_name = f_name_from_id(identity)

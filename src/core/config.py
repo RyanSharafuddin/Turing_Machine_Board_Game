@@ -85,6 +85,9 @@ LINES_BETWEEN_ANSWERS = False # print a line b/t every unique answer in answer t
 DISPLAY               = True  # display the problem when asked to solve
 PRINT_COMBOS          = True  # print remaining combos after every query in play()
 
+SMALL_WARN                 = Style.parse("hot_pink")
+BIG_WARN                   = Style.parse("b red")
+
 # Solver workings
 A_TOL                        = 1e-8
 REL_TOL                      = 0
@@ -112,8 +115,6 @@ PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partit
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
-SMALL_WARN                 = Style.parse("hot_pink")
-BIG_WARN                   = Style.parse("b red")
 S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
 
 }
@@ -128,12 +129,14 @@ MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have le
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True
+PRINT_WIDE_TREES            = False # Whether to print trees that are too wide for the console.
 CALCULATE_EVCACHE_MEM_USAGE = False # WARN: Takes a lot of memory/time.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
 PICKLE_DIRECTORY           = "src/problems/Pickles/Horizontal_Pruning_Iterate" # Where all pickled solvers go.
+TREE_DIRECTORY             = "src/problems/Tree_Directory/Horizontal_Pruning_Iterate" # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
 PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
