@@ -307,6 +307,8 @@ def get_link_Text(name, path):
     link_Text = Text(f'{name}', f"link {path}")
     link_Text.stylize(LINK_COLOR)
     return link_Text
+def get_problem_name_Text(p: Problem):
+    return Text(p.identity, PROBLEM_TITLE_COLOR)
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -1734,6 +1736,18 @@ class Solver_Displayer:
             #       it does not play nicely with piping the output into
             #       less -SR -# 3 to view the whole tree in the terminal.
             print(colored_tree)
+
+    def _begin_final_print_table(self):
+        t = Table(
+            show_header=False,
+            title=Text.assemble("Problem ", get_problem_name_Text(self.solver.problem))
+        )
+        t.add_column(justify="right") # description
+        t.add_column(justify="right") # info
+        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
+        t.add_section()
+        return t
+
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
         self,
@@ -1746,13 +1760,9 @@ class Solver_Displayer:
         NOTE: do not mutate any fields of self.solver, with the possible exception of self.solver.size_of_evaluations_cache_in_bytes. Also do not mutate the arguments. Furthermore, do not rely on the value of self.solver._evaluations_cache; use the provided original_cache and filtered_cache instead.
         """
         print(f"Finished.")
-        t = Table(show_header=False)
-        t.add_column(justify="right") # description
-        t.add_column(justify="right") # info
-        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
-        t.add_section()
+        t = self._begin_final_print_table()
         if show_debug_info:
-            print("\nCalculating post-solve debug information.")
+            print("\nCalculating post-solve debug information.\n")
             num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)
             total_state_number = self.solver.get_total_states(original_cache)
             total_state_number_str = f'{total_state_number:,}'
@@ -1787,11 +1797,7 @@ class Solver_Displayer:
     def capitulate_final_printing(self, best_cost, underperformance):
         print("Finished.")
         (r, q) = self.solver.expected_cost
-        t = Table(show_header=False)
-        t.add_column(justify="right") # description
-        t.add_column(justify="right") # info
-        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
-        t.add_section()
+        t = self._begin_final_print_table()
         if self.solver.n_mode:
             t.add_row(
                 f"# Combos with rearrangement",
@@ -1844,11 +1850,7 @@ class Solver_Displayer:
         Will be shown when controller displays a solver from a pickle. Note that this will not apply to capitulate solvers, since those are never pickled.
         """
         print()
-        t = Table(show_header=False)
-        t.add_column(justify="right") # description
-        t.add_column(justify="right") # info
-        t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
-        t.add_section()
+        t = self._begin_final_print_table()
         if (self.solver.size_of_evaluations_cache_in_bytes < 0):
             t.add_row("Memory Usage", '❓')
         else:
