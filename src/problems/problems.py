@@ -11,25 +11,6 @@ from ..core import solver
 from . import website
 
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
-_STANDARD_PROB_TUPS = [
-    (      "1",         [ 4,  9, 11, 14]),
-    (      "2",         [ 3,  7, 10, 14]), # Nightmare version: 2,081 -> 307 -> 110 -> 94.
-    ( "C4643N",         [19, 22, 36, 41]),
-    ("A52F7E1",     [ 7,  8, 12, 14, 17]),
-    ( "C5HCBJ",     [ 2, 15, 30, 31, 33]),
-    ("B63YRW4", [ 2,  5,  9, 15, 18, 22]), # zero_query
-    ("C630YVB", [ 9, 22, 24, 31, 37, 40]), # multiple combos -> same answer. nightmare version 2880 cwas.
-]
-_EXTREME_PROB_TUPS = [
-    ( "F435FE",                  [13,  9, 11, 40, 18,  7, 43, 15]), # 2,904 -> 1,195 -> ~650 -> ~500
-    ( "F5XTDF",          [28, 14, 19,  6, 27, 16,  9, 47, 20, 21]), #    86 -> 70
-    ("F52LUJG",          [15, 16, 23,  8, 46, 13, 34, 17,  9, 37]),
-    ("E63YF4H",  [18, 16, 17, 19, 10,  5, 14,  1, 11,  6,  2,  9]),
-    ("F63EZQM",  [15, 44, 11, 23, 40, 17, 25, 10, 16, 20, 19,  3]),
-]
-_NIGHTMARE_PROB_TUPS = [
-    ( "I4BYJK",          [9, 23, 33, 34]), # Test after fix nightmare isomorphic
-]
 _ACCEPTABLE_MODES = ["S", "E", "N"]
 def _problem_info_text_file_to_dict(filename):
     if not os.path.isfile(filename):
@@ -47,7 +28,7 @@ def _problem_info_text_file_to_dict(filename):
     return d
 def _add_problem_to_both_dicts(problem: Problem):
     """
-    Adds problem to ID_TO_PROBLEM_DICT and also PREFIX_ID_TO_PROBLEM_LIST_DICT, which is a pre-requisite for getting the problem with get_local_problem_by_id.
+    Adds problem to ID_TO_PROBLEM_DICT and also PREFIX_ID_TO_PROBLEM_LIST_DICT, which is a pre-requisite for getting the problem with _get_local_problem_by_id.
     """
     _ID_TO_PROBLEM_DICT[problem.identity] = problem
     _add_problem_to_prefix_id_dict(problem)
@@ -62,7 +43,10 @@ def _read_user_problems_from_file(f_name):
         for line in f:
             if(line.strip()):
                 p = eval(line)
-            l.append(p)
+                if not isinstance(p, Problem):
+                    console.print("[b red]WARN[/b red]: There are things in the user problem text file that are not Problems.")
+                    continue
+                l.append(p)
     return(l)
 def _add_problem_to_prefix_id_dict(problem: Problem):
     identity = problem.identity
@@ -79,7 +63,7 @@ def _add_problem_to_prefix_id_dict(problem: Problem):
         else:
             _PREFIX_ID_TO_PROBLEM_LIST_DICT[pref_add] = [problem]
 def _user_input_to_triplet(s:str):
-    """ helper function for get_problem_from_user_string """
+    """ helper function for _get_problem_from_user_string """
     l = s.split()
     if(len(l) < 3):
         console.print(f"Error: '{s}' cannot be interpreted as a problem description.")
@@ -88,7 +72,7 @@ def _user_input_to_triplet(s:str):
         l.append('S') # assume mode 
     return(l[0], ' '.join(l[1:len(l)-1]), l[-1])
 def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
-    """ helper function for get_problem_from_user_string """
+    """ helper function for _get_problem_from_user_string """
     problem_id = p_id.upper()
     if(problem_id in _ID_TO_PROBLEM_DICT):
         console.print(f"Error: There already exists a problem with ID '{problem_id}'")
@@ -173,8 +157,7 @@ def _get_other_version_id(p: Problem):
     if p.mode == NIGHTMARE:
         return f"{p.identity}_S"
     return None
-
-def get_local_problem_by_id(problem_id: str):
+def _get_local_problem_by_id(problem_id: str):
     """
     Get a local problem (one currently in ID_TO_PROBLEM_DICT and PREFIX_ID_TO_PROBLEM_LIST_DICT) and return it. Note that the way the prefix id dict works, you can get a problem with just its prefix. For example, you can get problem F435FE by asking for problem f43. It even handles the _S and _N suffixes, so you can get F435FE_N by asking for f43_N, or f4345_N, or etc. If there are multiple problems that share a prefix, this function will display a list of them and ask for user input to disambiguate.
     """
@@ -193,7 +176,7 @@ def get_local_problem_by_id(problem_id: str):
         a = int(input("\nWhich one would you like?\n> "))
         return(problem_list[a - 1])
     return(problem_list[0])
-def get_problem_from_user_string(s):
+def _get_problem_from_user_string(s):
     """
     Make a problem out of a single user input string, add it to the problem dicts and the text file of user problems, and return it. If the problem is standard or nightmare mode, make a corresponding nightmare or standard mode problem with the same prefix + _N or _S and add that to the problem dictionaries and user file too. If the problem is invalid in some way, do not add the problem to anything and return None.
     """
@@ -201,6 +184,7 @@ def get_problem_from_user_string(s):
     if(intermediate is None):
         return(None)
     return(_process_problem_input_from_user(*intermediate))
+
 def add_problem_to_known_problems(p: Problem, ignore_warning=False):
     """
     Add problem to the ids dict and the prefixes dict that problems uses to retrieve problems, and also add it to the file of user problems. Return the problem.
@@ -306,17 +290,16 @@ def get_mode_from_user(user_mode_str):
     return(None)
 def pre_process_p_id(p_id: str):
     """
-    Given a problem ID string, process it by removing a leading # if present, capitalizing all letters, and removing whitespace. Return None if given None.
+    Given a problem ID string, process it by removing any '#'s or whitespace and capitalizing all letters. Return None if given None.
 
     Useful in problems.py and also in dealing with web input/output in website.py.
     """
     if(p_id is None):
         return None
-    if(p_id[0] == '#'):
-        p_id = p_id[1:]
+    p_id = p_id.replace("#", "")
     p_id = p_id.upper()
     p_id = ''.join(p_id.split())
-    return(p_id)
+    return p_id
 def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
@@ -405,6 +388,7 @@ def get_requested_problem(
     """
     Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too. If no p_id is given, just display the table of all local problems.
     """
+    p_id = pre_process_p_id(p_id)
     if web:
         p = website.get_web_problem(p_id, mode, level, verifiers)
         if p is None:
@@ -421,7 +405,7 @@ def get_requested_problem(
             add_problem_to_known_problems(other_version_problem, ignore_warning=True)
         return p
     if new_problem: # if no -n, this is None. If -n but no args, this is an empty list.
-        p = get_problem_from_user_string(' '.join(new_problem))
+        p = _get_problem_from_user_string(' '.join(new_problem))
         if(p is None):
             console.print(
                 "Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed. Exiting."
@@ -431,34 +415,18 @@ def get_requested_problem(
     if(p_id is None):
         # no problem specified
         return None
-    p = get_local_problem_by_id(p_id)
+    p = _get_local_problem_by_id(p_id)
     return p
 
-_derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
-_derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
-_NIGHTMARE_PROB_TUPS += _derived_nightmare_prob_tups
-_STANDARD_PROB_TUPS += _derived_standard_prob_tups
 # NOTE: Any standard mode problem is now also a nightmare mode problem if just add "_N" to its problem id.
 #       Also, any nightmare mode problem is a standard mode problem by adding "_S".
 
-_standard_problems = [Problem(*(problem_tup + (STANDARD,))) for problem_tup in _STANDARD_PROB_TUPS]
-_extreme_problems =  [Problem(*(problem_tup + (EXTREME,))) for problem_tup in _EXTREME_PROB_TUPS]
-_nightmare_problems =  [Problem(*(problem_tup + (NIGHTMARE,))) for problem_tup in _NIGHTMARE_PROB_TUPS]
-_all_problems = (
-    _standard_problems +
-    _extreme_problems +
-    _nightmare_problems +
-    _read_user_problems_from_file(USER_PROBS_FILE_NAME)
-)
-_problem_identities = set()
-for _p in _all_problems:
-    if(_p.identity in _problem_identities):
-        console.print(
-            f"[b red]Error[/b red]! There are multiple problems with identity '{_p.identity}'. Exiting."
-        )
-        exit()
-    _problem_identities.add(_p.identity)
+_all_problems = _read_user_problems_from_file(USER_PROBS_FILE_NAME)
 _ID_TO_PROBLEM_DICT : dict[str:Problem] = {problem.identity: problem for problem in _all_problems}
+if (len(_ID_TO_PROBLEM_DICT) < len(_all_problems)):
+    console.print(
+        f"[b red]WARN[/b red]! There are multiple problems with the same identity. Check {USER_PROBS_FILE_NAME}."
+    )
 _PREFIX_ID_TO_PROBLEM_LIST_DICT = dict()
 for _problem in _ID_TO_PROBLEM_DICT.values():
     _add_problem_to_prefix_id_dict(_problem)

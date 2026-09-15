@@ -1,9 +1,7 @@
 """
 Gets problems from turingmachine.info.
 
-get_web_problem_from_id: gets a problem from the web with given ID.
-
-get_web_problem_from_mode_difficulty_num_vs : get a web problem with given params.
+See get_web_problem
 """
 # See https://www.scrapingbee.com/curl-converter/python/
 import requests, json, random
@@ -183,8 +181,8 @@ def _randomize_if_none(value, num_values, start=0):
     if(value is not None):
         return value
     return random.randrange(start, start + num_values)
+def _get_web_problem_from_id(p_id: str, print_action=False):
 
-def get_web_problem_from_id(p_id: str, print_action=False):
     """
     Given a problem ID, return the problem from the web with that ID.
     Return None if there was a problem getting the problem.
@@ -203,7 +201,7 @@ def get_web_problem_from_id(p_id: str, print_action=False):
         console.print(text, justify="center")
     response = _get_response_by_problem_id(p_id)
     return(_get_problem_from_raw_response(response, expected_id=p_id))
-def get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers, print_action=False):
+def _get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers, print_action=False):
     """
     Get a problem from the web with given mode, difficulty, and num_verifiers. If print_action is True, display a message showing that it is getting a problem with those parameters from the web. Return None if there was a problem getting the problem.
 
@@ -236,6 +234,7 @@ def get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers,
             expected_num_vs=num_verifiers,
         )
     )
+
 def get_web_problem(p_id, raw_mode, level, num_verifiers) -> Problem:
     """
     A convenience function for getting a web problem. If `p_id` is not None, gets a problem from the web with that ID. If it is None, gets an arbitrary problem with given mode, level of difficulty, and num_verifiers. Those are randomly chosen if they are None. Returns the problem, or None if there was a problem getting the problem.
@@ -255,8 +254,8 @@ def get_web_problem(p_id, raw_mode, level, num_verifiers) -> Problem:
         The number of verifiers of the random problem to retrieve from the web. If this is None, number of verifiers will be chosen randomly. Has no effect if `p_id` is given.
     """
     if(p_id is not None):
-        p = get_web_problem_from_id(p_id, print_action=True)
+        p = _get_web_problem_from_id(p_id, print_action=True)
     else:
         mode = problems.get_mode_from_user(raw_mode)
-        p = get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
+        p = _get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
     return p
