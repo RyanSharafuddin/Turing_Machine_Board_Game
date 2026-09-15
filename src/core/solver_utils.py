@@ -705,6 +705,14 @@ def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
     worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
     return (expected_r_cost, expected_q_cost, worst_depth)
 
+def calculate_expected_rqd_wo_curr_move(probs, gss_costs):
+    (p_False, p_True) = probs
+    ((rounds_False, queries_False, depth_False), (rounds_True, queries_True, depth_True)) = gss_costs
+    expected_r_cost = p_False*rounds_False + p_True*rounds_True
+    expected_q_cost = p_False*queries_False + p_True*queries_True
+    worst_depth = depth_False if (depth_False > depth_True) else depth_True
+    return (expected_r_cost, expected_q_cost, worst_depth)
+
 def rqd_to_str(rqd):
     (r, q, d) = rqd
     return f"({r:0.3f}, {q:0.3f}, max_depth: {d:>3})"
