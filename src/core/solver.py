@@ -311,7 +311,7 @@ class Solver:
             found_moves = True
             (move, mcost, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
             f_state_Cgs = self.convert_working_gs_to_cache_gs(f_state_Wgs, self.all_cwa_bitsets)
-            # TODO: How often are you converting t_state_Wgs to a cache gs and getting the t_result when the f_result alone would be enough to stop consideration of this move? Consider writing some code to find out, and see if it's worth it to calculate whether the f_result alone is enough to prune this state by timing. Probably more salient in nightmare mode.
+            # TODO: How often are you converting t_state_Wgs to a cache gs and getting the t_result when the f_result alone would be enough to stop consideration of this move? Write some code to find out, and see if it's worth it to calculate whether the f_result alone is enough to prune this state by timing. Do this after implement vertical pruning. Probably more salient in nightmare mode.
             t_state_Cgs = self.convert_working_gs_to_cache_gs(t_state_Wgs, self.all_cwa_bitsets)
             f_result = self._evaluations_cache.get(f_state_Cgs, self.neg1_titz)
             t_result = self._evaluations_cache.get(t_state_Cgs, self.neg1_titz)
