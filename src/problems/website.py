@@ -11,7 +11,7 @@ from rich.text import Text
 # My imports
 from ..core.definitions import Problem, console, EXTREME
 from ..core import display
-from ..problems.problems import pre_process_p_id
+from .import problems
 from ..core import config
 
 def _get_response_by_problem_id(p_id: str):
@@ -162,7 +162,7 @@ def _get_problem_from_raw_response(
     Given a response from a _get_response* function, return the Problem associated with that response, or None if the response failed. If any expected_* kwargs are included, compare that attribute of the received probem to the expected attribute and print an error message if they don't match up.
     """
     problem_id = _get_required_field_from_response(raw_response, "hash")
-    problem_id = pre_process_p_id(problem_id)
+    problem_id = problems.pre_process_p_id(problem_id)
     rc_nums = _get_rc_nums_from_raw_response(raw_response)
     mode = _get_required_field_from_response(raw_response, "m")
     if(None in [problem_id, rc_nums, mode]):
@@ -191,13 +191,13 @@ def get_web_problem_from_id(p_id: str, print_action=False):
     If print_action is True, print out a message showing that it is retrieving a problem with given ID from the web.
     Note: The problem ids are in fact just hashes, so they're not unique. i.e. different hashes could lead to the same associated problem.
     """
-    p_id = pre_process_p_id(p_id)
+    p_id = problems.pre_process_p_id(p_id)
     if(print_action):
         text = Text.assemble(
             ("Getting problem "),
             (f"{p_id} ", config.PROBLEM_TITLE_COLOR),
             "from ",
-            ("turingmachine.info", "link https://turingmachine.info/"),
+            display.get_link_Text("turingmachine.info", "https://turingmachine.info/"),
             ".",
         )
         console.print(text, justify="center")
@@ -224,7 +224,7 @@ def get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers,
             " verifiers and difficulty level ",
             (f"{difficulty}", "#0000FF"),
             " from ",
-            ("turingmachine.info", "link https://turingmachine.info/"),
+            display.get_link_Text("turingmachine.info", "https://turingmachine.info/"),
             "."
         )
         console.print(text, justify="center")
@@ -236,3 +236,27 @@ def get_web_problem_from_mode_difficulty_num_vs(mode, difficulty, num_verifiers,
             expected_num_vs=num_verifiers,
         )
     )
+def get_web_problem(p_id, raw_mode, level, num_verifiers) -> Problem:
+    """
+    A convenience function for getting a web problem. If `p_id` is not None, gets a problem from the web with that ID. If it is None, gets an arbitrary problem with given mode, level of difficulty, and num_verifiers. Those are randomly chosen if they are None. Returns the problem, or None if there was a problem getting the problem.
+
+    Params
+    ------
+    p_id: str | None
+        If this is a string, will get the problem from the web with this ID. If this is None, will get a random problem from the web with given `raw_mode`, `level`, and `num_verifiers`.
+
+    raw_mode: None | int | str (either 0, 1, 2, or 'S', 'E', or 'N' (or lowercase of those letters))
+        The mode of the random problem to retrieve from the web. If this is None, mode will be chosen randomly. Has no effect if `p_id` is given.
+
+    level: None | int (0, 1, or 2)
+        The level of difficulty of the random problem to retrieve from the web. If this is None, difficulty will be chosen randomly. Has no effect if `p_id` is given.
+
+    num_verifiers: None | int (0, 1, 2)
+        The number of verifiers of the random problem to retrieve from the web. If this is None, number of verifiers will be chosen randomly. Has no effect if `p_id` is given.
+    """
+    if(p_id is not None):
+        p = get_web_problem_from_id(p_id, print_action=True)
+    else:
+        mode = problems.get_mode_from_user(raw_mode)
+        p = get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
+    return p

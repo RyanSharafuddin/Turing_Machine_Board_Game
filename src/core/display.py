@@ -11,7 +11,7 @@ from rich.text import Text
 from rich.highlighter import ReprHighlighter
 from rich import box
 # My imports
-from . import solver, solver_capitulate, solver_nightmare
+from . import solver, solver_capitulate, solver_nightmare # pyright: ignore[reportUnusedImport]
 from . import solver_utils # TODO: Consider refactoring so don't need to import this.
 from .definitions import *
 from .config import *
@@ -302,6 +302,11 @@ def print_ndarr_bitset(ndarr):
     print()
 def file_path_to_url(absolute_path: str):
     return pathlib.Path(absolute_path).as_uri()
+def get_link_Text(name, path):
+    # somehow, making the below line link={path} breaks hyperlink to turingmachine.info
+    link_Text = Text(f'{name}', f"link {path}")
+    link_Text.stylize(LINK_COLOR)
+    return link_Text
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -1694,15 +1699,14 @@ class Solver_Displayer:
         html_relative_path=f'{TREE_DIRECTORY}/{problem.identity}{capitulate_str}.html'
         html_absolute_path = f'{os.getcwd()}/{html_relative_path}'
         url = file_path_to_url(html_absolute_path)
-        link_text = Text(f'{html_relative_path}', f"link={url}")
-        link_text.stylize(LINK_COLOR)
+        link_Text = get_link_Text(html_relative_path, url)
         create_html_of_str(
             # TODO: since tree is a long string, the following line is inefficient. Fix it.
             "\n"*10 + tree,
             html_relative_path=html_relative_path,
             title=f'Problem: {problem.identity}',
         )
-        return link_text
+        return link_Text
     def display_tree(self, alternate_first_state=None):
         start = self.solver.initial_game_state if (alternate_first_state is None) else alternate_first_state
         pos_args = (

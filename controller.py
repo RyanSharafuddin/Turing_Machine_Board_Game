@@ -4,7 +4,6 @@ from rich.text import Text
 # My imports
 from src.core.definitions import *
 from src.core.config import *
-import src.problems.website as website
 import src.problems.problems as problems
 from src.core import display, solver
 from src.core.solver import Solver
@@ -15,13 +14,7 @@ def update_query_history(q_history, move, new_round: bool, result: bool):
     if(new_round):
         q_history.append([move[0]])
     q_history[-1].append((move[1], result))
-    if(move[0] != q_history[-1][0]):
-        print("ERROR! The current move's proposal does not match up with the proposal used this round, and so this should have been a new round, but it isn't.")
-        print("Query history:")
-        for (round_num, round_info) in enumerate(q_history, start=1):
-            print(f"{round_num}: {round_info}")
-        print(f"Move: {move}")
-        exit()
+    assert (move[0] == q_history[-1][0]), "Current move should have been a new round, but was not."
 
 def play_from_solver(s: solver.Solver, display_problem = True):
     """
@@ -101,7 +94,6 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
         if display_problem:
             sd.pickled_display_print()
         sd.display_tree(alternate_first_state=None)
-
 
 def unpickle_solver(identity):
     f_name = f_name_from_id(identity)
@@ -249,57 +241,6 @@ def play(problem: Problem, pickle_entire=False, force_overwrite=False, no_pickle
         problem, pickle_entire, force_overwrite, no_pickles, capitulate
     )
     play_from_solver(s, display_problem=not(made_from_scatch))
-
-def get_web_problem(p_id, raw_mode, level, num_verifiers):
-    """
-    A convenience function for getting a web problem. If p_id is not None, gets a problem from the web with that ID. If it is None, gets an arbitrary problem with given mode, level of difficulty, and num_verifiers. Those are randomly chosen if they are None. Returns the problem, or None if there was a problem getting the problem.
-    """
-    if(p_id is not None):
-        p = website.get_web_problem_from_id(p_id, print_action=True)
-    else:
-        mode = problems.get_mode_from_user(raw_mode)
-        p = website.get_web_problem_from_mode_difficulty_num_vs(mode, level, num_verifiers, print_action=True)
-    return(p)
-def get_requested_problem(
-        p_id=None,
-        web=False,
-        mode=None,
-        level=None,
-        verifiers=None,
-        new_problem=None
-    ) -> Problem:
-    """
-    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too. If no p_id is given, just display the table of all local problems.
-    """
-    if(web):
-        p = get_web_problem(p_id, mode, level, verifiers)
-        if(p is None):
-            console.print(f"Error. Could not successfully retrieve the problem from the website. Exiting.")
-            exit()
-        # TODO: consider not adding all web problems to known problems
-        problems.add_problem_to_known_problems(p, ignore_warning=True)
-        other_version_problem = problems.get_other_version_problem(p)
-        if other_version_problem:
-            problems.add_problem_to_known_problems(other_version_problem, ignore_warning=True)
-        return(p)
-    if(new_problem): # if no -n, this is None. If -n but no args, this is an empty list.
-        p = problems.get_problem_from_user_string(' '.join(new_problem))
-        if(p is None):
-            console.print(
-                "Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed. Exiting."
-            )
-            exit()
-        return(p)
-    if(p_id is None):
-        # no problem specified. Just display all problems and exit
-        problems.print_all_local_problems()
-        exit()
-    p = problems.get_local_problem_by_id(p_id)
-    if(p is None):
-        print()
-        problems.print_all_local_problems()
-        exit()
-    return(p)
 def make_parser():
     """ Controls the program arguments and help display. """
     parser = argparse.ArgumentParser(
@@ -310,12 +251,12 @@ def make_parser():
         type=str,
         nargs="?",
         default=None,
-        help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Do: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Example: 'python controller.py -d f43'. Run without any arguments to see a list of available local problems.",
+        help="Specify the problem id. Prefixes are fine. If neither -d nor -p are chosen, then it will simply make the solver with no_pickles turned on. Do: python controller.py <-d> <-p> <<-np> or <-fo> or <<-c> or <--from_file>> prob_id. Example: 'python controller.py -d f43'. Run without any arguments to see a list of available local problems. NOTE: Bash interprets a '#' character as starting a comment, so if the problem ID includes a #, it must be escaped with a backslash, or enclosed in quotes.",
     )
     parser.add_argument(
         "--display", "-d",
         action="store_true",
-        help="Display the best move tree. NOTE: if the tree is too big to fit on screen, you can pipe the result of this program into less -SR -#3. Example: 'python controller.py -d f5x | less -SR -# 3' The program less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow press scrolls n lines."
+        help="Print the best move tree and generate an HTML file of it. NOTE: if the tree is too big to fit on screen, you can pipe the result of this program into less -SR -#3. Example: 'python controller.py -d f5x | less -SR -# 3' The program less, with the -S option, allows you to scroll horizontally. -R tells it to honor the terminal color escape sequences. The -# n option means that each right/left arrow press scrolls n lines."
     )
     parser.add_argument("--play", "-p", action="store_true", help="Play the problem.")
     parser.add_argument("--no_pickles", "-np", action="store_true", help="No pickles.")
@@ -359,9 +300,9 @@ def do_two_funcs(do_func_1: bool, func_1: callable, do_func_2: bool, func_2: cal
     """
     Does `func_1` and `func_2` on `*args` and `**kwargs` (they both get the same args) depending on the values of `do_func_1` and `do_func_2`
     """
-    if(do_func_1):
+    if do_func_1:
         func_1(*args, **kwargs)
-    if(do_func_2):
+    if do_func_2:
         func_2(*args, **kwargs)
 
 def unpickle_solver_from_f_name(f_name):
@@ -414,7 +355,7 @@ if(__name__ == "__main__"):
             if not(args.play or args.display):
                 s = unpickle_solver_from_f_name(args.prob_id)
             exit()
-        problem = get_requested_problem(
+        problem = problems.get_requested_problem(
             args.prob_id,
             args.web,
             args.mode,
@@ -422,6 +363,9 @@ if(__name__ == "__main__"):
             args.verifiers,
             args.new_problem
         )
+        if problem is None:
+            problems.print_all_local_problems()
+            exit()
         args.no_pickles = True if args.capitulate else args.no_pickles # capitulate turns on no pickles
         do_two_funcs(
             args.display,

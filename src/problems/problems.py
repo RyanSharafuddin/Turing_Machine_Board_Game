@@ -8,6 +8,7 @@ from ..core.definitions import *
 from ..core.display import MODE_NAMES, Solver_Displayer
 from ..core.rules import rcs_deck
 from ..core import solver
+from . import website
 
 # NOTE: Problem IDs should not contain lowercase letters, so that the user can specify either lowercase or uppercase letters when they request a problem.
 _STANDARD_PROB_TUPS = [
@@ -124,7 +125,7 @@ def _process_problem_input_from_user(p_id, rc_nums_str, mode_str):
     if not s.full_cwas_list:
         sd = Solver_Displayer(s)
         sd.print_problem(s.rcs_list, p)
-        console.print(f"Error. This is an invalid problem with no solutions.")
+        console.print(f"[b red]Error[/b red]. This is an invalid problem with no solutions.")
         return(None)
     _add_problem_to_both_dicts(p)
     _write_user_problem_to_file(USER_PROBS_FILE_NAME, p)
@@ -393,6 +394,45 @@ def get_all_matching_problems(mode=None, num_vs=None):
         ):
             l.append(p)
     return l
+def get_requested_problem(
+        p_id=None,
+        web=False,
+        mode=None,
+        level=None,
+        verifiers=None,
+        new_problem=None
+    ) -> Problem:
+    """
+    Given arguments directly from the argument parser, returns the Problem that corresponds to those arguments, or displays an error message and exits if there isn't a corresponding Problem. If it's a user-defined problem or a problem obtained from the web, add it to the text file of problems. If a user-defined problem or web problem is standard or nightmare mode, make a corresponding problem in the other mode and add that to the text file too. If no p_id is given, just display the table of all local problems.
+    """
+    if web:
+        p = website.get_web_problem(p_id, mode, level, verifiers)
+        if p is None:
+            console.print(
+                Text("Error", "b red"),
+                f": Could not successfully retrieve the problem from the website. Exiting.",
+                sep=""
+            )
+            exit()
+        # TODO: consider not adding all web problems to known problems
+        add_problem_to_known_problems(p, ignore_warning=True)
+        other_version_problem = get_other_version_problem(p)
+        if other_version_problem:
+            add_problem_to_known_problems(other_version_problem, ignore_warning=True)
+        return p
+    if new_problem: # if no -n, this is None. If -n but no args, this is an empty list.
+        p = get_problem_from_user_string(' '.join(new_problem))
+        if(p is None):
+            console.print(
+                "Here's an example of a valid problem input: 'python controller.py -n -d Fire 4 9 11 12 N'. The modes are (S)tandard, (E)xtreme, and (N)ightmare. Note that if no mode is included, standard mode will be assumed. Exiting."
+            )
+            exit()
+        return p
+    if(p_id is None):
+        # no problem specified
+        return None
+    p = get_local_problem_by_id(p_id)
+    return p
 
 _derived_nightmare_prob_tups = [(f"{p_id}_N", rc_nums) for (p_id, rc_nums) in _STANDARD_PROB_TUPS]
 _derived_standard_prob_tups = [(f"{p_id}_S", rc_nums) for (p_id, rc_nums) in _NIGHTMARE_PROB_TUPS]
