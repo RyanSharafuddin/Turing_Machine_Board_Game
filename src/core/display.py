@@ -1781,6 +1781,7 @@ class Solver_Displayer:
         """
         print(f"Finished.")
         t = self._begin_final_print_table()
+        t.add_row("Considered end round early", "✅" if self.solver.consider_end_round_early else "❌")
         if show_debug_info:
             print("\nCalculating post-solve debug information.\n")
             num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)

@@ -6,3 +6,4 @@ F52LUJG   │ Excellent tree
 F435FE    │ Formerly ~3,500s
 I4BYJK_S  │ End round early
 C51RIIQ_N │ Killed 9
+C51RIIQ   │ Tree has *exactly* the same structure as I4BYJK_S, right down to the exact cost and same behavior under consider end round early, despite having different numbers of answers and verifiers. Investigate this further. Do their nightmare versions also have the same structure? Can you use this to your advantage somehow?
