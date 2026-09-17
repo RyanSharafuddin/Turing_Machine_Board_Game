@@ -322,7 +322,9 @@ class Solver:
 
         # move_rqd_tups = [] # TODO: delete
         # TODO: see if reordering the moves in the same way as vertical pruning improves time and/or memory.
-        search_best_rqd_NO_m = self.subtract_move_cost_from_rqd(pre_existing_result[1], is_begin_round_state)
+        search_best_rqd = pre_existing_result[1]
+        search_curr_evdepth_LB_rqd = self.triple_inf
+        search_best_rqd_NO_m = self.subtract_move_cost_from_rqd(search_best_rqd, is_begin_round_state)
         search_curr_evdepth_LB_rqd_NO_m = self.triple_inf
         found_moves = False
         min_round_depth = inf
@@ -432,13 +434,14 @@ class Solver:
                 (search_curr_evdepth_LB_rqd_NO_m is self.triple_inf)
                 or solver_utils.roughly_geq_rqd(search_best_rqd_NO_m, search_curr_evdepth_LB_rqd_NO_m)
             ),f"\nlower bound NO m: {search_curr_evdepth_LB_rqd_NO_m}\nbest so far NO m: {search_best_rqd_NO_m}\n{game_state}"
-        search_best_rqd = self.add_move_cost_to_rqd(search_best_rqd_NO_m, is_begin_round_state)
-        search_curr_evdepth_LB_rqd = self.add_move_cost_to_rqd(
-            search_curr_evdepth_LB_rqd_NO_m,
-            is_begin_round_state
-        )
 
         if found_moves:
+            # only need to update these if found_moves, otherwise they can retain their initial values.
+            search_best_rqd = self.add_move_cost_to_rqd(search_best_rqd_NO_m, is_begin_round_state)
+            search_curr_evdepth_LB_rqd = self.add_move_cost_to_rqd(
+                search_curr_evdepth_LB_rqd_NO_m,
+                is_begin_round_state
+                )
             if (
                 evdepth_infinity
                 # NOTE: if uncomment the lines updating search_curr_evdepth_LB_rqd_NO_m when pruning a move, replace below comparison w/fp_eq_tup, since search_curr_evdepth_LB_rqd_NO_m should never be > search_best_rqd_NO_m.
@@ -446,7 +449,7 @@ class Solver:
                 # search_curr_evdepth_LB_rqd_NO_m is inf or roughly equal to search_best_rqd_NO_m
                 # assert that that condition is same as condition below, and time it.
                 or solver_utils.roughly_geq_rqd(search_curr_evdepth_LB_rqd_NO_m, search_best_rqd_NO_m)
-            ):
+                ):
                 evdepth = inf
                 answer = (evdepth, search_best_rqd)
             else:
@@ -499,6 +502,8 @@ class Solver:
             end_round_early_result = self._evaluations_cache.get(new_round_early_cache_gs, self.neg1_titz)
             end_round_early_lower_bound_rqd = end_round_early_result[-1]
             if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
+                # BUG: if found_moves is False, answer will not have been defined yet.
+                #      Step through this with a debugger and fix.
                 self._evaluations_cache[cache_game_state] = answer
                 return answer
             end_round_early_result_evdepth = end_round_early_result[0]
@@ -516,6 +521,8 @@ class Solver:
                 assert (end_round_early_result_evdepth >= round_depth)
                 end_round_early_lower_bound_rqd = end_round_early_result[-1]
                 if solver_utils.roughly_geq_rqd(end_round_early_lower_bound_rqd, search_best_rqd):
+                    # BUG: if found_moves is False, answer will not have been defined yet.
+                    #      Step through this with a debugger and fix.
                     self.best_move = saved_best_move # NOTE: can clobber self.best_move (again)
                     self._evaluations_cache[cache_game_state] = answer
                     return answer
@@ -535,7 +542,7 @@ class Solver:
                 (not found_moves)
                 or (end_round_early_result_evdepth < evdepth)
                 or solver_utils.roughly_geq_rqd(answer[-1], end_round_early_best_known_rqd) # left terminal
-            ):
+                ):
                 # short circuit evaluation necessary, since evdepth and answer are not defined in the case that not found_moves.
                 evdepth = end_round_early_result_evdepth
 
