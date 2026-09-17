@@ -1747,6 +1747,26 @@ class Solver_Displayer:
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
         t.add_section()
         return t
+    def display_exact_expected_cost(self):
+        # TODO: calculate an exact repeating decimal from the Fractions and display, either with a bar or parentheses. (preferably a bar).
+        # TODO: color the output
+        # TODO: justify the output to align w/the table above it.
+        (r, q) = self.solver.expected_cost
+        assert (type(r) is Fraction)
+        assert (type(q) is Fraction)
+        t = Table(show_header=False, title="\nExact Cost", title_style="")
+        t.add_column(justify="right") # label (rounds or queries)
+        t.add_column(justify="right") # Fraction TODO: display a column where normalize fractions to have same denominator (least common multiple of the two denominators)
+        r_denom_str = f"{r.denominator:,}"
+        q_denom_str = f"{q.denominator:,}"
+        denom_len = max(len(r_denom_str), len(q_denom_str))
+        r_nume_str = f"{r.numerator:,}"
+        q_nume_str = f"{q.numerator:,}"
+        nume_len = max(len(q_nume_str), len(r_nume_str))
+        t.add_row("Rounds", f"{r.numerator:>{nume_len},}/{r.denominator:>{denom_len},}")
+        t.add_row("Queries", f"{q.numerator:>{nume_len},}/{q.denominator:>{denom_len},}")
+        console.print(t)
+
 
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
@@ -1793,6 +1813,7 @@ class Solver_Displayer:
         rq = self.solver.expected_cost
         t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
+        self.display_exact_expected_cost()
         sys.stdout.flush()
     def capitulate_final_printing(self, best_cost, underperformance):
         print("Finished.")
@@ -1844,6 +1865,7 @@ class Solver_Displayer:
             t.add_row("Perfect Cost", "❓")
             t.add_row("Capitulate's Cost", self._get_expected_cost_Text(self.solver.expected_cost))
         console.print(t)
+        self.display_exact_expected_cost()
         sys.stdout.flush()
     def pickled_display_print(self):
         """
@@ -1868,6 +1890,7 @@ class Solver_Displayer:
         rq = self.solver.expected_cost
         t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
+        self.display_exact_expected_cost()
         sys.stdout.flush()
 
 class Tree:

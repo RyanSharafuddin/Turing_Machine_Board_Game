@@ -1,4 +1,5 @@
 import pickle, os
+from fractions import Fraction
 import numpy as np
 from rich.table import Table
 from rich.text import Text
@@ -323,11 +324,22 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
         console.print(
             f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
         )
-    changed_cost = (
-        (previous_cost is None)
-        or (not np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL))
+    cost_types_match = (
+        (previous_cost is not None)
+        and all(
+            (
+                (type(prev_c_item) is type(curr_c_item))
+                for (prev_c_item, curr_c_item) in zip(previous_cost, s.expected_cost)
+            )
+        )
     )
-    if ((previous_cost is not None) and changed_cost):
+    if cost_types_match:
+        if (type(previous_cost[0]) is Fraction):
+            costs_equal = (previous_cost == s.expected_cost) # perfect accuracy
+        elif (type(previous_cost[0] is float)):
+            costs_equal = np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL)
+    changed_cost = not (cost_types_match and costs_equal)
+    if (previous_cost is not None) and changed_cost:
         console.print("Warn:", style=SMALL_WARN)
         console.print(
             f"The cost on this solver run is not approximately equal to the cost on the pickled solver run. This may be acceptable.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}."

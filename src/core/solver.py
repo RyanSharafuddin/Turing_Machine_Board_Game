@@ -1,5 +1,6 @@
 import time, git
 from typing import NamedTuple
+from fractions import Fraction
 import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
@@ -98,6 +99,8 @@ class Info_To_Save(NamedTuple):
     size_of_evaluations_cache_in_bytes : int
 
 class Solver:
+    zero_frac = Fraction(0)
+    double_zero_frac = (zero_frac, zero_frac)
     double_zero = (0, 0)
     triple_zero = (0, 0, 0)
     ninf = float("-inf")
@@ -603,7 +606,10 @@ class Solver:
         # self._experiment()
         original_cache = self._evaluations_cache
         self._evaluations_cache = filtered_cache
-        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(self.initial_game_state, ((0,0),))[-1]
+        self.expected_cost = self.get_move_mcost_gs_ncost_from_cache(
+            self.initial_game_state,
+            (Solver.double_zero_frac,) # 1-length tuple w/zero cost filtered (r,q) type Fraction, currently
+        )[-1]
         self._final_printing(original_cache, filtered_cache)
 
     # May be overriden by other types of solvers.
@@ -636,18 +642,22 @@ class Solver:
         """
         first_state = self.initial_game_state if (alternate_first_state is None) else alternate_first_state
         self._validate_fcache_helper(filtered_cache, first_state)
-    def _validate_fcache_helper(self, fcache: dict, wgs: Game_State):
+    def _validate_fcache_helper(self, fcache: dict, wgs: Game_State) -> tuple[Fraction, Fraction]:
         """
         Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
         """
         if one_answer_left(self.full_cwas_list, wgs.cwa_set):
-            return Solver.double_zero # TODO: return an rq-tuple of Fractions.
+            return Solver.double_zero_frac
         cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
         (best_move, purported_cost) = fcache[cache_gs] # cache_gs should always be in fcache at this point.
         (gs_false, gs_true) = self.apply_move_to_state(best_move, wgs)
         # cwa_set representation_change
-        gsf_prob = len(gs_false.cwa_set) / len(wgs.cwa_set) # TODO: use Fractions
-        gst_prob = len(gs_true.cwa_set) / len(wgs.cwa_set)
+        total_cwas = len(wgs.cwa_set)
+        f_cwas = len(gs_false.cwa_set)
+        t_cwas = len(gs_true.cwa_set)
+        assert ((t_cwas + f_cwas) == total_cwas)
+        gsf_prob = Fraction(f_cwas, total_cwas)
+        gst_prob = Fraction(t_cwas, total_cwas)
         p_tup = (gsf_prob, gst_prob)
         fcost = self._validate_fcache_helper(fcache, gs_false)
         tcost = self._validate_fcache_helper(fcache, gs_true)
@@ -656,6 +666,8 @@ class Solver:
         actual_cost = solver_utils.calculate_expected_cost(mcost, p_tup, cost_tup)
         self._validate_filter_compare_evals(purported_cost, actual_cost, wgs)
         fcache[cache_gs] = (best_move, actual_cost)
+        assert (type(actual_cost[0]) is Fraction)
+        assert (type(actual_cost[1]) is Fraction)
         return actual_cost
     def _validate_filter_compare_evals(self, old_eval, new_eval, wgs: Game_State):
         """
