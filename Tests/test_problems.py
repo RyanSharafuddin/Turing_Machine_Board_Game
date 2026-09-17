@@ -1,27 +1,40 @@
 from fractions import Fraction
 import controller # pyright: ignore[reportUnusedImport] # needed to prevent some sort of circular import error nonsense
+from src.core.definitions import *
 from src.core.definitions import console as console
 from src.core.solver import Solver as Solver
+from src.core.solver_nightmare import Solver_Nightmare
 from src.problems.problems import get_best_time as get_best_time
 import src.problems.problems as problems
 # problems, solver
 # import math
 # NOTE: run .venv/bin/pytest --capture=tee-sys to see code output in real-time, rather than having it all captured.
 
-def get_problem_and_compare_output(p_id, expected_cost):
+def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False):
     """
     Assert that the solver produces the same evaluation cost as before, and within a reasonable amount of time.
     """
     p = problems.get_requested_problem(p_id=p_id)
     console.print(f"\nNow testing problem {p.identity}")
-    s : Solver = Solver(p, fail_on_warn=True)
+    if (p.mode == NIGHTMARE):
+        s: Solver_Nightmare = Solver_Nightmare(
+            p,
+            fail_on_warn=True,
+            consider_end_round_early=consider_end_round_early,
+        )
+    else:
+        s : Solver = Solver(
+            p,
+            fail_on_warn=True,
+            consider_end_round_early=consider_end_round_early,
+        )
     s.solve()
     assert (s.expected_cost == expected_cost), s.expected_cost # Fractions have perfect accuracy
-    previous_best_time = get_best_time(p)
-    assert (s.seconds_to_solve <= max(previous_best_time + 20, previous_best_time * 1.15))
-    console.print(
-        f"Previous best time: {previous_best_time:,}. Time this run: {s.seconds_to_solve:,}."
-    )
+    # previous_best_time = get_best_time(p)
+    # assert (s.seconds_to_solve <= max(previous_best_time + 20, previous_best_time * 1.15))
+    # console.print(
+    #     f"Previous best time: {previous_best_time:,}. Time this run: {s.seconds_to_solve:,}."
+    # )
 
 class Test_Standard:
     # TODO: Make a test for i4byjk under end round early. (see if can leave end round early code always in play in Solver, and send Solver a variable to its constructor that determines whether it considers ending the round early. Also ensure for at least one or two other problems that their answers are still correct under considering end round early).

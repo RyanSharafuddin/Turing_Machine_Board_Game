@@ -9,8 +9,13 @@ class Solver_Nightmare(Solver):
         "shift_amounts",
         "calc_min_vs_list",
     )
-    def __init__(self, problem: Problem):
-        Solver.__init__(self, problem)
+    def __init__(self, problem: Problem, fail_on_warn=False, consider_end_round_early=config.CONSIDER_END_ROUND_EARLY):
+        Solver.__init__(
+            self,
+            problem,
+            fail_on_warn=fail_on_warn,
+            consider_end_round_early=consider_end_round_early,
+        )
         self.put_cache_gs_in_new_ev_cache = False
         if not self.full_cwas_list: # invalid problem with no solutions
             return
