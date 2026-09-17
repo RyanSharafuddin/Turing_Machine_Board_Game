@@ -153,7 +153,12 @@ class Solver:
         "fail_on_warn",
         "consider_end_round_early",
     )
-    def __init__(self, problem: Problem, fail_on_warn=False, consider_end_round_early=config.CONSIDER_END_ROUND_EARLY):
+    def __init__(
+            self,
+            problem: Problem,
+            fail_on_warn=False,
+            consider_end_round_early=config.CONSIDER_END_ROUND_EARLY
+        ):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
         self._evaluations_cache = dict()
