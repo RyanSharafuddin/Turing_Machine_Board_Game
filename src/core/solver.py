@@ -150,9 +150,9 @@ class Solver:
 
         "progress",
         "sd",
-
+        "fail_on_warn",
     )
-    def __init__(self, problem: Problem):
+    def __init__(self, problem: Problem, fail_on_warn=False):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
         self._evaluations_cache = dict()
@@ -196,6 +196,8 @@ class Solver:
         self.git_hash                           = None
         self.git_message                        = None
         self.sd = display.Solver_Displayer(self)
+
+        self.fail_on_warn = fail_on_warn # used by tests to fail on warnings.
 
         # (bigest_difference, move_cost_tups, game_state, min_depth_move)
         self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3
@@ -684,17 +686,12 @@ class Solver:
 
         wgs: working Game_State
         """
-        if not solver_utils.roughly_geq_2tup(old_eval, new_eval):
+        if not solver_utils.fp_eq_tup(old_eval, new_eval):
             console.print("WARN!!", style=config.BIG_WARN)
-            print("The new evaluation is somehow strictly worse than the old evaluation!")
+            print("The new evaluation is not approximately equal to the old evaluation in validating cache!")
             console.print(f"old: {old_eval}\nnew: {new_eval}")
+            assert not self.fail_on_warn # will fail if fail_on_warn is True.
             self._filter_cache_error_show(wgs, None, message="", end_program=False)
-        elif not (solver_utils.fp_eq_tup(old_eval, new_eval)):
-            console.print("Note:", style=config.SMALL_WARN)
-            print(
-                "The new evaluation is strictly less than the old evaluation. This is acceptable."
-            )
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
 
     def get_move_mcost_gs_ncost_from_cache(self, working_game_state: Game_State, default=None):
         """
@@ -1051,6 +1048,7 @@ class Solver:
             message = (
                 "The following game state was expected to be on the path of the best game tree, but it is not present in the evaluations_cache."
             )
+            assert not self.fail_on_warn
             self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
     def _filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
@@ -1079,17 +1077,20 @@ class Solver:
             console.print("WARN!!", style=config.BIG_WARN)
             print("The new evaluation depth is somehow less than the old evaluation depth.")
             console.print(f"old: {old_eval}\nnew: {new_eval}")
+            assert not self.fail_on_warn
             self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
 
         if not solver_utils.roughly_geq_2tup((old_r, old_q), (new_r, new_q)):
             console.print("WARN!!", style=config.BIG_WARN)
             print("The new evaluation is somehow strictly worse than the old evaluation!")
             console.print(f"old: {old_eval}\nnew: {new_eval}")
+            assert not self.fail_on_warn
             self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
         elif not (solver_utils.fp_eq(old_r, new_r) and solver_utils.fp_eq(old_q, new_q)):
-            console.print("Note:", style=config.SMALL_WARN)
+            console.print("Note:", style=config.BIG_WARN)
+            assert not self.fail_on_warn
             print(
-                "The new evaluation is strictly less than the old evaluation. This is acceptable."
+                "The new evaluation is strictly less than the old evaluation!"
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
     def _res_evdepth_infinite(self, new_result) -> bool:

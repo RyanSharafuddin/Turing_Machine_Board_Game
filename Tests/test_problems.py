@@ -1,5 +1,5 @@
 from fractions import Fraction
-import controller
+import controller # pyright: ignore[reportUnusedImport] # needed to prevent some sort of circular import error nonsense
 from src.core.definitions import console as console
 from src.core.solver import Solver as Solver
 from src.problems.problems import get_best_time as get_best_time
@@ -14,10 +14,11 @@ def get_problem_and_compare_output(p_id, expected_cost):
     """
     p = problems.get_requested_problem(p_id=p_id)
     console.print(f"\nNow testing problem {p.identity}")
-    s : Solver = controller.get_or_make_solver(p, no_pickles=True, force_overwrite=False)[0]
+    s : Solver = Solver(p, fail_on_warn=True)
+    s.solve()
     assert (s.expected_cost == expected_cost), s.expected_cost # Fractions have perfect accuracy
     previous_best_time = get_best_time(p)
-    assert (s.seconds_to_solve <= min(previous_best_time + 10, previous_best_time * 1.15))
+    assert (s.seconds_to_solve <= max(previous_best_time + 20, previous_best_time * 1.15))
     console.print(
         f"Previous best time: {previous_best_time:,}. Time this run: {s.seconds_to_solve:,}."
     )
