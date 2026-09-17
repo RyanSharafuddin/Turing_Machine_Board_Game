@@ -1737,7 +1737,7 @@ class Solver_Displayer:
             #       less -SR -# 3 to view the whole tree in the terminal.
             print(colored_tree)
 
-    def _begin_final_print_table(self):
+    def _begin_final_print_table(self, add_section=True):
         t = Table(
             show_header=False,
             title=Text.assemble("Problem ", get_problem_name_Text(self.solver.problem))
@@ -1745,7 +1745,8 @@ class Solver_Displayer:
         t.add_column(justify="right") # description
         t.add_column(justify="right") # info
         t.add_row("Seconds Taken", Text(f'{self.solver.seconds_to_solve:,}', COLOR_OF_TIME))
-        t.add_section()
+        if add_section:
+            t.add_section()
         return t
     def display_exact_expected_cost(self):
         # TODO: calculate an exact repeating decimal from the Fractions and display, either with a bar or parentheses. (preferably a bar).
@@ -1782,6 +1783,7 @@ class Solver_Displayer:
         print(f"Finished.")
         t = self._begin_final_print_table()
         t.add_row("Considered end round early", "✅" if self.solver.consider_end_round_early else "❌")
+        t.add_section()
         if show_debug_info:
             print("\nCalculating post-solve debug information.\n")
             num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)
