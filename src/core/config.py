@@ -87,6 +87,7 @@ PRINT_COMBOS          = True  # print remaining combos after every query in play
 
 SMALL_WARN = Style.parse("hot_pink")
 BIG_WARN   = Style.parse("b red")
+INFO_STYLE = Style.parse("#AF87FF")
 LINK_COLOR = "blue1"
 
 
@@ -95,7 +96,7 @@ A_TOL                        = 1e-8
 REL_TOL                      = 0
 DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
 CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
-CONSIDER_END_ROUND_EARLY     = True # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
+CONSIDER_END_ROUND_EARLY     = False # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
 STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
     set
     # int

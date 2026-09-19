@@ -137,7 +137,8 @@ def make_solver(problem: Problem, capitulate=False):
     print("\n" if display_bitsets else "", end="")
     sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=display_bitsets)
     console.print(
-        "[b #af87ff]NOTE[/b #af87ff]: If you think this problem will take a long time to solve, be sure to enable the 'Prevent your Mac from automatically sleeping when the display is off' system setting (or equivalent for your computer).",
+        display.INFO_NOTE_TEXT,
+        "If you think this problem will take a long time to solve, be sure to enable the 'Prevent your Mac from automatically sleeping when the display is off' system setting (or equivalent for your computer).",
         highlight=False
     )
     print("\nSolving . . .")
@@ -391,7 +392,7 @@ if(__name__ == "__main__"):
 # # breakpoint here for debugging purposes.
 # # To use in REPL: do:
 # from controller import *
-# problem = get_requested_problem(p_id="ID HERE")
+# problem = problems.get_requested_problem(p_id="ID HERE")
 # s = get_or_make_solver(problem, no_pickles=True, force_overwrite=False)[0]
 # # Then use the solver displayer below to examine.
 # # Use the below for testing/debugging purposes

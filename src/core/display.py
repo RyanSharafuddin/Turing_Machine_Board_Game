@@ -20,6 +20,8 @@ from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 BIT_ONE_TEXT = Text('1', style="bright_green")
 BIT_ZERO_TEXT = Text('0', style="bright_red")
+INFO_NOTE_TEXT = Text("NOTE", style=INFO_STYLE).append(":")
+OVERLINED_DIGITS = "0̅1̅2̅3̅4̅5̅6̅7̅8̅9̅"
 
 letters = string.ascii_uppercase
 def _rules_list_to_names_list(rl, permutation=None):
@@ -1565,18 +1567,13 @@ class Solver_Displayer:
 
     def display_end_round_early_benefit(
             self,
-            found_moves,
             ere_better,
             game_state,
             prev_answer,
             ere_result,
             qs_dict
         ):
-        if (
-            found_moves
-            and (self.num_end_round_early_states_printed < 10)
-            and ere_better
-        ):
+        if ((self.num_end_round_early_states_printed < 10) and ere_better):
             console.print(
                 f"{self.num_end_round_early_states_printed:,}: Found a state where ending the round earlier than you have to is better!"
             )
@@ -1767,7 +1764,6 @@ class Solver_Displayer:
         t.add_row("Rounds", f"{r.numerator:>{nume_len},}/{r.denominator:>{denom_len},}")
         t.add_row("Queries", f"{q.numerator:>{nume_len},}/{q.denominator:>{denom_len},}")
         console.print(t)
-
 
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
