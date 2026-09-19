@@ -73,7 +73,7 @@ class Test_Extreme:
         get_problem_and_compare_output("f435fe", (Fraction(382, 177), Fraction(349, 59)))
 
     def test_f63gekb(self):
-        raise NotImplementedError("Waiting for both")
+        # ancient and before iterative deepenging both: 55/24, 263/40. Current is better.
         get_problem_and_compare_output("f63gekb", ("55/24", "131/20"))
 
 
@@ -101,7 +101,7 @@ class Test_End_Round_Early:
         )
 
     def test_f5xtdf_ere(self):
-        raise NotImplementedError("Waiting for before iterative deepening")
+        # Answer better than ancient or before iterative_deepening
         get_problem_and_compare_output(
             "f5xtdf",
             ("73/39", "135/26"),
@@ -110,7 +110,7 @@ class Test_End_Round_Early:
 
 
 class Test_Nightmare:
-    # TODO: make a test for a 6-verifier short nightmare problem, and 1 of the longest nightmare problems the program is capable of solving thus far. Get their values from before iterative deepening, after applying the perfect Fraction commit to it.
+    # TODO: make a test for a 6-verifier short nightmare problem, and 1 of the longest nightmare problems the program is capable of solving thus far.
     def test_zero_query_nightmare(self):
         get_problem_and_compare_output("b63yrw4_N", (Fraction(0), Fraction(0)))
 
@@ -118,16 +118,16 @@ class Test_Nightmare:
         get_problem_and_compare_output("1_N", (Fraction(1), Fraction(7, 3)))
 
     def test_2_N(self):
-        raise NotImplementedError("waiting for before iterative deepening")
-        # 127/56 and 1031/168 from commit before cache bitsets.
-        get_problem_and_compare_output("2_N", (2.267857142857143, 6.136904761904762))
+        # NOTE: below is the value from before cache bitsets and before iterative deepening
+        # but current value may be better. Just make sure it's not worse.
+        get_problem_and_compare_output("2_N", ("127/56", "1031/168"))
 
     def test_I48Z(self):
-        raise NotImplementedError("waiting for before iterative deepening")
-        # 13/6 and 283/48 from commit before cache bitsets.
-        get_problem_and_compare_output("i48zcx", (2.1666666666666665, 5.895833333333333))
+        # NOTE: below is the value from before cache bitsets and before iterative deepening
+        # but current value may be better. Just make sure it's not worse.
+        get_problem_and_compare_output("i48zcx", ("13/6", "283/48"))
 
     def test_A52F7E1_N(self): # 5 verifier
-        raise NotImplementedError("waiting for before iterative deepening")
-        # 53/30 and 61/15 from commit before cache bitsets.
-        get_problem_and_compare_output("A52F7E1_N", (Fraction(1), Fraction(7, 3)))
+        # NOTE: below is the value from before cache bitsets and before iterative deepening
+        # but current value may be better. Just make sure it's not worse.
+        get_problem_and_compare_output("A52F7E1_N", ("53/30", "61/15"))
