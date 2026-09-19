@@ -73,7 +73,7 @@ class Test_Extreme:
         get_problem_and_compare_output("f435fe", (Fraction(382, 177), Fraction(349, 59)))
 
     def test_f63gekb(self):
-        raise NotImplementedError("You don't know what this one's cost should be yet.")
+        raise NotImplementedError("Waiting for both")
         get_problem_and_compare_output("f63gekb", ("55/24", "131/20"))
 
 
@@ -101,10 +101,10 @@ class Test_End_Round_Early:
         )
 
     def test_f5xtdf_ere(self):
-        raise NotImplementedError("You don't know what this value should be yet.")
+        raise NotImplementedError("Waiting for before iterative deepening")
         get_problem_and_compare_output(
             "f5xtdf",
-            ("a/b", "c/d"),
+            ("73/39", "135/26"),
             consider_end_round_early=True
         )
 
@@ -118,16 +118,16 @@ class Test_Nightmare:
         get_problem_and_compare_output("1_N", (Fraction(1), Fraction(7, 3)))
 
     def test_2_N(self):
-        raise NotImplementedError("You don't know what the exact value for 2_N should be yet.")
+        raise NotImplementedError("waiting for before iterative deepening")
         # 127/56 and 1031/168 from commit before cache bitsets.
         get_problem_and_compare_output("2_N", (2.267857142857143, 6.136904761904762))
 
     def test_I48Z(self):
-        raise NotImplementedError("You don't know what the exact value for i48 should be yet.")
+        raise NotImplementedError("waiting for before iterative deepening")
         # 13/6 and 283/48 from commit before cache bitsets.
         get_problem_and_compare_output("i48zcx", (2.1666666666666665, 5.895833333333333))
 
     def test_A52F7E1_N(self): # 5 verifier
-        raise NotImplementedError("You don't know what the exact value for a52_n should be yet.")
+        raise NotImplementedError("waiting for before iterative deepening")
         # 53/30 and 61/15 from commit before cache bitsets.
         get_problem_and_compare_output("A52F7E1_N", (Fraction(1), Fraction(7, 3)))
