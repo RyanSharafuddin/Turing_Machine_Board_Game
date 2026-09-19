@@ -705,13 +705,58 @@ def calculate_expected_with_depth_cost(move_cost, probs, gss_costs):
     worst_depth = mcost_rounds + (gsf_depth if (gsf_depth > gst_depth) else gst_depth)
     return (expected_r_cost, expected_q_cost, worst_depth)
 
-def calculate_expected_rqd_wo_curr_move(probs, gss_costs):
+def calculate_expected_rq_wo_curr_move(probs, gss_costs):
+    # TODO: consider np weighted mean or matrix multiplication.
     (p_False, p_True) = probs
-    ((rounds_False, queries_False, depth_False), (rounds_True, queries_True, depth_True)) = gss_costs
+    ((rounds_False, queries_False), (rounds_True, queries_True)) = gss_costs
     expected_r_cost = p_False*rounds_False + p_True*rounds_True
     expected_q_cost = p_False*queries_False + p_True*queries_True
-    worst_depth = depth_False if (depth_False > depth_True) else depth_True
-    return (expected_r_cost, expected_q_cost, worst_depth)
+    return (expected_r_cost, expected_q_cost)
+
+# def calculate_expected_rqd_wo_curr_move(probs, gss_costs):
+#     (p_False, p_True) = probs
+#     ((rounds_False, queries_False, depth_False), (rounds_True, queries_True, depth_True)) = gss_costs
+#     expected_r_cost = p_False*rounds_False + p_True*rounds_True
+#     expected_q_cost = p_False*queries_False + p_True*queries_True
+#     worst_depth = depth_False if (depth_False > depth_True) else depth_True
+#     return (expected_r_cost, expected_q_cost, worst_depth)
+
+# def roughly_geq_rqd(node_cost, corresponding_threshold):
+#     """
+#     Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+#     """
+#     (node_rounds, node_queries, node_depth) = node_cost
+#     (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
+#     # NOTE: consider using np.isclose() instead of what currently doing.
+#     # Alternatively, consider using Python's built in math.isclose(). They are different.
+#     # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+#     # Also, consider setting REL_TOL to 1e-9 instead of 0.
+#     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+#     if rounds_close_py:
+#         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+#         if queries_close_py:
+#             return True
+#         return (node_queries > threshold_queries)
+#     return (node_rounds > threshold_rounds)
+
+# def roughly_lt_rqd(node_cost, corresponding_threshold):
+#     """
+#     Returns True if `node_cost` < `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
+#     """
+#     (node_rounds, node_queries, node_depth) = node_cost
+#     (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
+#     # NOTE: consider using np.isclose() instead of what currently doing.
+#     # Alternatively, consider using Python's built in math.isclose(). They are different.
+#     # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
+#     # Also, consider setting REL_TOL to 1e-9 instead of 0.
+#     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
+#     if rounds_close_py:
+#         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
+#         if queries_close_py:
+#             return False
+#         return (node_queries < threshold_queries)
+#     return (node_rounds < threshold_rounds)
+
 
 def rqd_to_str(rqd):
     (r, q, d) = rqd
@@ -766,24 +811,6 @@ def roughly_geq_2tup(node_cost, corresponding_threshold):
         return (node_queries > threshold_queries)
     return (node_rounds > threshold_rounds)
 
-def roughly_geq_rqd(node_cost, corresponding_threshold):
-    """
-    Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
-    """
-    (node_rounds, node_queries, node_depth) = node_cost
-    (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
-    # NOTE: consider using np.isclose() instead of what currently doing.
-    # Alternatively, consider using Python's built in math.isclose(). They are different.
-    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
-    # Also, consider setting REL_TOL to 1e-9 instead of 0.
-    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    if rounds_close_py:
-        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
-        if queries_close_py:
-            return True
-        return (node_queries > threshold_queries)
-    return (node_rounds > threshold_rounds)
-
 def roughly_gt_2tup(node_cost, corresponding_threshold):
     """
     Returns True if `node_cost` > `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
@@ -820,23 +847,7 @@ def roughly_lt_2tup(node_cost, corresponding_threshold):
         return (node_queries < threshold_queries)
     return (node_rounds < threshold_rounds)
 
-def roughly_lt_rqd(node_cost, corresponding_threshold):
-    """
-    Returns True if `node_cost` < `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
-    """
-    (node_rounds, node_queries, node_depth) = node_cost
-    (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
-    # NOTE: consider using np.isclose() instead of what currently doing.
-    # Alternatively, consider using Python's built in math.isclose(). They are different.
-    # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
-    # Also, consider setting REL_TOL to 1e-9 instead of 0.
-    rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-    if rounds_close_py:
-        queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
-        if queries_close_py:
-            return False
-        return (node_queries < threshold_queries)
-    return (node_rounds < threshold_rounds)
+
 
 def fp_lt(a, b):
     """

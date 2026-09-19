@@ -198,13 +198,13 @@ class Solver_Nightmare(Solver):
         # self.called_calculate += 1
         if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
             if config.CACHE_END_STATES:
-                self._evaluations_cache[cache_game_state] = Solver.end_game_eval
-            return Solver.end_game_eval
+                self._evaluations_cache[cache_game_state] = self.end_game_eval
+            return self.end_game_eval
         is_begin_round_state = game_state.proposal_used_this_round is None
         if is_begin_round_state:
             if (round_depth == 0):
-                self._evaluations_cache[cache_game_state] = Solver.round_depth_cutoff
-                return Solver.round_depth_cutoff
+                self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
+                return self.round_depth_cutoff
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self.calc_min_vs_list(self, game_state)
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
@@ -215,7 +215,7 @@ class Solver_Nightmare(Solver):
         ######################################## DEBUGGING ###################################################
 
         search_best_rqd = pre_existing_result[1]
-        search_curr_evdepth_LB_rqd = Solver.triple_inf
+        search_curr_evdepth_LB_rqd = self.start_search_cost
         found_moves = False
         min_round_depth = inf
         evdepth_infinity = False
@@ -241,8 +241,8 @@ class Solver_Nightmare(Solver):
                 t_state_Wgs,
                 working_cwa_set_convert_cache
             )
-            f_result = self._evaluations_cache.get(f_state_Cgs, self.neg1_titz)
-            t_result = self._evaluations_cache.get(t_state_Cgs, self.neg1_titz)
+            f_result = self._evaluations_cache.get(f_state_Cgs, self.never_seen_res)
+            t_result = self._evaluations_cache.get(t_state_Cgs, self.never_seen_res)
             f_lower_bound = f_result[-1]
             t_lower_bound = t_result[-1]
             currnode_lower_bound_rqd = self._cost_calculator(
@@ -330,7 +330,7 @@ class Solver_Nightmare(Solver):
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
             # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
         assert (
-            (search_curr_evdepth_LB_rqd is self.triple_inf)
+            (search_curr_evdepth_LB_rqd is self.start_search_cost)
             or solver_utils.roughly_geq_rqd(search_best_rqd, search_curr_evdepth_LB_rqd)
             ), f"\nlower bound: {search_curr_evdepth_LB_rqd}\nbest so far: {search_best_rqd}\n{game_state}"
 
@@ -358,7 +358,7 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            new_gs_result = self._evaluations_cache.get(new_gs_cache_state, self.neg1_titz)
+            new_gs_result = self._evaluations_cache.get(new_gs_cache_state, self.never_seen_res)
             if (new_gs_result[0] >= round_depth):
                 answer = new_gs_result
             else:
