@@ -14,6 +14,8 @@ def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early
     """
     Assert that the solver produces the same evaluation cost as before, and within a reasonable amount of time.
     """
+    if (type(expected_cost[0]) is str):
+        expected_cost = tuple(Fraction(s) for s in expected_cost)
     p = problems.get_requested_problem(p_id=p_id)
     console.print(f"\nNow testing problem {p.identity}")
     if (p.mode == NIGHTMARE):
@@ -47,12 +49,18 @@ class Test_Standard:
     def test_2(self):
         get_problem_and_compare_output("2", (Fraction(9, 7), Fraction(20, 7)))
 
+    def test_I4BYJK_S_no_ere(self):
+        get_problem_and_compare_output(
+            "I4BYJK_S",
+            (Fraction("29/18"), Fraction("71/18")),
+            consider_end_round_early=False
+        )
+
     def test_c630yvb(self):
         get_problem_and_compare_output("c630yvb", (Fraction(1), Fraction(3, 2)))
 
     def test_i64l26l_s(self):
         get_problem_and_compare_output("i64l26l_s", (Fraction(12, 7), Fraction(129, 28)))
-
 
 class Test_Extreme:
     def test_f52(self):
@@ -63,6 +71,43 @@ class Test_Extreme:
 
     def test_f43(self):
         get_problem_and_compare_output("f435fe", (Fraction(382, 177), Fraction(349, 59)))
+
+    def test_f63gekb(self):
+        raise NotImplementedError("You don't know what this one's cost should be yet.")
+        get_problem_and_compare_output("f63gekb", ("55/24", "131/20"))
+
+
+class Test_End_Round_Early:
+    def test_I4BYK_S_ere(self):
+        get_problem_and_compare_output(
+            "I4BYJK_S",
+            (Fraction("29/18"), Fraction("67/18")), # 4/18 less queries than without considering ere.
+            consider_end_round_early=True
+        )
+
+    # tree is isomorphic to i4byjk_s's
+    def test_c51riiq_ere(self):
+        get_problem_and_compare_output(
+            "c51riiq",
+            (Fraction("29/18"), Fraction("67/18")), # 4/18 less queries than without considering ere.
+            consider_end_round_early=True
+        )
+
+    def test_2_ere(self):
+        get_problem_and_compare_output(
+            "2",
+            (Fraction("9/7"), Fraction("20/7")), # Does not benefit from ere.
+            consider_end_round_early=True
+        )
+
+    def test_f5xtdf_ere(self):
+        raise NotImplementedError("You don't know what this value should be yet.")
+        get_problem_and_compare_output(
+            "f5xtdf",
+            ("a/b", "c/d"),
+            consider_end_round_early=True
+        )
+
 
 class Test_Nightmare:
     # TODO: make a test for a 6-verifier short nightmare problem, and 1 of the longest nightmare problems the program is capable of solving thus far. Get their values from before iterative deepening, after applying the perfect Fraction commit to it.
