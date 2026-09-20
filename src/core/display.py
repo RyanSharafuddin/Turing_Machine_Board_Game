@@ -20,7 +20,7 @@ from .data_structures.hashable_numpy_array import Hashable_Numpy_Array
 MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 BIT_ONE_TEXT = Text('1', style="bright_green")
 BIT_ZERO_TEXT = Text('0', style="bright_red")
-INFO_NOTE_TEXT = Text("NOTE", style=INFO_STYLE).append(":")
+INFO_NOTE_TEXT = Text("NOTE", style=INFO_STYLE).append_text(Text(":", style="default"))
 OVERLINED_DIGITS = "0̅1̅2̅3̅4̅5̅6̅7̅8̅9̅"
 
 letters = string.ascii_uppercase
@@ -412,12 +412,10 @@ class Solver_Displayer:
         """
         if not(active):
             return
-        rule_ids_by_verifier = solver.solver_utils.get_set_r_unique_ids_vs_from_full_cwas(full_cwas, self.n_mode)
+        rules_by_verifier = solver_utils.get_possible_rules_by_verifier(self.solver, full_cwas)
+        possible_rules_this_verifier = rules_by_verifier[v_index]
         # Now print a table (or tables, if n_mode) of all possible rules for each verifier.
-        possible_rules_this_verifier = [
-            self.solver.flat_rule_list[r_id] for r_id in sorted(rule_ids_by_verifier[v_index])
-        ]
-        rcs_list_possible = []
+        rcs_list_possible = [] # a rule cards list, but each rule card only includes rules that are possible for verifier v_index. A specific rule card is an empty list if it does not have any rules that possible for this verifier.
         if(self.n_mode):
             finish_possible_rules = False
             possible_rules_this_v_pointer = 0

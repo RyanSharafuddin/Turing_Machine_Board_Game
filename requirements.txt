@@ -38,7 +38,7 @@ pyperclip==1.11.0
     # via cmd2
 requests==2.32.5
     # via -r requirements.in
-rich==14.1.0
+rich==15.0.0
     # via
     #   -r requirements.in
     #   rich-argparse

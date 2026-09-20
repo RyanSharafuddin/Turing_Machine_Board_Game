@@ -1,4 +1,5 @@
 from fractions import Fraction
+import pytest
 import controller # pyright: ignore[reportUnusedImport] # needed to prevent some sort of circular import error nonsense
 from src.core.definitions import *
 from src.core.definitions import console as console
@@ -38,96 +39,56 @@ def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early
     #     f"Previous best time: {previous_best_time:,}. Time this run: {s.seconds_to_solve:,}."
     # )
 
-class Test_Standard:
-    # TODO: Make a test for i4byjk under end round early. (see if can leave end round early code always in play in Solver, and send Solver a variable to its constructor that determines whether it considers ending the round early. Also ensure for at least one or two other problems that their answers are still correct under considering end round early).
-    def test_zero_query(self):
-        """
-        Tests that the zero_query problem takes zero queries and rounds to solve.
-        """
-        get_problem_and_compare_output("b63yrw4", (Fraction(0), Fraction(0)))
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    [
+        pytest.param("b63yrw4", ("0", "0"), id="b63yrw4"),
+        pytest.param("2", ("9/7", "20/7"), id="2"),
+        pytest.param("I4BYJK_S", ("29/18", "71/18"), id="I4BYJK_S"),
+        pytest.param("c630yvb", ("1", "3/2"), id="c630yvb"),
+        pytest.param("i64l26l_s", ("12/7", "129/28"), id="i64l26l_s"),
+    ]
+)
+def test_standard_no_ere(p_id, expected_cost):
+    get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False)
 
-    def test_2(self):
-        get_problem_and_compare_output("2", (Fraction(9, 7), Fraction(20, 7)))
-
-    def test_I4BYJK_S_no_ere(self):
-        get_problem_and_compare_output(
-            "I4BYJK_S",
-            (Fraction("29/18"), Fraction("71/18")),
-            consider_end_round_early=False
-        )
-
-    def test_c630yvb(self):
-        get_problem_and_compare_output("c630yvb", (Fraction(1), Fraction(3, 2)))
-
-    def test_i64l26l_s(self):
-        get_problem_and_compare_output("i64l26l_s", (Fraction(12, 7), Fraction(129, 28)))
-
-class Test_Extreme:
-    def test_f52(self):
-        get_problem_and_compare_output("f52lujg", (Fraction(40, 23), Fraction(113, 23)))
-
-    def test_f5x(self):
-        get_problem_and_compare_output("f5xtdf", (Fraction(73, 39), Fraction(135, 26)))
-
-    def test_f43(self):
-        get_problem_and_compare_output("f435fe", (Fraction(382, 177), Fraction(349, 59)))
-
-    def test_f63gekb(self):
-        # ancient and before iterative deepenging both: 55/24, 263/40. Current is better.
-        get_problem_and_compare_output("f63gekb", ("55/24", "131/20"))
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    [
+        pytest.param("f52lujg", ("40/23", "113/23"), id="f52lujg"),
+        # answer better than before cache bitset or before it. deepening
+        pytest.param("f5xtdf", ("73/39", "135/26"), id="f5xtdf"),
+        pytest.param("f435fe", ("382/177", "349/59"), id="f435fe"),
+        pytest.param("f63gekb", ("55/24", "131/20"), id="f63gekb"),
+    ]
+)
+def test_extreme_no_ere(p_id, expected_cost):
+    get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False)
 
 
-class Test_End_Round_Early:
-    def test_I4BYK_S_ere(self):
-        get_problem_and_compare_output(
-            "I4BYJK_S",
-            (Fraction("29/18"), Fraction("67/18")), # 4/18 less queries than without considering ere.
-            consider_end_round_early=True
-        )
-
-    # tree is isomorphic to i4byjk_s's
-    def test_c51riiq_ere(self):
-        get_problem_and_compare_output(
-            "c51riiq",
-            (Fraction("29/18"), Fraction("67/18")), # 4/18 less queries than without considering ere.
-            consider_end_round_early=True
-        )
-
-    def test_2_ere(self):
-        get_problem_and_compare_output(
-            "2",
-            (Fraction("9/7"), Fraction("20/7")), # Does not benefit from ere.
-            consider_end_round_early=True
-        )
-
-    def test_f5xtdf_ere(self):
-        # Answer better than ancient or before iterative_deepening
-        get_problem_and_compare_output(
-            "f5xtdf",
-            ("73/39", "135/26"),
-            consider_end_round_early=True
-        )
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    [
+        pytest.param("I4BYJK_S", ("29/18", "67/18"), id="I4BYJK_S"), # 4/18 less.
+        # tree of c51 is isomorphic to i4by_S
+        pytest.param("c51riiq", ("29/18", "67/18"), id="c51riiq"), # 4/18 less.
+        pytest.param("2", ("9/7", "20/7"), id="2"), # same as no ere
+        pytest.param("f5xtdf", ("73/39", "135/26"), id="f5xtdf"), # same as no ere
+    ]
+)
+def test_ere_non_nightmare(p_id, expected_cost):
+    get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=True)
 
 
-class Test_Nightmare:
-    # TODO: make a test for a 6-verifier short nightmare problem, and 1 of the longest nightmare problems the program is capable of solving thus far.
-    def test_zero_query_nightmare(self):
-        get_problem_and_compare_output("b63yrw4_N", (Fraction(0), Fraction(0)))
-
-    def test_1_N(self): # 4 verifier
-        get_problem_and_compare_output("1_N", (Fraction(1), Fraction(7, 3)))
-
-    def test_2_N(self):
-        # NOTE: below is the value from before cache bitsets and before iterative deepening
-        # but current value may be better. Just make sure it's not worse.
-        get_problem_and_compare_output("2_N", ("127/56", "1031/168"))
-
-    def test_I48Z(self):
-        # NOTE: below is the value from before cache bitsets and before iterative deepening
-        # but current value may be better. Just make sure it's not worse.
-        get_problem_and_compare_output("i48zcx", ("13/6", "283/48"))
-
-    def test_A52F7E1_N(self): # 5 verifier
-        # NOTE: below is the value from before cache bitsets and before iterative deepening
-        # but current value may be better. Just make sure it's not worse.
-        get_problem_and_compare_output("A52F7E1_N", ("53/30", "61/15"))
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    [
+        pytest.param("b63yrw4_N", ("0", "0"), id="b63yrw4_N"),
+        pytest.param("1_N", ("1", "7/3"), id="1_N"),
+        pytest.param("2_N", ("127/56", "1031/168"), id="2_N"),
+        pytest.param("i48zcx", ("13/6", "283/48"), id="i48zcx"),
+        pytest.param("A52F7E1_N", ("53/30", "61/15"), id="A52F7E1_N"),
+    ]
+)
+def test_nightmare_no_ere(p_id, expected_cost):
+    get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False)

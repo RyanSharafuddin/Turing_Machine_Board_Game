@@ -8,7 +8,7 @@ from . import display # TODO: refactor so don't have to import display. Only imp
 
 def make_initial_game_state(full_cwas_list):
     # cwa_set representation_change
-    cwa_set = frozenset(list(range(len(full_cwas_list))))
+    cwa_set = frozenset(range(len(full_cwas_list)))
     initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
     return initial_game_state
 
@@ -164,17 +164,13 @@ class Solver:
         self.num_rcs            = len(self.rcs_list)
         self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
         self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
+        self.possible_rules_by_verifier = solver_utils.get_possible_rules_by_verifier(self)
         self.initial_game_state = make_initial_game_state(self.full_cwas_list)
         self.best_move          = None
         self.qs_dict            = solver_utils.make_useful_qs_dict(self, self.initial_game_state)
         self.put_cache_gs_in_new_ev_cache = True
         if not self.full_cwas_list: # invalid problem with no solutions.
             return
-        self.possible_rules_by_verifier = [
-            [self.flat_rule_list[r_index] for r_index in sorted(set_r_unique_ids)]
-            for set_r_unique_ids in
-            solver_utils.get_set_r_unique_ids_vs_from_full_cwas(self.full_cwas_list, self.n_mode)
-        ]
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
         self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
         self.ndarr_dtype        = config.ND_ARR_DTYPE if (self.bitset_type is np.ndarray) else None
@@ -362,7 +358,6 @@ class Solver:
                 f_evdepth = f_result[0]
                 assert (f_evdepth >= round_depth)
                 f_lower_bound = f_result[-1]
-                # TODO: instead of re-computing this from scratch, only compute the increase, then add it.
 
                 currnode_LB_rq_NO_m = self._cost_calculator(
                     p_tup, (f_lower_bound, t_lower_bound)
@@ -464,7 +459,7 @@ class Solver:
         search_curr_evdepth_LB_rq = self.add_move_cost_to_rq(
             search_curr_evdepth_LB_rq_NO_m,
             is_begin_round_state
-            )
+        )
         if (
             evdepth_infinity
             # NOTE: if uncomment the lines updating search_curr_evdepth_LB_rq_NO_m when pruning a move, replace below comparison w/fp_eq_tup, since search_curr_evdepth_LB_rq_NO_m should never be > search_best_rq_NO_m.

@@ -66,25 +66,25 @@ def _compare_two_proposals_small_partition_sets(sp_1: frozenset, sp_2: frozenset
     s1_len = len(sp_1)
     s2_len = len(sp_2)
     if(s1_len < s2_len):
-        if(sp_1.issubset(sp_2)):
+        if sp_2.issuperset(sp_1):
             return _EXCLUDE_FIRST
         return _NOT_ISOMOPHIC
-    if(s1_len == s2_len):
-        if(sp_1.issubset(sp_2)):
-            return _ISOMORPHIC
-        return _NOT_ISOMOPHIC
-    if(s1_len > s2_len):
-        if(sp_1.issuperset(sp_2)):
-            return _EXCLUDE_SECOND
-        return _NOT_ISOMOPHIC
 
-def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
+    if sp_1.issuperset(sp_2):
+        if (s1_len == s2_len):
+            return _ISOMORPHIC
+        return _EXCLUDE_SECOND
+    return _NOT_ISOMOPHIC
+
+def _init_base_qs_dict(solver):
+    """
+    Attributes of solver used:
+    n_mode, full_cwas_list, possible_rules_by_verifier
+    """
     base_queries_dict = dict()
-    rules_by_verifier = get_set_r_unique_ids_vs_from_full_cwas(full_cwas_list, n_mode)
-    for (unsolved_verifier_index, possible_rule_ids_this_verifier) in enumerate(rules_by_verifier):
-        if(len(possible_rule_ids_this_verifier) < 2):
+    for (v_index, possible_rules_this_verifier) in enumerate(solver.possible_rules_by_verifier):
+        if(len(possible_rules_this_verifier) < 2):
             continue # this verifier is solved and has no useful queries, so on to the next one
-        possible_rules_this_verifier = [flat_rule_list[r_id] for r_id in possible_rule_ids_this_verifier]
         for proposal in all_125_possibilities_set:
             rejecting_rules_ids = set()
             for possible_rule in possible_rules_this_verifier:
@@ -94,10 +94,10 @@ def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
                 # cwa_set representation_change
                 cwa_set_true = set()
                 cwa_set_false = set()
-                for (cwa_index, cwa) in enumerate(full_cwas_list):
+                for (cwa_index, cwa) in enumerate(solver.full_cwas_list):
                     (c, p) = (cwa[0], cwa[1])
                     combo_rule_id = c[(
-                        p[unsolved_verifier_index] if(n_mode) else unsolved_verifier_index
+                        p[v_index] if(solver.n_mode) else v_index
                     )].unique_id
                     # cwa_set representation_change
                     if(combo_rule_id in rejecting_rules_ids):
@@ -111,11 +111,11 @@ def _init_base_qs_dict(full_cwas_list, flat_rule_list, n_mode):
                 )
                 if(proposal in base_queries_dict):
                     inner_dict = base_queries_dict[proposal]
-                    assert (not(unsolved_verifier_index in inner_dict))
-                    inner_dict[unsolved_verifier_index] = query_info
+                    assert (not(v_index in inner_dict))
+                    inner_dict[v_index] = query_info
                 else:
                     base_queries_dict[proposal] = {
-                        unsolved_verifier_index: query_info
+                        v_index: query_info
                     }
     return(base_queries_dict)
 
@@ -207,24 +207,18 @@ def _get_updated_qs_dict_and_pset_dict(qs_dict: dict, current_cwa_set):
     """
     new_qs_dict = dict()
     small_partition_set_dict = dict() # dict from proposal : small_partition_set
+    current_cwa_set_len = len(current_cwa_set) # save length to not call len() in loop
     for (proposal, inner_dict) in qs_dict.items():
         have_put_proposal_into_new_dict = False
         for (v_index, q_info) in inner_dict.items():
             (q_info_true, q_info_false) =  q_info
             # put the game state's frozenset first to keep result a frozenset.
             cwa_set_true = current_cwa_set & q_info_true
-            if(0 < len(cwa_set_true) < len(current_cwa_set)): # *potentially* useful query
+            if(0 < len(cwa_set_true) < current_cwa_set_len): # *potentially* useful query
                 cwa_set_false = current_cwa_set & q_info_false
                 new_q_info = Query_Info(cwa_set_true=cwa_set_true, cwa_set_false=cwa_set_false)
                 small_partition = _get_small_partition(cwa_set_true, cwa_set_false)
-                if not have_put_proposal_into_new_dict: # proposal's first useful query
-                    small_partition_set = set()
-                    small_partition_set_dict[proposal] = small_partition_set
-                    small_partition_set.add(small_partition)
-                    new_inner_dict = {v_index: new_q_info}
-                    new_qs_dict[proposal] = new_inner_dict
-                    have_put_proposal_into_new_dict = True
-                else:
+                if have_put_proposal_into_new_dict:
                     previous_small_partition_set_length = len(small_partition_set)
                     small_partition_set.add(small_partition)
                     if(len(small_partition_set) != previous_small_partition_set_length):
@@ -237,6 +231,13 @@ def _get_updated_qs_dict_and_pset_dict(qs_dict: dict, current_cwa_set):
                         # https://stackoverflow.com/questions/27427067/how-to-check-if-an-item-was-freshly-added-to-a-set-without-doing-lookup-thus-ca
                         # only add this query if it adds something to this proposal's small_partition set.
                         new_inner_dict[v_index] = new_q_info
+                else: # proposal's first useful query
+                    small_partition_set = set()
+                    small_partition_set_dict[proposal] = small_partition_set
+                    small_partition_set.add(small_partition)
+                    new_inner_dict = {v_index: new_q_info}
+                    new_qs_dict[proposal] = new_inner_dict
+                    have_put_proposal_into_new_dict = True
     return((new_qs_dict, small_partition_set_dict))
 
 def _get_dict_filtered_of_isomorphic_proposals(base_qs_dict, small_partition_set_dict):
@@ -447,13 +448,6 @@ def _convert_working_gs_to_cache_gs_nightmare_nparray(
         cwa_set=cache_bitset_canonical_form
     )
     return cache_gs
-
-def _python_index(seq, item):
-    return seq.index(item)
-
-def _numpy_index(nparray, item):
-    return np.argwhere(nparray == item)[0, 0]
-
 ############################## min vs list stuff ################################################
 def _min_vs_list_int_bit_mani(nightmare_solver, working_gs) -> list[int]:
     """ Return a list of 'sets' of verifier indexes, where the 'sets' are python integers. """
@@ -499,7 +493,6 @@ def _min_vs_list_ndarray_bit_mani(nightmare_solver, working_gs) -> list[int]:
         else:
             minimal_vs_list[vset_index_this_bitset] |= (1 << v_index)
     return minimal_vs_list
-
 ############################## PUBLIC FUNCTIONS #################################################
 def get_cwa_bitsets(solver) -> np.ndarray :
     """
@@ -602,19 +595,30 @@ def get_permutation(nightmare_solver, working_gs: Game_State):
     (bitsets, indexes) = zip(*bitset_ints_by_verifier_with_indexes)
     return indexes
 
-def get_set_r_unique_ids_vs_from_full_cwas(full_cwas, n_mode: bool):
+def get_possible_rules_by_verifier(solver, alternate_cwas_list=None):
     """
-    Given a full_cwas iterable, returns a list, where list[i] contains a set of the unique_ids for all possible rules for verifier i. Note: this is used in display.py for printing useful_qs_dict info, to display what rules are possible for each verifier.
+    Note: This is used in display to help display which rules are still possible for which verifiers in debugging helper functions, in addition to being used to set up the Solver object.
+    Properties of solver used:
+    n_mode, num_rcs, flat_rule_list, full_cwas_list
     """
-    num_vs = len(full_cwas[0][0])
-    possible_rule_ids_by_verifier = [set() for _ in range(num_vs)]
-    for cwa in full_cwas:
+    cwas_list = solver.full_cwas_list if (alternate_cwas_list is None) else alternate_cwas_list
+    bitsets_by_verifier = [0] * solver.num_rcs
+    for cwa in cwas_list:
         (c, p) = (cwa[0], cwa[1])
         for (v_index, rule) in enumerate(c):
-            corresponding_set = possible_rule_ids_by_verifier[v_index]
-            possible_rule = c[p[v_index]] if(n_mode) else rule
-            corresponding_set.add(possible_rule.unique_id)
-    return(possible_rule_ids_by_verifier)
+            possible_rule = c[p[v_index]] if solver.n_mode else rule
+            bitsets_by_verifier[v_index] |= (1 << possible_rule.unique_id)
+    possible_rules_by_verifier = []
+    for rule_bitset in bitsets_by_verifier:
+        rules_this_bitset = []
+        possible_rules_by_verifier.append(rules_this_bitset)
+        flat_rule_index = 0
+        while rule_bitset:
+            if (rule_bitset & 1):
+                rules_this_bitset.append(solver.flat_rule_list[flat_rule_index])
+            flat_rule_index += 1
+            rule_bitset >>= 1
+    return possible_rules_by_verifier
 
 def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
     """
@@ -640,16 +644,14 @@ def make_full_cwas_list(n_mode: bool, rcs_list: list[list[Rule]]):
 def make_useful_qs_dict(solver, gs: Game_State):
     """
     Get the initial queries dictionary that the solver starts with. gs is the state to use for filtering queries initially.
+    Attributes of solver required:
+    n_mode, full_cwas_list, possible_rules_by_verifier
     """
     if not solver.full_cwas_list: # only happens on invalid problems.
         return None
-    base_qs_dict = _init_base_qs_dict(
-        solver.full_cwas_list,
-        solver.flat_rule_list,
-        solver.n_mode
-    )
+    base_qs_dict = _init_base_qs_dict(solver)
     useful_qs_dict = full_filter(base_qs_dict, gs.cwa_set)
-    return(useful_qs_dict)
+    return useful_qs_dict
 
 def full_filter(qs_dict: dict, current_cwa_set):
     """
@@ -712,55 +714,6 @@ def calculate_expected_rq_wo_curr_move(probs, gss_costs):
     expected_r_cost = p_False*rounds_False + p_True*rounds_True
     expected_q_cost = p_False*queries_False + p_True*queries_True
     return (expected_r_cost, expected_q_cost)
-
-# def calculate_expected_rqd_wo_curr_move(probs, gss_costs):
-#     (p_False, p_True) = probs
-#     ((rounds_False, queries_False, depth_False), (rounds_True, queries_True, depth_True)) = gss_costs
-#     expected_r_cost = p_False*rounds_False + p_True*rounds_True
-#     expected_q_cost = p_False*queries_False + p_True*queries_True
-#     worst_depth = depth_False if (depth_False > depth_True) else depth_True
-#     return (expected_r_cost, expected_q_cost, worst_depth)
-
-# def roughly_geq_rqd(node_cost, corresponding_threshold):
-#     """
-#     Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
-#     """
-#     (node_rounds, node_queries, node_depth) = node_cost
-#     (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
-#     # NOTE: consider using np.isclose() instead of what currently doing.
-#     # Alternatively, consider using Python's built in math.isclose(). They are different.
-#     # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
-#     # Also, consider setting REL_TOL to 1e-9 instead of 0.
-#     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-#     if rounds_close_py:
-#         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
-#         if queries_close_py:
-#             return True
-#         return (node_queries > threshold_queries)
-#     return (node_rounds > threshold_rounds)
-
-# def roughly_lt_rqd(node_cost, corresponding_threshold):
-#     """
-#     Returns True if `node_cost` < `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
-#     """
-#     (node_rounds, node_queries, node_depth) = node_cost
-#     (threshold_rounds, threshold_queries, threshold_depth) = corresponding_threshold
-#     # NOTE: consider using np.isclose() instead of what currently doing.
-#     # Alternatively, consider using Python's built in math.isclose(). They are different.
-#     # See https://numpy.org/doc/stable/reference/generated/numpy.isclose.html to understand how they differ.
-#     # Also, consider setting REL_TOL to 1e-9 instead of 0.
-#     rounds_close_py = math.isclose(node_rounds, threshold_rounds, rel_tol=REL_TOL, abs_tol=A_TOL)
-#     if rounds_close_py:
-#         queries_close_py = math.isclose(node_queries, threshold_queries, rel_tol=REL_TOL, abs_tol=A_TOL)
-#         if queries_close_py:
-#             return False
-#         return (node_queries < threshold_queries)
-#     return (node_rounds < threshold_rounds)
-
-
-def rqd_to_str(rqd):
-    (r, q, d) = rqd
-    return f"({r:0.3f}, {q:0.3f}, max_depth: {d:>3})"
 
 def overall_depth_handler(move_rqd_tups:list):
     """
