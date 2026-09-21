@@ -1,5 +1,4 @@
 -r requirements.txt
 pytest==9.1.1
-filprofiler==2024.11.2
 py-spy==0.4.2
 black==26.5.1

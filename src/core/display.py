@@ -1,4 +1,4 @@
-import string, math, os, sys
+import string, math, os, sys, platform
 from fractions import Fraction
 from itertools import zip_longest
 from collections import deque
@@ -1552,6 +1552,7 @@ class Solver_Displayer:
         self.solver.initial_game_state = og_first_state
 
     def display_counterexample(self, item, compare, message):
+        raise NotImplementedError("Min depth counterexamples have not been updated to work.")
         if item[0] > compare:
             (_, move_rqd_tups, game_state, min_depth_move) = item
             (is_counterexample, _, _, _, min_depth_index) = solver_utils.overall_depth_handler(move_rqd_tups)
@@ -1762,6 +1763,17 @@ class Solver_Displayer:
         t.add_row("Rounds", f"{r.numerator:>{nume_len},}/{r.denominator:>{denom_len},}")
         t.add_row("Queries", f"{q.numerator:>{nume_len},}/{q.denominator:>{denom_len},}")
         console.print(t)
+    def display_python_details(selt):
+        # Display at end while testing Python versions/testing JIT.
+        console.print(f"Using {platform.python_implementation()}.")
+        console.print(f"Python version: {sys.version}")
+        try:
+            console.print("JIT is available:", sys._jit.is_available())
+            enabled = sys._jit.is_enabled()
+        except AttributeError as e:
+            console.print(e)
+            enabled = False
+        console.print("JIT Enabled:", enabled)
 
     # TODO: The below 3 functions are all very similar. In fact non_capitulate_final_printing and pickled_display_print are almost exactly the same. Either combine those 2 into the same function, or factor out commonalities b/t the 2 or 3 below functions into other functions.
     def non_capitulate_final_printing(
@@ -1811,6 +1823,7 @@ class Solver_Displayer:
         t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
         self.display_exact_expected_cost()
+        self.display_python_details()
         sys.stdout.flush()
     def capitulate_final_printing(self, best_cost, underperformance):
         print("Finished.")

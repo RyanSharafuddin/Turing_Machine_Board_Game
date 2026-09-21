@@ -1,4 +1,4 @@
-import pickle, os, platform, gc, argparse, git # pyright: ignore[reportUnusedImport]
+import pickle, os, platform, gc, argparse, git, sys # pyright: ignore[reportUnusedImport]
 from rich import print as rprint
 from rich.text import Text
 # My imports
@@ -341,7 +341,6 @@ def solve_all(mode=None, num_vs=None, force_pickle=True):
 if(__name__ == "__main__"):
     try:
         console.print("", style="green", end="")
-        # console.print(f"Using {platform.python_implementation()}.", justify="center")
         parser = make_parser()
         args = parser.parse_args()
 
