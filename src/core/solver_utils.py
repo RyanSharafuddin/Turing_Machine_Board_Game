@@ -679,6 +679,9 @@ def progress_initialize():
     )
     return(p)
 
+# TODO: Consider making a Solver_Utils class and an su object that has these as instance methods.
+# Also consider making one_answer_left an instance method of this class. Timing.
+
 # NOTE: all calculate_*_cost functions need to take the same 3 parameters, regardless of whether they use them
 def calculate_expected_cost(move_cost, probs, gss_costs):
     (mcost_rounds, mcost_queries) = move_cost
@@ -715,37 +718,7 @@ def calculate_expected_rq_wo_curr_move(probs, gss_costs):
     expected_q_cost = p_False*queries_False + p_True*queries_True
     return (expected_r_cost, expected_q_cost)
 
-def overall_depth_handler(move_rqd_tups:list):
-    """
-    Returns
-    -------
-    (a, b, c, d, e)
-
-    a:
-        boolean for is min depth counterexample,
-    b:
-        the min depth move,
-    c:
-        the depth difference,
-    d:
-        the difference in average cost
-    e:
-        min_depth_index
-    """
-    move_rqd_tups.sort(key = lambda move_rqd_tup: move_rqd_tup[1])
-    if not move_rqd_tups:
-        return (False, None, None, None, None)
-    min_depth_index = min(range(len(move_rqd_tups)), key=lambda i:move_rqd_tups[i][1][2])
-    (lcm_rounds, lcm_qs, lcm_depth) = move_rqd_tups[0][1]
-    (min_depth_move, (md_rounds, md_qs, md_depth)) = move_rqd_tups[min_depth_index]
-    is_counterexample = (
-        (lcm_depth > md_depth) and
-        roughly_gt_2tup((md_rounds, md_qs), (lcm_rounds, lcm_qs))
-    )
-    depth_diff = lcm_depth - md_depth
-    avg_cost_diff = (md_rounds - lcm_rounds, md_qs - lcm_qs)
-    return (is_counterexample, min_depth_move, depth_diff, avg_cost_diff, min_depth_index)
-
+# TODO: consider using numpy for all the tuple operations below, after making rq a numpy array.
 def roughly_geq_2tup(node_cost, corresponding_threshold):
     """
     Returns True if `node_cost` >= `corresponding_threshold`, using floating point tolerance to compare for 'equality'.
@@ -800,7 +773,24 @@ def roughly_lt_2tup(node_cost, corresponding_threshold):
         return (node_queries < threshold_queries)
     return (node_rounds < threshold_rounds)
 
+def add_move_cost_to_rq(rq: tuple[float, float], does_move_cost_round: bool | int):
+    (r, q) = rq
+    return (r + does_move_cost_round, q + 1)
 
+def subtract_move_cost_from_rq(rq: tuple[float, float], does_move_cost_round: bool | int):
+    (r, q) = rq
+    return (r - does_move_cost_round, q - 1)
+
+def divide_2tup_by_p(rq, p):
+    (r, q) = (rq)
+    return (r/p, q/p)
+
+def mul_2tup_by_p(rq, p):
+    (r, q) = rq
+    return (r * p, q * p)
+
+def subtract_2tup(a, b):
+    return (a[0] - b[0], a[1] - b[1])
 
 def fp_lt(a, b):
     """
