@@ -623,15 +623,7 @@ class Solver:
         cache_result = self.never_seen_cache_res
         const_args = self._const_args_to_calc(working_gs)
         while (evdepth != inf):
-            if display:
-                console.print(f"Calculating root to round depth: {evdepth:,}")
-                if self.num_concurrent_tasks:
-                    self.progress = solver_utils.progress_initialize()
-                    self.depth_to_tasks_l = [
-                        self.progress.add_task(f"Calculating move depth {depth}:", total=0, visible=False)
-                        for depth in range(self.num_concurrent_tasks)
-                    ]
-                    self.progress.start()
+            self.sd.handle_display_before_calc(evdepth, display)
             try:
                 # remember that handle_state calls iterative deepen on non-begin round working_gs.
                 (cache_result, calc_pruned) = self._calculate_best_move(
@@ -642,21 +634,17 @@ class Solver:
                 )
             finally:
                 # finally block ensures progress.stop() is always called.
-                if (display and self.num_concurrent_tasks):
-                    self.progress.stop()
+                self.sd.stop_display(display)
             assert (not calc_pruned)
             evdepth = cache_result[0]
             result_best_rq = cache_result[2]
-            result_lb = cache_result[-1]
+            evdepth_infinite = self._res_evdepth_infinite(cache_result)
+            lower_bound = cache_result[-1]
+            assert solver_utils.roughly_geq_2tup(best_known_rq, result_best_rq)
             if solver_utils.roughly_lt_2tup(result_best_rq, best_known_rq):
                 assert (self.best_move is not None)
                 (best_move, best_known_rq) = (self.best_move, result_best_rq)
-            if display:
-                console.print(f"Received evdepth: [repr.number]{evdepth}[/repr.number]")
-                console.print(f"Best known cost : {result_best_rq}")
-                if not self._res_evdepth_infinite(cache_result):
-                    console.print(f"Best lower bound: {result_lb}")
-                print()
+            self.sd.handle_display_after_calc(evdepth, best_known_rq, evdepth_infinite, lower_bound, display)
             evdepth += 1
         self.best_move = best_move
         return (cache_result, False)
@@ -1132,9 +1120,6 @@ class Solver:
             assert (len(new_result) == 3) # NOTE: will need to change this if change cache result format.
             return True
         return False
-    def _experiment(self):
-        pass
-
     def get_num_begin_round_states(self, original_cache: dict):
         """
         Returns the number of begin-round states stored in given *pre-filter* cache. Not for capitulate solvers.

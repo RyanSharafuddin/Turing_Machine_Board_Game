@@ -1139,19 +1139,21 @@ class Solver_Displayer:
         if (s == "-0.000"):
             return "0.000"
         return s
-    def _get_row_args_evcache_size(self, size):
+    def _add_mem_usage_deets(self, size, t: Table):
         """
         Get a list of row args that represent the arguments to pass to table.add_row(*row_args) to add information about memory usage to a table. i.e. each element of row_args_l is a list representing a table row.
         """
         row_args_l = []
         if (size < 0):
-            return row_args_l
-        if(size >= (2 ** 30)):
+            return
+        if (size >= (2 ** 30)):
             row_args_l.append(["Gigabytes", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE)])
         if(size >= (2 ** 20)):
             row_args_l.append(["Megabytes", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
         row_args_l.append([Text("Bytes", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
-        return row_args_l
+        for ra in row_args_l:
+            t.add_row(*ra)
+        t.add_section()
     @staticmethod
     def _get_expected_cost_Text(
         rq_cost : tuple[float | Fraction, float | Fraction],
@@ -1175,12 +1177,18 @@ class Solver_Displayer:
         A Text for pretty displaying of expected cost.
         """
         (rounds, queries) = rq_cost
-        dec_digits = 3 # number of digits after decimal
+        dec_digits = 3 # number of digits after decimal #TODO: set by config. And use this in problem table printed by solve.
         r_str = f'{rounds:>{r_justify}.{dec_digits}f}'
         q_str = f'{queries:>{q_justify}.{dec_digits}f}'
         r_Text = Text(r_str, r_style)
         q_Text = Text(q_str, q_style)
         return Text.assemble(r_Text, " ", q_Text)
+    def _add_n_mode_deets_to_table(self, t: Table):
+        if self.solver.n_mode:
+            t.add_row(
+                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", NUM_COMBOS_STYLE)
+            )
+            t.add_section()
 
     def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
         """
@@ -1690,6 +1698,37 @@ class Solver_Displayer:
             verifier_colors=verifier_colors,
         )
 
+
+    def handle_display_before_calc(self, evdepth, active: bool):
+        if active:
+            console.print(f"Calculating root to round depth: {evdepth:,}")
+            if self.solver.num_concurrent_tasks:
+                self.solver.progress = solver_utils.progress_initialize()
+                self.solver.depth_to_tasks_l = [
+                    self.solver.progress.add_task(f"Calculating move depth {depth}:", total=0, visible=False)
+                    for depth in range(self.solver.num_concurrent_tasks)
+                ]
+                self.solver.progress.start()
+
+    def stop_display(self, active: bool):
+        if active and self.solver.num_concurrent_tasks:
+            self.solver.progress.stop()
+
+    def handle_display_after_calc(
+            self,
+            evdepth,
+            best_known_cost,
+            evdepth_infinite: bool,
+            lb_cost,
+            active: bool,
+        ):
+        if active:
+            console.print(f"Received evdepth: [repr.number]{evdepth}[/repr.number]")
+            console.print(f"Best known cost : {best_known_cost}")
+            if not evdepth_infinite:
+                console.print(f"Best lower bound: {lb_cost}")
+            print()
+
     def _create_html_of_tree(self, tree: str):
         problem = self.solver.problem
         os.makedirs(TREE_DIRECTORY, exist_ok=True)
@@ -1810,36 +1849,24 @@ class Solver_Displayer:
             t.add_section()
         if show_ec_mem_usage:
             self.solver.calculate_evcache_size(original_cache)
-            row_args_l = self._get_row_args_evcache_size(self.solver.size_of_evaluations_cache_in_bytes)
-            for row_arg in row_args_l:
-                t.add_row(*row_arg)
-            t.add_section()
-        if self.solver.n_mode:
-            t.add_row(
-                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", NUM_COMBOS_STYLE)
-            )
-            t.add_section()
+            self._add_mem_usage_deets(self.solver.size_of_evaluations_cache_in_bytes, t)
+        self._add_n_mode_deets_to_table(t)
         rq = self.solver.expected_cost
         t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
         self.display_exact_expected_cost()
-        self.display_python_details()
         sys.stdout.flush()
     def capitulate_final_printing(self, best_cost, underperformance):
         print("Finished.")
         (r, q) = self.solver.expected_cost
         t = self._begin_final_print_table()
-        if self.solver.n_mode:
-            t.add_row(
-                f"# Combos with rearrangement",
-                Text(f"{self.solver.get_num_combos():,}", f'd {NUM_COMBOS_STYLE}')
-            )
-            t.add_section()
+        self._add_n_mode_deets_to_table(t)
         if underperformance is not None:
             (ur, uq) = underperformance
             (bcr, bcq) = best_cost
             ur_str = self._process_underperformance_str(ur) # underperformance rounds
             uq_str = self._process_underperformance_str(uq) # queries
+            # TODO: set decimal precision here via config
             bcr_str = f'{bcr:0.3f}' # best cost rounds
             bcq_str = f'{bcq:0.3f}' # best cost queries
             ccr_str = f'{r:0.3f}'   # capitulate cost rounds
@@ -1886,17 +1913,9 @@ class Solver_Displayer:
         if (self.solver.size_of_evaluations_cache_in_bytes < 0):
             t.add_row("Memory Usage", '❓')
         else:
-            mem_usage_row_args = self._get_row_args_evcache_size(
-                self.solver.size_of_evaluations_cache_in_bytes
-            )
-            for mem_row in mem_usage_row_args:
-                t.add_row(*mem_row)
+            self._add_mem_usage_deets(self.solver.size_of_evaluations_cache_in_bytes, t)
         t.add_section()
-        if self.solver.n_mode:
-            t.add_row(
-                f"# Combos with rearrangement", Text(f"{self.solver.get_num_combos():,}", NUM_COMBOS_STYLE)
-            )
-            t.add_section()
+        self._add_n_mode_deets_to_table(t)
         rq = self.solver.expected_cost
         t.add_row("Expected Cost", self._get_expected_cost_Text(rq))
         console.print(t)
