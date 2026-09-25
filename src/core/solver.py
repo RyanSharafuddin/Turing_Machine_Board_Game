@@ -558,15 +558,7 @@ class Solver:
         result = self.never_seen_res
         const_args = self._const_args_to_calc(working_gs)
         while (evdepth != inf):
-            if display:
-                console.print(f"Calculating root to round depth: {evdepth:,}")
-                if self.num_concurrent_tasks:
-                    self.progress = solver_utils.progress_initialize()
-                    self.depth_to_tasks_l = [
-                        self.progress.add_task(f"Calculating move depth {depth}:", total=0, visible=False)
-                        for depth in range(self.num_concurrent_tasks)
-                    ]
-                    self.progress.start()
+            self.sd.handle_display_before_calc(evdepth, display)
             try:
                 # remember that handle_state calls iterative deepen on non-begin round working_gs.
                 result = self._calculate_best_move(
@@ -574,19 +566,16 @@ class Solver:
                 )
             finally:
                 # finally block ensures progress.stop() is always called.
-                if (display and self.num_concurrent_tasks):
-                    self.progress.stop()
+                self.sd.stop_display(display)
             evdepth = result[0]
             result_best_rq = result[1]
+            evdepth_infinite = self._res_evdepth_infinite(result)
+            lower_bound = result[-1]
+            assert solver_utils.roughly_geq_2tup(best_known_rq, result_best_rq)
             if solver_utils.roughly_lt_2tup(result_best_rq, best_known_rq):
                 assert (self.best_move is not None)
                 (best_move, best_known_rq) = (self.best_move, result_best_rq)
-            if display:
-                console.print(f"Received evdepth: [repr.number]{evdepth}[/repr.number]")
-                console.print(f"Best known cost : {result[1]}")
-                if not self._res_evdepth_infinite(result):
-                    console.print(f"Best lower bound: {result[2]}")
-                print()
+            self.sd.handle_display_after_calc(evdepth, best_known_rq, evdepth_infinite, lower_bound, display)
             evdepth += 1
         self.best_move = best_move
         return result
