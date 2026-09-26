@@ -773,6 +773,11 @@ def roughly_lt_2tup(node_cost, corresponding_threshold):
         return (node_queries < threshold_queries)
     return (node_rounds < threshold_rounds)
 
+def min_2tup(a, b):
+    if roughly_lt_2tup(a, b):
+        return b
+    return a
+
 def add_move_cost_to_rq(rq: tuple[float, float], does_move_cost_round: bool | int):
     (r, q) = rq
     return (r + does_move_cost_round, q + 1)
