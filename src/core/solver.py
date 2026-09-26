@@ -303,10 +303,10 @@ class Solver:
         self.calculate_call_id += 1
         call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
         is_begin_round_state = game_state.proposal_used_this_round is None
-        if (call_id == 2_022_797):
-            console.print("AT DESIRED CALL ID", style="hot_pink")
-            console.print(f"{pre_existing_cache_result = }")
-            self.sd.print_game_state(game_state)
+        # if (call_id == 2_022_797):
+        #     console.print("AT DESIRED CALL ID", style="hot_pink")
+        #     console.print(f"{pre_existing_cache_result = }")
+        #     self.sd.print_game_state(game_state)
 
         if check_one_answer:
             if one_answer_left(self.full_cwas_list, game_state.cwa_set):
@@ -381,7 +381,6 @@ class Solver:
 
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
-            f_best_known = f_result_cache[2]
             false_needs_update = (f_evdepth < round_depth) or f_cache_pruned
             if false_needs_update:
                 # TODO: have already calculated this value when calculating currnode_LB_rq_NO. So try to
@@ -391,6 +390,11 @@ class Solver:
                     solver_utils.subtract_2tup(vpt_NO_m, pTrue_x_trueLB),
                     p_false
                 )
+                f_best_known = f_result_cache[2]
+                if solver_utils.roughly_lt_2tup(f_best_known, vpt_false):
+                    vpt_false = f_best_known
+                    # f_lower_bound < vpt_false, b/c if that weren't true, then
+                    # f_state would have infinite evdepth.
                 # We know that f_lower_bound < vpt_false, b/c otherwise would have pruned this
                 # when comparing currnode_LB_rq_NO_m to vpt_NO_m.
                 # TODO: consider updating round_depth 1 by 1, rather than all at once.
@@ -425,6 +429,9 @@ class Solver:
                     solver_utils.subtract_2tup(vpt_NO_m, pFalse_x_falseLB),
                     p_true
                 )
+                t_best_known = t_result_cache[2]
+                if solver_utils.roughly_lt_2tup(t_best_known, vpt_true):
+                    vpt_true = t_best_known
                 # We know that t_lower_bound < vpt_true, b/c otherwise would have pruned this when
                 # seeing if the false node exceeds its threshold.
                 # TODO: consider updating round_depth 1 by 1, rather than all at once.
@@ -517,6 +524,9 @@ class Solver:
                 cache_answer = new_gs_cache_result
                 calc_pruned = False
             else:
+                new_result_best_known = new_gs_cache_result[2]
+                if solver_utils.roughly_lt_2tup(new_result_best_known, vpt):
+                    vpt = new_result_best_known
                 (cache_answer, calc_pruned) = self._calculate_best_move(
                     qs_dict                   = qs_dict,
                     game_state                = new_gs,
