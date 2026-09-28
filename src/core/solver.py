@@ -199,11 +199,6 @@ class Solver:
         self.fail_on_warn = fail_on_warn # used by tests to fail on warnings.
         self.consider_end_round_early = consider_end_round_early
 
-        # (bigest_difference, move_cost_tups, game_state, min_depth_move)
-        self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3
-        self.biggest_begin_round_avg_difference_info = self.biggest_avg_difference_info
-        self.biggest_depth_difference_info        =  (self.ninf,) + (None,) * 3
-
     @staticmethod
     def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
         """
@@ -908,14 +903,13 @@ class Solver:
         """
         Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls _filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
         """
-        prev_gs_eval = self._handle_delete_eval(curr_working_gs, curr_cache_gs)
+        self._handle_delete_eval(curr_working_gs, curr_cache_gs)
         current_gs_eval = self.iterative_deepen(curr_working_gs, display=False)
         if (self.best_move is None):
             console.print("O NOES! self.best_move is None!", style=config.BIG_WARN)
             console.print(curr_working_gs)
             self.sd.print_game_state(curr_working_gs)
             exit()
-        self._filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
         new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
         (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
         stack.append(gs_false)
@@ -941,42 +935,6 @@ class Solver:
             console.print("Exiting.", style=config.BIG_WARN)
             exit()
 
-
-
-    def update_biggest_counterexamples(self, move_rq_tups, game_state):
-        raise NotImplementedError()
-        (
-            is_counterexample, min_depth_move, depth_difference, avg_cost_difference, min_depth_index
-        ) = solver_utils.overall_depth_handler(move_rq_tups) # this function sorts for you.
-        if not is_counterexample:
-            return
-        info_last_3 = (move_rq_tups, game_state, min_depth_move)
-        current_biggest_avg_cost_difference = self.biggest_avg_difference_info[0]
-        if avg_cost_difference > current_biggest_avg_cost_difference:
-            self.biggest_avg_difference_info = (avg_cost_difference,) + info_last_3
-        if game_state.proposal_used_this_round is None:
-            current_biggest_begin_round_avg_cost_difference = self.biggest_begin_round_avg_difference_info[0]
-            if avg_cost_difference > current_biggest_begin_round_avg_cost_difference:
-                self.biggest_begin_round_avg_difference_info = (avg_cost_difference,) + info_last_3
-        current_biggest_depth_difference = self.biggest_depth_difference_info[0]
-        if depth_difference > current_biggest_depth_difference:
-            self.biggest_depth_difference_info = (depth_difference,) + info_last_3
-
-    def display_biggest_counterexamples(self):
-        raise NotImplementedError("Haven't updated this to fit with new changes.")
-        items = (
-            self.biggest_avg_difference_info,
-            self.biggest_begin_round_avg_difference_info,
-            self.biggest_depth_difference_info
-        )
-        compares = ((self.ninf, self.ninf), (self.ninf, self.ninf), self.ninf)
-        messages = (
-            "\nShowing the min depth counterexample with the biggest avg difference:",
-            "\nShowing the begin round min depth counterexample with the biggest avg difference:",
-            "\nShowing the min depth counterexample with the biggest depth difference:"
-        )
-        for (item, compare, message) in zip(items, compares, messages, strict=True):
-            self.sd.display_counterexample(item, compare, message)
 
     def get_info_to_save(self):
         return Info_To_Save(
@@ -1037,48 +995,6 @@ class Solver:
             assert not self.fail_on_warn
             self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
-    def _filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
-        """
-        Used on *pre-filter* costs.
-
-        Params
-        -----
-
-        old_eval: a cost
-            The old cost. May be None.
-
-        new_eval: a cost.
-            Guaranteed to not be None.
-
-        wgs: working Game_State
-
-        cgs: cache Game_State
-        """
-        if (old_eval is None):
-            return
-        (old_evdepth, (old_r, old_q)) = old_eval[0:2]
-        (new_evdepth, (new_r, new_q)) = new_eval[0:2]
-
-        if not ((old_evdepth == inf) and (new_evdepth == inf)):
-            console.print("WARN!!", style=config.BIG_WARN)
-            print("Filter cache is encountering evdepths that are *not* infinity!")
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-            assert not self.fail_on_warn
-            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
-
-        if not solver_utils.roughly_geq_2tup((old_r, old_q), (new_r, new_q)):
-            console.print("WARN!!", style=config.BIG_WARN)
-            print("The new evaluation is somehow strictly worse than the old evaluation!")
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-            assert not self.fail_on_warn
-            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
-        elif not (solver_utils.fp_eq(old_r, new_r) and solver_utils.fp_eq(old_q, new_q)):
-            console.print("Note:", style=config.BIG_WARN)
-            assert not self.fail_on_warn
-            print(
-                "The new evaluation is strictly less than the old evaluation!"
-            )
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
     def _res_evdepth_infinite(self, new_result) -> bool:
         """
         Given a cache result *before* filtering, return a boolean indicating whether it has infinite evdepth, along with some error-checking.
