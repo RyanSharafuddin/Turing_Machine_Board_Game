@@ -281,11 +281,11 @@ class Solver:
             round_depth,
         ):
         """
-        Assumes that the caller already has both a working game state and its cache game state on hand, has a pre-existing result (or self.neg1_titz if no result is in the cache), has checked that the pre-existing result's evdepth is low enough to warrant a further evaluation, and has set check_one_answer appropriately to avoid unnecessarily checking if the state has exactly one answer.
+        Assumes that the caller already has both a working game state and its cache game state on hand, has a pre-existing result, has checked that the pre-existing result's evdepth is low enough to warrant a further evaluation, and has set check_one_answer appropriately to avoid unnecessarily checking if the state has exactly one answer.
 
         Returns
         ------
-        (evdepth, search_best_rq, optional search_curr_evdepth_LB_rq)
+        ((evdepth, cache_result_pruned, best_known_rq, optional curr_evdepth_LB_rq), calc_pruned)
         """
         # self.calculate_call_id += 1
         # call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
@@ -393,6 +393,7 @@ class Solver:
                 )
                 f_evdepth = f_result_cache[0]
                 assert ((f_evdepth >= round_depth) or calc_pruned)
+                assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -407,7 +408,7 @@ class Solver:
             if true_needs_update:
                 # TODO: have already calculated this value when calculating expected value
                 #       (that is, when you did currnode_LB_rq_NO_m = self._cost_calculator...). So try to
-                #       reuse rather than recalculate.
+                #       reuse rather than recalculate, *if f_lower_bound has not been updated*.
                 pFalse_x_falseLB = solver_utils.mul_2tup_by_p(f_lower_bound, p_false)
                 vpt_true = solver_utils.divide_2tup_by_p(
                     solver_utils.subtract_2tup(vpt_NO_m, pFalse_x_falseLB),
@@ -427,6 +428,7 @@ class Solver:
                 )
                 t_evdepth = t_result_cache[0]
                 assert ((t_evdepth >= round_depth) or calc_pruned)
+                assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -521,6 +523,8 @@ class Solver:
                     depth                     = depth+1,
                     round_depth               = round_depth
                 )
+                assert ((cache_answer[0] >= round_depth) or calc_pruned)
+                assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
             else:
                 cache_answer = new_gs_cache_result
                 calc_pruned = False
@@ -565,6 +569,8 @@ class Solver:
         if (self.consider_end_round_early and (not (is_begin_round_state or evdepth_infinity))):
             # TODO: if have beat the vp threshold, update the vpt value here before using it in the rest of
             #       this block by adding is_begin_round to vpt_NO_m w/solver_utils.add
+            if beat_vertical_prune_threshold:
+                vpt = solver_utils.add_move_cost_to_rq(vpt_NO_m, False) # it is not a begin_round_state here.
             raise NotImplementedError("Not considering ere yet when using vertical pruning")
             saved_best_move = self.best_move # NOTE: this can save a clobbered best move
             new_round_early_working_gs = Game_State(
@@ -579,7 +585,7 @@ class Solver:
             )
             end_round_early_result = self._evaluations_cache.get(
                 new_round_early_cache_gs,
-                self.never_seen_cache_res
+                self.cache_res_lb_double_1
             )
             end_round_early_lower_bound_rq = end_round_early_result[-1]
             if solver_utils.roughly_geq_2tup(end_round_early_lower_bound_rq, search_best_rq):
