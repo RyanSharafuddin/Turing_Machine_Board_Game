@@ -203,11 +203,6 @@ class Solver:
         self.fail_on_warn = fail_on_warn # used by tests to fail on warnings.
         self.consider_end_round_early = consider_end_round_early
 
-        # (bigest_difference, move_cost_tups, game_state, min_depth_move)
-        self.biggest_avg_difference_info        = ((self.ninf,) * 2,) + (None,) * 3
-        self.biggest_begin_round_avg_difference_info = self.biggest_avg_difference_info
-        self.biggest_depth_difference_info        =  (self.ninf,) + (None,) * 3
-
         self.calculate_call_id = 0 # for debugging purposes
 
     @staticmethod
@@ -239,8 +234,6 @@ class Solver:
                     # see the Small Improvements section of your todo document for more info.
                     if(move_info is not None):
                         yield move_info
-                    # else:
-                    #     pass # not a useful query
 
         else:
             # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
@@ -374,7 +367,9 @@ class Solver:
 
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
-            false_needs_update = (f_evdepth < round_depth) or f_cache_pruned
+            false_needs_update = (
+                (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
+            )
             if false_needs_update:
                 # TODO: have already calculated this value when calculating expected value
                 #       (that is, when you did currnode_LB_rq_NO_m = self._cost_calculator...). So try to
@@ -398,7 +393,6 @@ class Solver:
                 )
                 f_evdepth = f_result_cache[0]
                 assert ((f_evdepth >= round_depth) or calc_pruned)
-                assert not (f_result_cache[1] and not calc_pruned) # not (cache pruned and not calc pruned)
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -407,7 +401,9 @@ class Solver:
 
             t_evdepth = t_result_cache[0]
             t_cache_pruned = t_result_cache[1]
-            true_needs_update = (t_evdepth < round_depth) or t_cache_pruned
+            true_needs_update = (
+                (t_evdepth < round_depth) or (t_cache_pruned and (t_evdepth == round_depth))
+            )
             if true_needs_update:
                 # TODO: have already calculated this value when calculating expected value
                 #       (that is, when you did currnode_LB_rq_NO_m = self._cost_calculator...). So try to
@@ -431,7 +427,6 @@ class Solver:
                 )
                 t_evdepth = t_result_cache[0]
                 assert ((t_evdepth >= round_depth) or calc_pruned)
-                assert not (t_result_cache[1] and not calc_pruned) # not (cache pruned and not calc pruned)
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -510,10 +505,12 @@ class Solver:
                 self._evaluations_cache[cache_game_state] = new_gs_cache_result
                 return (new_gs_cache_result, True)
             new_gs_cache_pruned = new_gs_cache_result[1]
-            if ((new_gs_cache_result[0] >= round_depth) and (not new_gs_cache_pruned)):
-                cache_answer = new_gs_cache_result
-                calc_pruned = False
-            else:
+            new_gs_evdepth = new_gs_cache_result[0]
+            new_gs_needs_update = (
+                (new_gs_evdepth < round_depth)
+                or (new_gs_cache_pruned and (new_gs_evdepth == round_depth))
+            )
+            if new_gs_needs_update:
                 (cache_answer, calc_pruned) = self._calculate_best_move(
                     qs_dict                   = qs_dict,
                     game_state                = new_gs,
@@ -524,6 +521,9 @@ class Solver:
                     depth                     = depth+1,
                     round_depth               = round_depth
                 )
+            else:
+                cache_answer = new_gs_cache_result
+                calc_pruned = False
             self._evaluations_cache[cache_game_state] = cache_answer
             return (cache_answer, calc_pruned)
 
@@ -1001,14 +1001,13 @@ class Solver:
         """
         Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls _filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
         """
-        prev_gs_eval = self._handle_delete_eval(curr_working_gs, curr_cache_gs)
+        self._handle_delete_eval(curr_working_gs, curr_cache_gs)
         current_gs_eval = self.iterative_deepen(curr_working_gs, display=False)
         if (self.best_move is None):
             console.print("O NOES! self.best_move is None!", style=config.BIG_WARN)
             console.print(curr_working_gs)
             self.sd.print_game_state(curr_working_gs)
             exit()
-        self._filter_compare_evals(prev_gs_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
         new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
         (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
         stack.append(gs_false)
@@ -1093,48 +1092,6 @@ class Solver:
             assert not self.fail_on_warn
             self._filter_cache_error_show(working_gs, cache_gs, message, end_program=False)
         return None
-    def _filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
-        """
-        Used on *pre-filter* costs.
-
-        Params
-        -----
-
-        old_eval: a cost
-            The old cost. May be None.
-
-        new_eval: a cost.
-            Guaranteed to not be None.
-
-        wgs: working Game_State
-
-        cgs: cache Game_State
-        """
-        if (old_eval is None):
-            return
-        (old_evdepth, _, (old_r, old_q)) = old_eval[0:3]
-        (new_evdepth, _, (new_r, new_q)) = new_eval[0:3]
-
-        if not ((old_evdepth == inf) and (new_evdepth == inf)):
-            console.print("WARN!!", style=config.BIG_WARN)
-            print("Filter cache is encountering evdepths that are *not* infinity!")
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-            assert not self.fail_on_warn
-            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
-
-        if not solver_utils.roughly_geq_2tup((old_r, old_q), (new_r, new_q)):
-            console.print("WARN!!", style=config.BIG_WARN)
-            print("The new evaluation is somehow strictly worse than the old evaluation!")
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
-            assert not self.fail_on_warn
-            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
-        elif not (solver_utils.fp_eq(old_r, new_r) and solver_utils.fp_eq(old_q, new_q)):
-            console.print("Note:", style=config.BIG_WARN)
-            assert not self.fail_on_warn
-            print(
-                "The new evaluation is strictly less than the old evaluation!"
-            )
-            console.print(f"old: {old_eval}\nnew: {new_eval}")
     def _res_evdepth_infinite(self, new_result) -> bool:
         """
         Given a cache result *before* filtering, return a boolean indicating whether it has infinite evdepth, along with some error-checking.
