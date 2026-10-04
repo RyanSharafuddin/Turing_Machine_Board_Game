@@ -146,6 +146,8 @@ class Solver:
         "sd",
         "fail_on_warn",
         "consider_end_round_early",
+
+        "calculate_call_id", # for debugging purposes
     )
     def __init__(
             self,
@@ -195,6 +197,7 @@ class Solver:
 
         self.fail_on_warn = fail_on_warn # used by tests to fail on warnings.
         self.consider_end_round_early = consider_end_round_early
+        self.calculate_call_id = 0 # for debugging purposes
 
     @staticmethod
     def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
@@ -275,7 +278,9 @@ class Solver:
         ------
         (evdepth, search_best_rq, optional search_curr_evdepth_LB_rq)
         """
-        # self.called_calculate += 1
+        # self.calculate_call_id += 1
+        # call_id = self.calculate_call_id
+
         if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return self.end_game_eval
         # WARN: will likely have to change this assert if start using a LRU cache
@@ -417,7 +422,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            new_gs_result = self._evaluations_cache.get(new_gs_cache_state, self.lb_double_one_res)
+            new_gs_result = self._evaluations_cache.setdefault(new_gs_cache_state, self.lb_double_one_res)
             if (new_gs_result[0] >= round_depth):
                 answer = new_gs_result
             else:
@@ -467,7 +472,7 @@ class Solver:
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            end_round_early_result = self._evaluations_cache.get(
+            end_round_early_result = self._evaluations_cache.setdefault(
                 new_round_early_cache_gs,
                 self.lb_double_one_res
             )

@@ -186,6 +186,14 @@ def _get_problem_from_user_string(s):
         return(None)
     return(_process_problem_input_from_user(*intermediate))
 
+def get_problem_sort_key(p: Problem):
+    return ( # criteria to sort problems in table by.
+        p.mode,
+        get_num_verifiers(p),
+        _PICKLED_PROB_INFO_DICT.get(p.identity, (inf, (inf, inf)))[1], # cost to solve
+        p.identity
+    )
+
 def add_problem_to_known_problems(p: Problem, ignore_warning=False):
     """
     Add problem to the ids dict and the prefixes dict that problems uses to retrieve problems, and also add it to the file of user problems. Return the problem.
@@ -242,12 +250,7 @@ def print_all_local_problems():
     if SHOW_COST_OTHER:
         table.add_column(Text("Cost Other", justify="center"), justify="center")
     probs_list = list(_ID_TO_PROBLEM_DICT.values())
-    probs_list.sort(key=lambda p: ( # criteria to sort problems in table by.
-        p.mode,
-        get_num_verifiers(p),
-        _PICKLED_PROB_INFO_DICT.get(p.identity, (inf, (inf, inf)))[1], # cost to solve
-        p.identity
-    ))
+    probs_list.sort(key=get_problem_sort_key)
     for (problem_index, p) in enumerate(probs_list):
         time_pickle = _PICKLED_PROB_INFO_DICT.get(p.identity, (None,) * 2)
         # don't unpack tuple. This way, can put more items in tuple without breaking program.
@@ -388,6 +391,7 @@ def get_all_matching_problems(mode=None, num_vs=None):
             and ((num_vs is None) or (get_num_verifiers(p) == num_vs))
         ):
             l.append(p)
+    l.sort(key=get_problem_sort_key)
     return l
 def get_requested_problem(
         p_id=None,

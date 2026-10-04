@@ -350,7 +350,7 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            new_gs_result = self._evaluations_cache.get(new_gs_cache_state, self.never_seen_res)
+            new_gs_result = self._evaluations_cache.setdefault(new_gs_cache_state, self.lb_double_one_res)
             if (new_gs_result[0] >= round_depth):
                 answer = new_gs_result
             else:
