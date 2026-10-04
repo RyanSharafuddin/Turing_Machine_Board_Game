@@ -401,7 +401,10 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            new_gs_cache_result = self._evaluations_cache.get(new_gs_cache_state, self.cache_res_lb_double_1)
+            new_gs_cache_result = self._evaluations_cache.setdefault(
+                new_gs_cache_state,
+                self.cache_res_lb_double_1
+            )
             new_gs_cache_lb = new_gs_cache_result[-1]
             if solver_utils.roughly_geq_2tup(new_gs_cache_lb, vpt):
                 self._evaluations_cache[cache_game_state] = new_gs_cache_result

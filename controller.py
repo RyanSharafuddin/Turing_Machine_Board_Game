@@ -234,6 +234,7 @@ def display_problem_solution(
         problem, pickle_entire, force_overwrite, no_pickles, capitulate
     )
     display_solution_from_solver(s, display_problem = not made_from_scatch)
+    return s
 def play(problem: Problem, pickle_entire=False, force_overwrite=False, no_pickles=False, capitulate=False):
     """
     Given a `problem`, gets or makes a solver for it (see get_or_make_solver), then plays that problem, prompting the user for answers to its queries. Affected by PRINT_COMBOS option.
@@ -323,12 +324,21 @@ def play_from_file(f_name):
     s = unpickle_solver_from_f_name(f_name)
     play_from_solver(s)
 
-def solve_all(mode=None, num_vs=None, force_pickle=True):
+def solve_all(mode=None, num_vs=None, force_pickle=True, no_pickles=False):
+    p: Problem
+    strs = []
     for p in problems.get_all_matching_problems(mode, num_vs):
-        display_problem_solution(
+        if (p.identity in {"C51RIIQ_N", "C5MR03_N", "I64L26L"}):
+            continue
+        s = display_problem_solution(
             p,
-            force_overwrite=force_pickle
+            force_overwrite=force_pickle,
+            no_pickles=no_pickles
         )
+        strs.append(
+            f"(\"{p.identity}\", (\"{str(s.expected_cost[0])}\", \"{str(s.expected_cost[1])}\"))"
+        )
+    print(",\n".join(strs) + ",")
 # Main ways to use:
 #   1) play(problem, pickle_entire, force_overwrite, no_pickles)
 #   2) display_problem_solution(problem, pickle_entire, force_overwrite, no_pickles)
