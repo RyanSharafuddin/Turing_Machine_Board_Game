@@ -300,6 +300,7 @@ class Solver:
                 self._evaluations_cache[cache_game_state] = cache_result
                 return (cache_result, True)
 
+        # WARN: will likely have to change this assert if start using a LRU cache
         assert (
             (
                 ((pre_existing_cache_result[0] == (round_depth - 1)) and not pre_existing_cache_result[1])
