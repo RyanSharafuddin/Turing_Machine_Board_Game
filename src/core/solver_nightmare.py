@@ -214,7 +214,7 @@ class Solver_Nightmare(Solver):
 
         search_best_rq = pre_existing_result[1]
         search_curr_evdepth_LB_rq = self.start_search_cost
-        search_best_rq_NO_m = self.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
+        search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
         min_round_depth = inf
@@ -224,9 +224,6 @@ class Solver_Nightmare(Solver):
             depth,
             self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
         )
-        # self._test_equivalence(
-        #     self.get_and_apply_moves, self.get_and_apply_moves_OLD, game_state, qs_dict, minimal_vs_list
-        # )
         for move_info in move_iterable:
             not_found_moves = False
             (move, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
@@ -235,7 +232,6 @@ class Solver_Nightmare(Solver):
                 f_state_Wgs,
                 working_cwa_set_convert_cache
             )
-            # TODO: How often are you converting t_state_Wgs to a cache gs and getting the t_result when the f_result alone would be enough to stop consideration of this move? Write some code to find out, and see if it's worth it to calculate whether the f_result alone is enough to prune this state by timing. Do this after implement vertical pruning.
             t_state_Cgs = self.convert_working_gs_to_cache_gs(
                 self,
                 t_state_Wgs,
@@ -328,7 +324,6 @@ class Solver_Nightmare(Solver):
 
             if depth < self.num_concurrent_tasks:
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
-            # move_rqd_tups.append((move, node_cost_tup_no_evdepth)) # TODO: delete
 
         assert\
             (
@@ -367,8 +362,8 @@ class Solver_Nightmare(Solver):
             return answer
 
         # have found at least one move
-        search_best_rq = self.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
-        search_curr_evdepth_LB_rq = self.add_move_cost_to_rq(
+        search_best_rq = solver_utils.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
+        search_curr_evdepth_LB_rq = solver_utils.add_move_cost_to_rq(
             search_curr_evdepth_LB_rq_NO_m,
             is_begin_round_state
         )
@@ -380,7 +375,7 @@ class Solver_Nightmare(Solver):
             answer = (evdepth, search_best_rq)
         else:
             evdepth = min_round_depth + is_begin_round_state
-            assert (evdepth != inf) # TODO: delete this assert statement.
+            assert (evdepth != inf)
             answer = (evdepth, search_best_rq, search_curr_evdepth_LB_rq)
         self.best_move = best_move
 

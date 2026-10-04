@@ -101,13 +101,7 @@ class Solver:
     double_zero_frac = (zero_frac, zero_frac)
     double_zero = (0, 0)
     double_one = (1, 1)
-    ninf = float("-inf")
     double_inf = (inf, inf)
-    # triple_zero = (0, 0, 0)
-    # triple_inf = (inf, inf, inf)
-    # triple_z_in_tup = (triple_zero,)
-    # neg1_titz = (-1, triple_inf, triple_zero)
-
     start_search_cost = double_inf
     # (evdepth, cache_pruned, best_known_rq, optional_lower_bound_rq)
     end_game_cache_result = (inf, False, double_zero)
@@ -234,11 +228,10 @@ class Solver:
                     # see the Small Improvements section of your todo document for more info.
                     if(move_info is not None):
                         yield move_info
-
         else:
             # There is an existing proposal that you've used in this game state that you can use again without incurring a round cost.
             inner_dict_this_proposal = qs_dict.get(game_state.proposal_used_this_round)
-            if(not(inner_dict_this_proposal is None)): # If this proposal still has potentially useful queries
+            if (inner_dict_this_proposal is not None): # If this proposal still has potentially useful queries
                 next_num_queries = (game_state.num_queries_this_round + 1) % 3
                 for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
                     move = (game_state.proposal_used_this_round, verifier_to_query)
@@ -264,7 +257,6 @@ class Solver:
         else:
             move_iterable = move_generator
         return move_iterable
-
 
     # called_calculate = 0
     # cache_hits = 0
@@ -308,6 +300,14 @@ class Solver:
                 self._evaluations_cache[cache_game_state] = cache_result
                 return (cache_result, True)
 
+        assert (
+            (
+                ((pre_existing_cache_result[0] == (round_depth - 1)) and not pre_existing_cache_result[1])
+                or ((pre_existing_cache_result[0] == round_depth) and pre_existing_cache_result[1])
+            )
+            and solver_utils.roughly_gt_2tup(vpt, pre_existing_cache_result[-1])
+        ), f"\n{pre_existing_cache_result = }\n{round_depth = }"
+
         if is_begin_round_state:
             if (round_depth == 0):
                 # either evdepth was -1 before, or it was 0 before and cache_result was pruned.
@@ -328,17 +328,11 @@ class Solver:
 
         # TODO: see if reordering the moves in the same way as vertical pruning improves time and/or memory.
         search_curr_evdepth_LB_rq = self.start_search_cost
-        search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(
-            search_best_rq,
-            is_begin_round_state
-        )
+        search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
         beat_vertical_prune_threshold = False
-        vpt_NO_m = solver_utils.subtract_move_cost_from_rq(
-            vpt,
-            is_begin_round_state
-        )
+        vpt_NO_m = solver_utils.subtract_move_cost_from_rq(vpt, is_begin_round_state)
         min_round_depth = inf
         evdepth_infinity = False
         best_move = None # NOTE: keep this, otherwise could reference best_move before definition.
@@ -348,7 +342,6 @@ class Solver:
             (move, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
             (p_false, p_true) = p_tup
             f_state_Cgs = self.convert_working_gs_to_cache_gs(f_state_Wgs, self.all_cwa_bitsets)
-            # TODO: How often are you converting t_state_Wgs to a cache gs and getting the t_result when the f_result alone would be enough to stop consideration of this move? Write some code to find out, and see if it's worth it to calculate whether the f_result alone is enough to prune this state by timing. Do this after implement vertical pruning. Probably more salient in nightmare mode.
             t_state_Cgs = self.convert_working_gs_to_cache_gs(t_state_Wgs, self.all_cwa_bitsets)
             f_result_cache = self._evaluations_cache.get(f_state_Cgs, self.never_seen_cache_res)
             t_result_cache = self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res)
@@ -650,9 +643,10 @@ class Solver:
         if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
             self.best_move = None
             return self.end_game_cache_result
-        evdepth = int(working_gs.proposal_used_this_round is None)
+        is_begin_round = working_gs.proposal_used_this_round is None
+        evdepth = int(is_begin_round)
         (best_move, best_known_rq) = (None, self.start_search_cost)
-        cache_result = self.never_seen_cache_res
+        cache_result = self.cache_res_lb_double_1 if is_begin_round else self.never_seen_cache_res
         const_args = self._const_args_to_calc(working_gs)
         while (evdepth != inf):
             self.sd.handle_display_before_calc(evdepth, display)
@@ -914,12 +908,6 @@ class Solver:
         console.print(f"Number of bytes they waste                : {wasted_memory:,}")
         console.print(f"Alternate number of bytes they waste      : {asizeof(list_dups) - asizeof([None] * len(list_dups)):,}")
         console.print(f"duplicates with same identity             : {duplicates_with_same_identity:,}")
-        # for gs_list in cache_gs_with_same_cwas.values():
-        #     if(len(gs_list) < 2):
-        #         continue
-        #     console.rule()
-        #     for gs in gs_list:
-        #         self.sd.print_evaluations_cache_info(gs, print_succeeding_game_states=False)
     ############################### SAME FOR ALL SOLVERS ###############################
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
@@ -1007,17 +995,52 @@ class Solver:
         """
         Safely deletes evaluation of `curr_cache_gs` from the cache, then evaluates `curr_working_gs`. Calls _filter_compare_evals on the pre-existing result of `curr_cache_gs` and the evaluation of `curr_working_gs`. Then updates the `new_ev_cache` with `gs_to_put_in_cache` as key, and also updates the `stack`.
         """
-        self._handle_delete_eval(curr_working_gs, curr_cache_gs)
+        prev_eval = self._handle_delete_eval(curr_working_gs, curr_cache_gs)
         current_gs_eval = self.iterative_deepen(curr_working_gs, display=False)
-        if (self.best_move is None):
-            console.print("O NOES! self.best_move is None!", style=config.BIG_WARN)
-            console.print(curr_working_gs)
-            self.sd.print_game_state(curr_working_gs)
-            exit()
+        self._filter_compare_evals(prev_eval, current_gs_eval, curr_working_gs, curr_cache_gs)
+        assert (self.best_move is not None)
         new_ev_cache[gs_to_put_in_cache] = (self.best_move, self.new_res_to_og_res(current_gs_eval))
         (gs_false, gs_true) = self.apply_move_to_state(self.best_move, curr_working_gs)
         stack.append(gs_false)
         stack.append(gs_true)
+
+    def _filter_compare_evals(self, old_eval, new_eval, wgs: Game_State, cgs: Game_State):
+        """
+        Used on *pre-filter* costs.
+
+        Params
+        -----
+
+        old_eval: a cost
+            The old cost. May be None.
+
+        new_eval: a cost.
+            Guaranteed to not be None.
+
+        wgs: working Game_State
+
+        cgs: cache Game_State
+        """
+        # NOTE: If start using an LRU cache, then change this function to ignore non-begin-round states entirely.
+        if (old_eval is None):
+            return
+        old_rq = old_eval[2]
+        new_rq = new_eval[2]
+
+        if not self._res_evdepth_infinite(old_eval) and self._res_evdepth_infinite(new_eval):
+            console.print("WARN!!", style=config.BIG_WARN)
+            print("Filter cache is encountering evdepths that are *not* infinity!")
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
+            assert not self.fail_on_warn
+            self._filter_cache_error_show(wgs, cgs, message="", end_program=False)
+
+        if not solver_utils.fp_eq_tup(old_rq, new_rq):
+            console.print("WARN!!", style=config.BIG_WARN)
+            assert not self.fail_on_warn
+            print(
+                "The new evaluation is not roughly equal to the old evaluation"
+            )
+            console.print(f"old: {old_eval}\nnew: {new_eval}")
 
     def _filter_cache_error_show(self, working_gs, cache_gs, message, end_program=False):
         console.print(message)
@@ -1029,12 +1052,6 @@ class Solver:
             pass
         print(working_gs)
         print(cache_gs)
-        # (move_rq_tups, move_infos) = self._move_rq_tups_from_working_gs(
-        #     working_gs,
-        #     sort=True,
-        # )
-        # for (index, (move, rq)) in enumerate(move_rq_tups):
-        #     console.print(f"{index:>3}", display.get_move_text(move), rq, end=" ")
         if end_program:
             console.print("Exiting.", style=config.BIG_WARN)
             exit()
@@ -1106,6 +1123,7 @@ class Solver:
             # NOTE: will need to change this if change cache result format.
             assert ((len(new_result) == 3) and not new_result[1])
             return True
+        assert ((len(new_result) == 4) and solver_utils.roughly_gt_2tup(new_result[2], new_result[3]))
         return False
     def get_num_begin_round_states(self, original_cache: dict):
         """
@@ -1132,8 +1150,6 @@ class Solver:
         try:
             # WARN: The line below itself uses up a lot of memory and time.
             self.size_of_evaluations_cache_in_bytes = asizeof(original_cache)
-            # self.print_eval_cache_stats()
-            # self.print_cache_by_size()
         except KeyboardInterrupt:
             print("\nDiscontinuing calculating evaluations cache memory usage.\n")
             self.size_of_evaluations_cache_in_bytes = -1

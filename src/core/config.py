@@ -75,7 +75,7 @@ STANDARD_EXTREME_NIGHTMARE_MODE_COLORS = ['#00FF00', "#FFFF00", "#FF0000"]
 # Used for printing out info related to where pickles are stored and how much time and space solvers used.
 FILENAME_COLOR = "#00FF00"
 COLOR_OF_TIME  = "#FF00B7"
-COLOR_OF_SPACE = " #0099FF" # previously #00FFFF
+COLOR_OF_SPACE = "#0099FF" # previously #00FFFF
 
 # whether to print each unique answer in a unique color, or only print it once in the tables
 WRITE_ANSWERS_MULTIPLE_TIMES_COLOR = True
@@ -138,8 +138,9 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-PICKLE_DIRECTORY           = "Outputs/Pickles/Iterative_Deepen" # Where all pickled solvers go.
-TREE_DIRECTORY             = "Outputs/Trees/Iterative_Deepen" # Tree display output.
+VERSION_NAME               = "VPT" # The name of this version of the program
+PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
+TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
 PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
