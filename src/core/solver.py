@@ -281,10 +281,8 @@ class Solver:
         assert (
             (
                 (pre_existing_result[0] == (round_depth - 1))
-                or ((pre_existing_result[0] == round_depth) and pre_existing_result[1])
             )
-            and
-            solver_utils.roughly_gt_2tup(pre_existing_result[1], pre_existing_result[-1])
+            and solver_utils.roughly_gt_2tup(pre_existing_result[1], pre_existing_result[-1])
         ), f"\n{pre_existing_result = }\n{round_depth = }"
         is_begin_round_state = game_state.proposal_used_this_round is None
         if is_begin_round_state:
@@ -532,9 +530,10 @@ class Solver:
         if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
             self.best_move = None
             return self.end_game_eval
-        evdepth = int(working_gs.proposal_used_this_round is None)
+        is_begin_round = working_gs.proposal_used_this_round is None
+        evdepth = int(is_begin_round)
         (best_move, best_known_rq) = (None, self.start_search_cost)
-        result = self.lb_double_one_res
+        result = self.lb_double_one_res if is_begin_round else self.never_seen_res
         const_args = self._const_args_to_calc(working_gs)
         while (evdepth != inf):
             self.sd.handle_display_before_calc(evdepth, display)
