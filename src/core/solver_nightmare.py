@@ -184,25 +184,55 @@ class Solver_Nightmare(Solver):
         qs_dict,
         game_state: Game_State,
         cache_game_state: Game_State,
-        pre_existing_result,
+        pre_existing_cache_result,
+        vpt,
         check_one_answer: bool,
         minimal_vs_list: list[set[int]],
         working_cwa_set_convert_cache,
         depth,
         round_depth,
     ):
-        # self.called_calculate += 1
-        if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            # caching end game states uses up too much memory. And constantly checking
-            # this setting wastes time unnecessarily
-            # if config.CACHE_END_STATES:
-            #     self._evaluations_cache[cache_game_state] = self.end_game_eval
-            return self.end_game_eval
+        # self.calculate_call_id += 1
+        # call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
+
         is_begin_round_state = game_state.proposal_used_this_round is None
+        search_best_rq = pre_existing_cache_result[2]
+        if solver_utils.roughly_lt_2tup(search_best_rq, vpt):
+            vpt = search_best_rq
+
+        if check_one_answer:
+            if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+                # caching end game states uses up too much memory. And constantly checking
+                # this setting wastes time unnecessarily
+                # if config.CACHE_END_STATES:
+                #     self._evaluations_cache[cache_game_state] = self.end_game_eval
+                return self.end_game_calc_result
+            # There is not one answer left, but we now know a lower bound is (is_begin_round_state, 1),
+            # whereas the previous best known lower bound was (0, 0), since there could have been
+            # 1 answer left. So now we have an opportunity to prune.
+            # TODO: index into premade tups; don't make a new one.
+            lower_bound = (is_begin_round_state, 1)
+            if solver_utils.roughly_geq_2tup(lower_bound, vpt):
+                # TODO: index into premade tups; don't make a new one.
+                cache_result = (0, True, self.double_inf, lower_bound)
+                self._evaluations_cache[cache_game_state] = cache_result
+                return (cache_result, True)
+
+        # WARN: will likely have to change this assert if start using a LRU cache
+        assert (
+            (
+                ((pre_existing_cache_result[0] == (round_depth - 1)) and not pre_existing_cache_result[1])
+                or ((pre_existing_cache_result[0] == round_depth) and pre_existing_cache_result[1])
+            )
+            and solver_utils.roughly_gt_2tup(vpt, pre_existing_cache_result[-1])
+        ), f"\n{pre_existing_cache_result = }\n{round_depth = }"
+
+
         if is_begin_round_state:
             if (round_depth == 0):
-                self._evaluations_cache[cache_game_state] = self.round_depth_cutoff
-                return self.round_depth_cutoff
+                assert solver_utils.roughly_gt_2tup(vpt, self.double_one)
+                self._evaluations_cache[cache_game_state] = self.round_depth_cutoff_cache
+                return self.round_depth_cutoff_calc
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self.calc_min_vs_list(self, game_state)
             qs_dict = solver_utils.full_filter(qs_dict, game_state.cwa_set)
@@ -212,11 +242,12 @@ class Solver_Nightmare(Solver):
         # self._print_canonical_form_info(game_state, cache_game_state, max_num_forms=500)
         ######################################## DEBUGGING ###################################################
 
-        search_best_rq = pre_existing_result[1]
         search_curr_evdepth_LB_rq = self.start_search_cost
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
+        beat_vertical_prune_threshold = False
+        vpt_NO_m = solver_utils.subtract_move_cost_from_rq(vpt, is_begin_round_state)
         min_round_depth = inf
         evdepth_infinity = False
         best_move = None
@@ -227,6 +258,7 @@ class Solver_Nightmare(Solver):
         for move_info in move_iterable:
             not_found_moves = False
             (move, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
+            (p_false, p_true) = p_tup
             f_state_Cgs = self.convert_working_gs_to_cache_gs(
                 self,
                 f_state_Wgs,
@@ -237,78 +269,103 @@ class Solver_Nightmare(Solver):
                 t_state_Wgs,
                 working_cwa_set_convert_cache
             )
-            f_result = self._evaluations_cache.get(f_state_Cgs, self.never_seen_res)
-            t_result = self._evaluations_cache.get(t_state_Cgs, self.never_seen_res)
-            f_lower_bound = f_result[-1]
-            t_lower_bound = t_result[-1]
+            f_result_cache = self._evaluations_cache.get(f_state_Cgs, self.never_seen_cache_res)
+            t_result_cache = self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res)
+            f_lower_bound = f_result_cache[-1]
+            t_lower_bound = t_result_cache[-1]
             currnode_LB_rq_NO_m = self._cost_calculator(
                 p_tup, (f_lower_bound, t_lower_bound)
             )
-            if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, search_best_rq_NO_m):
+            if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, vpt_NO_m):
                 # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
                     self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                 continue
-            f_evdepth = f_result[0]
-            if (f_evdepth < round_depth):
-                f_result = self._calculate_best_move(
+            f_evdepth = f_result_cache[0]
+            f_cache_pruned = f_result_cache[1]
+            false_needs_update = (
+                (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
+            )
+            if false_needs_update:
+                pTrue_x_trueLB = solver_utils.mul_2tup_by_p(t_lower_bound, p_true)
+                vpt_false = solver_utils.divide_2tup_by_p(
+                    solver_utils.subtract_2tup(vpt_NO_m, pTrue_x_trueLB),
+                    p_false
+                )
+                (f_result_cache, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
                     game_state                    = f_state_Wgs,
                     cache_game_state              = f_state_Cgs,
-                    pre_existing_result           = f_result,
-                    check_one_answer              = (f_evdepth < 0),
+                    pre_existing_cache_result     = f_result_cache,
+                    vpt                           = vpt_false,
+                    check_one_answer              = f_lower_bound is self.double_zero,
                     minimal_vs_list               = minimal_vs_list,
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
                 )
-                f_evdepth = f_result[0]
-                f_lower_bound = f_result[-1]
-                currnode_LB_rq_NO_m = self._cost_calculator(
-                    p_tup, (f_lower_bound, t_lower_bound)
-                )
-                if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, search_best_rq_NO_m):
-                    # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
-                    #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
+                f_evdepth = f_result_cache[0]
+                assert ((f_evdepth >= round_depth) or calc_pruned)
+                assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
+                if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
+                f_lower_bound = f_result_cache[-1]
 
-            t_evdepth = t_result[0]
-            if (t_evdepth < round_depth):
-                t_result = self._calculate_best_move(
+            t_evdepth = t_result_cache[0]
+            t_cache_pruned = t_result_cache[1]
+            true_needs_update = (
+                (t_evdepth < round_depth) or (t_cache_pruned and (t_evdepth == round_depth))
+            )
+            if true_needs_update:
+                pFalse_x_falseLB = solver_utils.mul_2tup_by_p(f_lower_bound, p_false)
+                vpt_true = solver_utils.divide_2tup_by_p(
+                    solver_utils.subtract_2tup(vpt_NO_m, pFalse_x_falseLB),
+                    p_true
+                )
+                # We know that t_lower_bound < vpt_true, b/c otherwise would have pruned this when
+                # seeing if the false node exceeds its threshold.
+                (t_result_cache, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
                     game_state                    = t_state_Wgs,
                     cache_game_state              = t_state_Cgs,
-                    pre_existing_result           = t_result,
-                    check_one_answer              = (t_evdepth < 0),
+                    pre_existing_cache_result     = t_result_cache,
+                    vpt                           = vpt_true,
+                    check_one_answer              = t_lower_bound is self.double_zero,
                     minimal_vs_list               = minimal_vs_list,
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
                 )
-                t_evdepth = t_result[0]
-                t_lower_bound = t_result[-1]
-                currnode_LB_rq_NO_m = self._cost_calculator(
-                    p_tup, (f_lower_bound, t_lower_bound)
-                )
-                if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, search_best_rq_NO_m):
-                    # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
-                    #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
+                t_evdepth = t_result_cache[0]
+                assert ((t_evdepth >= round_depth) or calc_pruned)
+                assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
+                if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
+                t_lower_bound = t_result_cache[-1]
 
+            beat_vertical_prune_threshold = True
             if (f_evdepth < min_round_depth):
                 min_round_depth = f_evdepth
             if (t_evdepth < min_round_depth):
                 min_round_depth = t_evdepth
 
+            if (true_needs_update or false_needs_update):
+                # TODO: is this ever not the case? Just curious.
+                currnode_LB_rq_NO_m = self._cost_calculator(
+                    p_tup, (f_lower_bound, t_lower_bound)
+                )
+
             if (f_evdepth == inf) and (t_evdepth == inf):
                 currnode_best_known_rq_NO_m = currnode_LB_rq_NO_m
             else:
-                currnode_best_known_rq_NO_m = self._cost_calculator(p_tup, (f_result[1], t_result[1]))
+                currnode_best_known_rq_NO_m = self._cost_calculator(
+                    p_tup, (f_result_cache[2], t_result_cache[2])
+                )
 
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
@@ -321,6 +378,7 @@ class Solver_Nightmare(Solver):
                     assert (round_depth == 0), round_depth
                     if (currnode_best_known_rq_NO_m[1] == 0):
                         break
+                vpt_NO_m = search_best_rq_NO_m
 
             if depth < self.num_concurrent_tasks:
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -343,48 +401,83 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
-            new_gs_result = self._evaluations_cache.get(new_gs_cache_state, self.never_seen_res)
-            if (new_gs_result[0] >= round_depth):
-                answer = new_gs_result
-            else:
-                answer = self._calculate_best_move(
+            new_gs_cache_result = self._evaluations_cache.get(new_gs_cache_state, self.cache_res_lb_double_1)
+            new_gs_cache_lb = new_gs_cache_result[-1]
+            if solver_utils.roughly_geq_2tup(new_gs_cache_lb, vpt):
+                self._evaluations_cache[cache_game_state] = new_gs_cache_result
+                return (new_gs_cache_result, True)
+
+            new_gs_cache_pruned = new_gs_cache_result[1]
+            new_gs_evdepth = new_gs_cache_result[0]
+            new_gs_needs_update = (
+                (new_gs_evdepth < round_depth)
+                or (new_gs_cache_pruned and (new_gs_evdepth == round_depth))
+            )
+            if new_gs_needs_update:
+                (cache_answer, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
                     game_state                    = new_gs,
                     cache_game_state              = new_gs_cache_state,
-                    pre_existing_result           = new_gs_result,
+                    pre_existing_cache_result     = new_gs_cache_result,
+                    vpt                           = vpt,
                     check_one_answer              = False,
                     minimal_vs_list               = None, # next invocation will recalculate minimal_vs_list.
                     working_cwa_set_convert_cache = None, # next invocation will create a new one
                     depth                         = depth+1,
                     round_depth                   = round_depth,
                 )
-            self._evaluations_cache[cache_game_state] = answer
-            return answer
+                assert ((cache_answer[0] >= round_depth) or calc_pruned)
+                assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
+            else:
+                cache_answer = new_gs_cache_result
+                calc_pruned = False
+            self._evaluations_cache[cache_game_state] = cache_answer
+            return (cache_answer, calc_pruned)
 
         # have found at least one move
-        search_best_rq = solver_utils.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
-        search_curr_evdepth_LB_rq = solver_utils.add_move_cost_to_rq(
-            search_curr_evdepth_LB_rq_NO_m,
-            is_begin_round_state
-        )
-        if (
-            evdepth_infinity
-            or solver_utils.roughly_geq_2tup(search_curr_evdepth_LB_rq_NO_m, search_best_rq_NO_m)
-        ):
-            evdepth = inf
-            answer = (evdepth, search_best_rq)
-        else:
-            evdepth = min_round_depth + is_begin_round_state
-            assert (evdepth != inf)
-            answer = (evdepth, search_best_rq, search_curr_evdepth_LB_rq)
-        self.best_move = best_move
+
+        if beat_vertical_prune_threshold:
+            search_best_rq = solver_utils.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
+            search_curr_evdepth_LB_rq = solver_utils.add_move_cost_to_rq(
+                search_curr_evdepth_LB_rq_NO_m,
+                is_begin_round_state
+            )
+            if (
+                evdepth_infinity
+                # NOTE: if uncomment the lines updating search_curr_evdepth_LB_rq_NO_m when pruning a move, replace below comparison w/fp_eq_tup, since search_curr_evdepth_LB_rq_NO_m should never be > search_best_rq_NO_m.
+                # TODO: try replacing the line below w/
+                # search_curr_evdepth_LB_rq_NO_m is inf or roughly equal to search_best_rq_NO_m
+                # assert that that condition is same as condition below, and time it.
+                or solver_utils.roughly_geq_2tup(search_curr_evdepth_LB_rq_NO_m, search_best_rq_NO_m)
+            ):
+                evdepth = inf
+                cache_answer = (evdepth, False, search_best_rq)
+            else:
+                evdepth = min_round_depth + is_begin_round_state
+                assert (evdepth != inf)
+                cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
+            self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
+
+        else: # did not beat vertical_prune_threshold
+            # if we didn't beat the vp threshold, then search_best_rq is what it was at the beginning
+            # and the lower bound is at least vpt.
+            assert not evdepth_infinity
+            if solver_utils.fp_eq_tup(vpt, search_best_rq):
+                evdepth = inf
+                cache_answer = (evdepth, False, search_best_rq)
+            else:
+                evdepth = round_depth + is_begin_round_state
+                cache_answer = (evdepth, True, search_best_rq, vpt)
 
         if (self.consider_end_round_early and (not (is_begin_round_state or evdepth_infinity))):
+            if beat_vertical_prune_threshold:
+                vpt = solver_utils.add_move_cost_to_rq(vpt_NO_m, False) # it is not a begin_round_state here.
             raise NotImplementedError("Have not implemented consider end round early for nightmare!")
 
         # TODO: code to consider ending a round early despite having useful moves.
-        self._evaluations_cache[cache_game_state] = answer
-        return answer
+        self._evaluations_cache[cache_game_state] = cache_answer
+        return (cache_answer, not beat_vertical_prune_threshold)
+
 
     def _const_args_to_calc(self, working_gs: Game_State) -> dict[str: object]:
         cache_state = self._easy_working_gs_to_cache_gs(working_gs)
@@ -423,10 +516,3 @@ class Solver_Nightmare(Solver):
     def _easy_get_list_move_infos(self, working_gs):
         min_vs_list = self.calc_min_vs_list(self, working_gs)
         return list(self.get_and_apply_moves(working_gs, self.qs_dict, min_vs_list, force_set_intersect=True))
-
-    def _move_rqd_tups_from_working_gs(self, working_gs, sort=True):
-        raise NotImplementedError()
-        return []
-
-    def _experiment(self):
-        return

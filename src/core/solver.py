@@ -327,7 +327,6 @@ class Solver:
             # self.sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
             round_depth -= 1
 
-        # TODO: see if reordering the moves in the same way as vertical pruning improves time and/or memory.
         search_curr_evdepth_LB_rq = self.start_search_cost
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
@@ -464,13 +463,7 @@ class Solver:
                     #      the program from searching other moves on this state to larger
                     #      round_depths, since at this point, we know that a round_depth of 0
                     #      is sufficient.
-                    if (round_depth != 0):
-                        console.print("WARN:", style=config.SMALL_WARN)
-                        console.print(
-                            f"round_depth is not 0 here. You should debug to find out why. Print out the call_id, round_depth, and game_state, and find out how this happened."
-                        )
-                        assert (not self.fail_on_warn)
-                        round_depth = 0
+                    assert (round_depth == 0), round_depth
                     if (currnode_best_known_rq_NO_m[1] == 0):
                         break
                 vpt_NO_m = search_best_rq_NO_m
@@ -544,7 +537,7 @@ class Solver:
                 cache_answer = (evdepth, False, search_best_rq)
             else:
                 evdepth = min_round_depth + is_begin_round_state
-                assert (evdepth != inf) # TODO: delete this assert statement.
+                assert (evdepth != inf)
                 cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
             self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
 
