@@ -858,3 +858,11 @@ def fp_cmp(a, b):
     if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
         return (False, True)
     return ((a < b), False)
+
+def add_move_cost_to_rq(rq: tuple[float, float], does_move_cost_round: bool | int):
+    (r, q) = rq
+    return (r + does_move_cost_round, q + 1)
+
+def subtract_move_cost_from_rq(rq: tuple[float, float], does_move_cost_round: bool | int):
+    (r, q) = rq
+    return (r - does_move_cost_round, q - 1)

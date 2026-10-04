@@ -214,7 +214,7 @@ class Solver_Nightmare(Solver):
 
         search_best_rq = pre_existing_result[1]
         search_curr_evdepth_LB_rq = self.start_search_cost
-        search_best_rq_NO_m = self.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
+        search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
         min_round_depth = inf
@@ -367,8 +367,8 @@ class Solver_Nightmare(Solver):
             return answer
 
         # have found at least one move
-        search_best_rq = self.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
-        search_curr_evdepth_LB_rq = self.add_move_cost_to_rq(
+        search_best_rq = solver_utils.add_move_cost_to_rq(search_best_rq_NO_m, is_begin_round_state)
+        search_curr_evdepth_LB_rq = solver_utils.add_move_cost_to_rq(
             search_curr_evdepth_LB_rq_NO_m,
             is_begin_round_state
         )
