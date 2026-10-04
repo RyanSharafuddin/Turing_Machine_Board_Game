@@ -198,6 +198,7 @@ class Solver_Nightmare(Solver):
             # if config.CACHE_END_STATES:
             #     self._evaluations_cache[cache_game_state] = self.end_game_eval
             return self.end_game_eval
+        # WARN: will likely have to change this assert if start using a LRU cache
         assert (
             (
                 (pre_existing_result[0] == (round_depth - 1))

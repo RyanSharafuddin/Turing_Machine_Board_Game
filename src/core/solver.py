@@ -278,6 +278,7 @@ class Solver:
         # self.called_calculate += 1
         if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
             return self.end_game_eval
+        # WARN: will likely have to change this assert if start using a LRU cache
         assert (
             (
                 (pre_existing_result[0] == (round_depth - 1))
