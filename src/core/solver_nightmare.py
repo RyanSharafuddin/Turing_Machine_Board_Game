@@ -287,11 +287,18 @@ class Solver_Nightmare(Solver):
                 (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
             )
             if false_needs_update:
-                pTrue_x_trueLB = solver_utils.mul_2tup_by_p(t_lower_bound, p_true)
-                vpt_false = solver_utils.divide_2tup_by_p(
-                    solver_utils.subtract_2tup(vpt_NO_m, pTrue_x_trueLB),
-                    p_false
-                )
+                f_and_t_cache_states_equal = (f_state_Cgs.cwa_set == t_state_Cgs.cwa_set)
+                if f_and_t_cache_states_equal:
+                    # f_state and t_state cache game states are equal.
+                    # this is the only way updating f_state can update t_state
+                    # so long as we're not deleting anything from the cache.
+                    vpt_false = vpt_NO_m
+                else:
+                    pTrue_x_trueLB = solver_utils.mul_2tup_by_p(t_lower_bound, p_true)
+                    vpt_false = solver_utils.divide_2tup_by_p(
+                        solver_utils.subtract_2tup(vpt_NO_m, pTrue_x_trueLB),
+                        p_false
+                    )
                 (f_result_cache, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
                     game_state                    = f_state_Wgs,
@@ -312,6 +319,14 @@ class Solver_Nightmare(Solver):
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
                 f_lower_bound = f_result_cache[-1]
+                if f_and_t_cache_states_equal:
+                    t_result_cache = f_result_cache
+                    t_lower_bound = f_lower_bound
+                # NOTE A time consuming assert. I'm pretty sure it's always True anyway.
+                else:
+                    assert (
+                        self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res) is t_result_cache
+                    )
 
             t_evdepth = t_result_cache[0]
             t_cache_pruned = t_result_cache[1]
