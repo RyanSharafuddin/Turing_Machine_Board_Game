@@ -2,7 +2,6 @@ import numpy as np
 from .solver import *
 
 class Solver_Nightmare(Solver):
-    worst_eval = (inf, inf)
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -225,8 +224,8 @@ class Solver_Nightmare(Solver):
                 or ((pre_existing_cache_result[0] == round_depth) and pre_existing_cache_result[1])
             )
             and solver_utils.roughly_gt_2tup(vpt, pre_existing_cache_result[-1])
-        ), f"\n{pre_existing_cache_result = }\n{round_depth = }"
-
+        ), f"\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
+        # ), f"\n{call_id = :,}\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
 
         if is_begin_round_state:
             if (round_depth == 0):
