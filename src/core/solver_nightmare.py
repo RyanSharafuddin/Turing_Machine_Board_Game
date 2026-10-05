@@ -272,6 +272,14 @@ class Solver_Nightmare(Solver):
                 )
                 f_evdepth = f_result[0]
                 f_lower_bound = f_result[-1]
+                if (t_state_Cgs.cwa_set == f_state_Cgs.cwa_set):
+                    # The only way updating f_state could have updated t_state,
+                    # since we never delete anything from cache.
+                    t_result = f_result
+                    t_lower_bound = f_lower_bound
+                # A time consuming assert. I'm pretty sure this is always True anyway.
+                # else:
+                #     assert (self._evaluations_cache.get(t_state_Cgs, self.never_seen_res) is t_result)
                 currnode_LB_rq_NO_m = self._cost_calculator(
                     p_tup, (f_lower_bound, t_lower_bound)
                 )
@@ -282,23 +290,6 @@ class Solver_Nightmare(Solver):
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
-            if (t_state_Cgs.cwa_set == f_state_Cgs.cwa_set):
-                # The only way updating f_state could have updated t_state,
-                # since we never delete anything from cache.
-                t_result = f_result
-                t_lower_bound = t_result[-1]
-                currnode_LB_rq_NO_m = self._cost_calculator(
-                    p_tup, (f_lower_bound, t_lower_bound)
-                )
-                if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, search_best_rq_NO_m):
-                    # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
-                    #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
-                    if depth < self.num_concurrent_tasks:
-                        self.progress.update(self.depth_to_tasks_l[depth], advance=1)
-                    continue
-            # A time consuming assert. I'm pretty sure this is always True anyway.
-            # else:
-            #     assert (self._evaluations_cache.get(t_state_Cgs, self.never_seen_res) is t_result)
             t_evdepth = t_result[0]
             if (t_evdepth < round_depth):
                 t_result = self._calculate_best_move(
