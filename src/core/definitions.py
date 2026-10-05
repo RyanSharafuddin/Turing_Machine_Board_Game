@@ -3,8 +3,11 @@ import numpy as np
 from rich.console import Console
 from rich.traceback import install
 
+from . import config
+
 console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
-install(show_locals=False)              # See https://rich.readthedocs.io/en/stable/traceback.html
+# See https://rich.readthedocs.io/en/stable/traceback.html
+install(show_locals=config.SHOW_LOCALS, locals_max_length=config.LOCALS_MAX_LENGTH)
 
 def get_digit(n, index, base=10):
     """
