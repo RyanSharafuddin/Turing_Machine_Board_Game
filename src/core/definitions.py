@@ -3,7 +3,7 @@ import numpy as np
 from rich.console import Console
 from rich.traceback import install
 
-import core.config as config
+from . import config
 
 console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
 # See https://rich.readthedocs.io/en/stable/traceback.html

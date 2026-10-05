@@ -282,6 +282,8 @@ class Solver_Nightmare(Solver):
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
 
+            t_result = self._evaluations_cache.get(t_state_Cgs, self.never_seen_res)
+            t_lower_bound = t_result[-1]
             t_evdepth = t_result[0]
             if (t_evdepth < round_depth):
                 t_result = self._calculate_best_move(
