@@ -2,6 +2,7 @@ import numpy as np
 from .solver import *
 
 class Solver_Nightmare(Solver):
+    state_star : Game_State = None # the cache state that failed an assert; used for debugging.
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -193,6 +194,19 @@ class Solver_Nightmare(Solver):
     ):
         self.calculate_call_id += 1
         call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
+        is_state_star = (cache_game_state == self.state_star)
+
+        if is_state_star:
+            console.rule("CALC CALLED STATE *")
+            print(
+                f"{call_id = :,}",
+                f"{round_depth = }",
+                f"{vpt = }",
+                f"{pre_existing_cache_result = }",
+                f"{check_one_answer = }",
+                f"{game_state = }",
+                sep="\n",
+            )
 
         is_begin_round_state = game_state.proposal_used_this_round is None
         search_best_rq = pre_existing_cache_result[2]
@@ -205,6 +219,8 @@ class Solver_Nightmare(Solver):
                 # this setting wastes time unnecessarily
                 # if config.CACHE_END_STATES:
                 #     self._evaluations_cache[cache_game_state] = self.end_game_eval
+                if is_state_star:
+                    console.print("Weird. It is state * and we're returning self.end_game_calc_result.")
                 return self.end_game_calc_result
             # There is not one answer left, but we now know a lower bound is (is_begin_round_state, 1),
             # whereas the previous best known lower bound was (0, 0), since there could have been
@@ -215,6 +231,12 @@ class Solver_Nightmare(Solver):
                 # TODO: index into premade tups; don't make a new one.
                 cache_result = (0, True, self.double_inf, lower_bound)
                 self._evaluations_cache[cache_game_state] = cache_result
+                if is_state_star:
+                    console.print(
+                        f"{cache_result = }",
+                        "In check one_answer, and lower_bound >= vpt, so returning (cache_result, True).",
+                        sep="\n"
+                    )
                 return (cache_result, True)
 
         # WARN: will likely have to change this assert if start using a LRU cache
@@ -231,6 +253,8 @@ class Solver_Nightmare(Solver):
             if (round_depth == 0):
                 assert solver_utils.roughly_gt_2tup(vpt, self.double_one)
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff_cache
+                if is_state_star:
+                    console.print("Calc called state * and we're returning self.round_depth_cutoff_calc.")
                 return self.round_depth_cutoff_calc
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self.calc_min_vs_list(self, game_state)
@@ -422,6 +446,13 @@ class Solver_Nightmare(Solver):
             new_gs_cache_lb = new_gs_cache_result[-1]
             if solver_utils.roughly_geq_2tup(new_gs_cache_lb, vpt):
                 self._evaluations_cache[cache_game_state] = new_gs_cache_result
+                if is_state_star:
+                    console.print(
+                        "Called state *, found no moves, so made new gs.",
+                        f"{new_gs_cache_result = }",
+                        "Teh lower bound >= vpt, so returning (new_gs_cache_result, True)",
+                        sep="\n",
+                    )
                 return (new_gs_cache_result, True)
 
             new_gs_cache_pruned = new_gs_cache_result[1]
@@ -448,6 +479,14 @@ class Solver_Nightmare(Solver):
             else:
                 cache_answer = new_gs_cache_result
                 calc_pruned = False
+            if is_state_star:
+                console.print(
+                    "Called state *, found no moves, about to return result from new_gs.",
+                    f"{self.calculate_call_id = }",
+                    f"{cache_answer = }",
+                    f"{calc_pruned = }",
+                    sep="\n",
+                )
             self._evaluations_cache[cache_game_state] = cache_answer
             return (cache_answer, calc_pruned)
 
@@ -492,6 +531,14 @@ class Solver_Nightmare(Solver):
             raise NotImplementedError("Have not implemented consider end round early for nightmare!")
 
         # TODO: code to consider ending a round early despite having useful moves.
+        if is_state_star:
+            console.print(
+                "Called state *, at end, about to return.",
+                f"{cache_answer = }",
+                f"{beat_vertical_prune_threshold = }",
+                f"{self.calculate_call_id = }",
+                sep="\n",
+            )
         self._evaluations_cache[cache_game_state] = cache_answer
         return (cache_answer, not beat_vertical_prune_threshold)
 
