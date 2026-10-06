@@ -191,8 +191,8 @@ class Solver_Nightmare(Solver):
         depth,
         round_depth,
     ):
-        # self.calculate_call_id += 1
-        # call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
+        self.calculate_call_id += 1
+        call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
 
         is_begin_round_state = game_state.proposal_used_this_round is None
         search_best_rq = pre_existing_cache_result[2]
@@ -224,8 +224,8 @@ class Solver_Nightmare(Solver):
                 or ((pre_existing_cache_result[0] == round_depth) and pre_existing_cache_result[1])
             )
             and solver_utils.roughly_gt_2tup(vpt, pre_existing_cache_result[-1])
-        ), f"\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
-        # ), f"\n{call_id = :,}\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
+        ), f"\n{call_id = :,}\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
+        # ), f"\n{pre_existing_cache_result = }\n{round_depth = }\n{vpt = }\n{game_state = }\n{cache_game_state = }"
 
         if is_begin_round_state:
             if (round_depth == 0):

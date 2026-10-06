@@ -135,7 +135,7 @@ PRINT_POST_SOLVE_DEBUG_INFO = True
 PRINT_WIDE_TREES            = False # Whether to print trees that are too wide for the console.
 CALCULATE_EVCACHE_MEM_USAGE = True # WARN: Takes a lot of memory/time.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
-SHOW_LOCALS                 = False # print local variables when an unexpected exception occurs?
+SHOW_LOCALS                 = True # print local variables when an unexpected exception occurs?
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
