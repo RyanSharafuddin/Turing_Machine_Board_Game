@@ -292,8 +292,13 @@ class Solver_Nightmare(Solver):
                 t_state_Wgs,
                 working_cwa_set_convert_cache
             )
+            f_state_is_state_star = (f_state_Cgs == self.state_star)
+            t_state_is_state_star = (t_state_Cgs == self.state_star)
             f_result_cache = self._evaluations_cache.get(f_state_Cgs, self.never_seen_cache_res)
             t_result_cache = self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res)
+            if f_state_is_state_star:
+                pass
+                # TODO: print out info like call_id, the fact that f_state_is_state_star, the f and t results, etc. same for t_state_is_state_star
             f_lower_bound = f_result_cache[-1]
             t_lower_bound = t_result_cache[-1]
             currnode_LB_rq_NO_m = self._cost_calculator(
@@ -304,12 +309,14 @@ class Solver_Nightmare(Solver):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
                     self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+                # TODO: if either f or t state is state *, print out the fact that we pruned this.
                 continue
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
             false_needs_update = (
                 (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
             )
+            # TODO: if f_state is state star, print out whether false needs update. Then, when updating it, print out all relevant info.
             if false_needs_update:
                 f_and_t_cache_states_equal = (f_state_Cgs.cwa_set == t_state_Cgs.cwa_set)
                 if f_and_t_cache_states_equal:
