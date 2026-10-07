@@ -2,7 +2,23 @@ import numpy as np
 from .solver import *
 
 class Solver_Nightmare(Solver):
-    state_star : Game_State = None # the cache state that failed an assert; used for debugging.
+    # state_star : Game_State = Game_State(1, 513, cwa_set=6919790999246368831)
+    # star_message = "The state that failed the assert."
+
+    # state_star: Game_State = Game_State(
+    #     num_queries_this_round=0,
+    #     proposal_used_this_round=None,
+    #     cwa_set=6919791549002182719
+    # )
+    # star_message = "The sole parent of the state that failed the assert."
+
+    # state_star = Game_State(2, 525, cwa_set=6919791551149764671)
+    # star_message = ""
+    # star_name_Text = display.Text("parent_2_B", style="r yellow")
+
+    state_star = cache_game_state = Game_State(num_queries_this_round=1, proposal_used_this_round=525, cwa_set=7550330842299498367)
+    star_message = "Only parent of 2_B that lead to evaluations. see parent_2_B for details. 2 evaluations."
+    star_name_Text = display.Text("parent_3_BA", style="r " + "#A40C9A")
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -195,16 +211,20 @@ class Solver_Nightmare(Solver):
         self.calculate_call_id += 1
         call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
         is_state_star = (cache_game_state == self.state_star)
+        is_known_parent = False
+
+        # if (call_id == 3_002_355):
+        #     breakpoint()
 
         if is_state_star:
-            console.rule("CALC CALLED STATE *")
-            print(
-                f"{call_id = :,}",
-                f"{round_depth = }",
-                f"{vpt = }",
+            console.rule(display.Text.assemble("CALC CALLED ", self.star_name_Text))
+            console.print(
+                f"{                  call_id = :,}",
+                f"{              round_depth = }",
+                f"{                      vpt = }",
                 f"{pre_existing_cache_result = }",
-                f"{check_one_answer = }",
-                f"{game_state = }",
+                f"{         check_one_answer = }",
+                f"{               game_state = }",
                 sep="\n",
             )
 
@@ -220,7 +240,8 @@ class Solver_Nightmare(Solver):
                 # if config.CACHE_END_STATES:
                 #     self._evaluations_cache[cache_game_state] = self.end_game_eval
                 if is_state_star:
-                    console.print("Weird. It is state * and we're returning self.end_game_calc_result.")
+                    console.print("Returning self.end_game_calc_result.")
+                    console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
                 return self.end_game_calc_result
             # There is not one answer left, but we now know a lower bound is (is_begin_round_state, 1),
             # whereas the previous best known lower bound was (0, 0), since there could have been
@@ -233,10 +254,12 @@ class Solver_Nightmare(Solver):
                 self._evaluations_cache[cache_game_state] = cache_result
                 if is_state_star:
                     console.print(
+                        "",
                         f"{cache_result = }",
                         "In check one_answer, and lower_bound >= vpt, so returning (cache_result, True).",
                         sep="\n"
                     )
+                    console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
                 return (cache_result, True)
 
         # WARN: will likely have to change this assert if start using a LRU cache
@@ -254,7 +277,8 @@ class Solver_Nightmare(Solver):
                 assert solver_utils.roughly_gt_2tup(vpt, self.double_one)
                 self._evaluations_cache[cache_game_state] = self.round_depth_cutoff_cache
                 if is_state_star:
-                    console.print("Calc called state * and we're returning self.round_depth_cutoff_calc.")
+                    console.print("Returning self.round_depth_cutoff_calc.")
+                    console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
                 return self.round_depth_cutoff_calc
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self.calc_min_vs_list(self, game_state)
@@ -296,9 +320,49 @@ class Solver_Nightmare(Solver):
             t_state_is_state_star = (t_state_Cgs == self.state_star)
             f_result_cache = self._evaluations_cache.get(f_state_Cgs, self.never_seen_cache_res)
             t_result_cache = self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res)
+            original_round_depth = round_depth + is_begin_round_state
+            fcgs_eq_tcgs = (f_state_Cgs == t_state_Cgs)
+            if (f_state_is_state_star or t_state_is_state_star):
+                console.rule(display.Text.assemble("Called parent of ", self.star_name_Text))
+                is_known_parent = True
             if f_state_is_state_star:
-                pass
-                # TODO: print out info like call_id, the fact that f_state_is_state_star, the f and t results, etc. same for t_state_is_state_star
+                console.print(
+                    display.Text.assemble("Called parent of ", self.star_name_Text, " (F)"),
+                    f"{                  call_id = :,}",
+                    f"{   self.calculate_call_id = :,}",
+                    f"{     original_round_depth = :,}",
+                    f"{              round_depth = :,}",
+                    f"{pre_existing_cache_result = }",
+                    f"{                      vpt = }",
+                    f"{                 vpt_NO_m = }",
+                    f"{      search_best_rq_NO_m = }",
+                    f"{                     move = }",
+                    f"{                    p_tup = }",
+                    f"{             fcgs_eq_tcgs = }",
+                    f"{           f_result_cache = }",
+                    f"{         cache_game_state = }",
+                    f"{               game_state = }",
+                    sep="\n",
+                )
+            if t_state_is_state_star:
+                console.print(
+                    display.Text.assemble("Called parent of ", self.star_name_Text, " (T)"),
+                    f"{                  call_id = :,}",
+                    f"{   self.calculate_call_id = :,}",
+                    f"{     original_round_depth = :,}",
+                    f"{              round_depth = :,}",
+                    f"{pre_existing_cache_result = }",
+                    f"{                      vpt = }",
+                    f"{                 vpt_NO_m = }",
+                    f"{      search_best_rq_NO_m = }", 
+                    f"{                     move = }",
+                    f"{                    p_tup = }",
+                    f"{             fcgs_eq_tcgs = }",
+                    f"{           t_result_cache = }",
+                    f"{         cache_game_state = }",
+                    f"{               game_state = }",
+                    sep="\n",
+                )
             f_lower_bound = f_result_cache[-1]
             t_lower_bound = t_result_cache[-1]
             currnode_LB_rq_NO_m = self._cost_calculator(
@@ -309,7 +373,8 @@ class Solver_Nightmare(Solver):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
                 if depth < self.num_concurrent_tasks:
                     self.progress.update(self.depth_to_tasks_l[depth], advance=1)
-                # TODO: if either f or t state is state *, print out the fact that we pruned this.
+                if (f_state_is_state_star or t_state_is_state_star):
+                    console.print("Pruning this node before calculating f_state or t_state.")
                 continue
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
@@ -317,6 +382,8 @@ class Solver_Nightmare(Solver):
                 (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
             )
             # TODO: if f_state is state star, print out whether false needs update. Then, when updating it, print out all relevant info.
+            if (f_state_is_state_star or t_state_is_state_star):
+                console.print(f"{false_needs_update = }")
             if false_needs_update:
                 f_and_t_cache_states_equal = (f_state_Cgs.cwa_set == t_state_Cgs.cwa_set)
                 if f_and_t_cache_states_equal:
@@ -329,6 +396,14 @@ class Solver_Nightmare(Solver):
                     vpt_false = solver_utils.divide_2tup_by_p(
                         solver_utils.subtract_2tup(vpt_NO_m, pTrue_x_trueLB),
                         p_false
+                    )
+                if (f_state_is_state_star or t_state_is_state_star):
+                    console.print(
+                        "About to call calc on f_state",
+                        f"{                 vpt_false = }",
+                        f"{f_and_t_cache_states_equal = }",
+                        f"{    self.calculate_call_id = :,}",
+                        sep="\n",
                     )
                 (f_result_cache, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
@@ -345,6 +420,14 @@ class Solver_Nightmare(Solver):
                 f_evdepth = f_result_cache[0]
                 assert ((f_evdepth >= round_depth) or calc_pruned)
                 assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
+                if (f_state_is_state_star or t_state_is_state_star):
+                    console.print(
+                        "Finished calling calc on f_state",
+                        f"{        f_result_cache = }",
+                        f"{           calc_pruned = }",
+                        f"{self.calculate_call_id = :,}",
+                        sep="\n",
+                    )
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -364,12 +447,21 @@ class Solver_Nightmare(Solver):
             true_needs_update = (
                 (t_evdepth < round_depth) or (t_cache_pruned and (t_evdepth == round_depth))
             )
+            if (f_state_is_state_star or t_state_is_state_star):
+                console.print(f"{true_needs_update = }")
             if true_needs_update:
                 pFalse_x_falseLB = solver_utils.mul_2tup_by_p(f_lower_bound, p_false)
                 vpt_true = solver_utils.divide_2tup_by_p(
                     solver_utils.subtract_2tup(vpt_NO_m, pFalse_x_falseLB),
                     p_true
                 )
+                if (f_state_is_state_star or t_state_is_state_star):
+                    console.print(
+                        "About to call calc on true state",
+                        f"{              vpt_true = }",
+                        f"{self.calculate_call_id = :,}",
+                        sep="\n",
+                    )
                 # We know that t_lower_bound < vpt_true, b/c otherwise would have pruned this when
                 # seeing if the false node exceeds its threshold.
                 (t_result_cache, calc_pruned) = self._calculate_best_move(
@@ -387,6 +479,14 @@ class Solver_Nightmare(Solver):
                 t_evdepth = t_result_cache[0]
                 assert ((t_evdepth >= round_depth) or calc_pruned)
                 assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
+                if (f_state_is_state_star or t_state_is_state_star):
+                    console.print(
+                        "Finished calling calc on t_state",
+                        f"{        t_result_cache = }",
+                        f"{           calc_pruned = }",
+                        f"{self.calculate_call_id = :,}",
+                        sep="\n",
+                    )
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -412,6 +512,12 @@ class Solver_Nightmare(Solver):
                     p_tup, (f_result_cache[2], t_result_cache[2])
                 )
 
+            if (f_state_is_state_star or t_state_is_state_star):
+                console.print(
+                    f"{currnode_LB_rq_NO_m         = }",
+                    f"{currnode_best_known_rq_NO_m = }",
+                    sep="\n"
+                )
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
 
@@ -446,20 +552,33 @@ class Solver_Nightmare(Solver):
                 proposal_used_this_round=None,
                 cwa_set=cache_game_state.cwa_set
             )
+            new_gs_is_star_state = (new_gs_cache_state == self.state_star)
             new_gs_cache_result = self._evaluations_cache.setdefault(
                 new_gs_cache_state,
                 self.cache_res_lb_double_1
             )
             new_gs_cache_lb = new_gs_cache_result[-1]
+            if new_gs_is_star_state:
+                console.rule(display.Text.assemble("Called parent of ", self.star_name_Text))
+                console.print(
+                    display.Text.assemble("Called parent; did not find moves; ", self.star_name_Text, " is new gs."),
+                    f"{   new_gs_cache_result = }",
+                    f"{self.calculate_call_id = :,}",
+                    sep="\n",
+                )
             if solver_utils.roughly_geq_2tup(new_gs_cache_lb, vpt):
                 self._evaluations_cache[cache_game_state] = new_gs_cache_result
+                if new_gs_is_star_state:
+                    console.print("new_gs_is_star_state, and it got pruned without calling.")
                 if is_state_star:
                     console.print(
+                        "",
                         "Called state *, found no moves, so made new gs.",
                         f"{new_gs_cache_result = }",
                         "Teh lower bound >= vpt, so returning (new_gs_cache_result, True)",
                         sep="\n",
                     )
+                    console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
                 return (new_gs_cache_result, True)
 
             new_gs_cache_pruned = new_gs_cache_result[1]
@@ -469,6 +588,8 @@ class Solver_Nightmare(Solver):
                 or (new_gs_cache_pruned and (new_gs_evdepth == round_depth))
             )
             if new_gs_needs_update:
+                if new_gs_is_star_state:
+                    console.print("About to call calculate on state *, which is new gs.")
                 (cache_answer, calc_pruned) = self._calculate_best_move(
                     qs_dict                       = qs_dict,
                     game_state                    = new_gs,
@@ -486,14 +607,24 @@ class Solver_Nightmare(Solver):
             else:
                 cache_answer = new_gs_cache_result
                 calc_pruned = False
-            if is_state_star:
+            if new_gs_is_star_state:
                 console.print(
-                    "Called state *, found no moves, about to return result from new_gs.",
-                    f"{self.calculate_call_id = }",
-                    f"{cache_answer = }",
-                    f"{calc_pruned = }",
+                    "Returned from calling calculate on new_gs, which is state *",
+                    f"{          cache_answer = }",
+                    f"{           calc_pruned = }",
+                    f"{self.calculate_call_id = :,}",
                     sep="\n",
                 )
+            if is_state_star:
+                console.print(
+                    "",
+                    "Called state *, found no moves, about to return result from new_gs.",
+                    f"{self.calculate_call_id = :,}",
+                    f"{          cache_answer = }",
+                    f"{           calc_pruned = }",
+                    sep="\n",
+                )
+                console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
             self._evaluations_cache[cache_game_state] = cache_answer
             return (cache_answer, calc_pruned)
 
@@ -535,17 +666,33 @@ class Solver_Nightmare(Solver):
         if (self.consider_end_round_early and (not (is_begin_round_state or evdepth_infinity))):
             if beat_vertical_prune_threshold:
                 vpt = solver_utils.add_move_cost_to_rq(vpt_NO_m, False) # it is not a begin_round_state here.
+            # TODO: code to consider ending a round early despite having useful moves.
             raise NotImplementedError("Have not implemented consider end round early for nightmare!")
 
-        # TODO: code to consider ending a round early despite having useful moves.
         if is_state_star:
             console.print(
+                "",
                 "Called state *, at end, about to return.",
-                f"{cache_answer = }",
+                f"{cache_answer                  = }",
+                f"{best_move                     = }",
                 f"{beat_vertical_prune_threshold = }",
-                f"{self.calculate_call_id = }",
+                f"{self.calculate_call_id        = :,}",
+                "",
                 sep="\n",
             )
+            console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
+        if is_known_parent:
+            console.print(
+                "",
+                display.Text.assemble("Called known parent of ", self.star_name_Text, " at end, about to return."),
+                f"{cache_answer                  = }",
+                f"{best_move                     = }",
+                f"{beat_vertical_prune_threshold = }",
+                f"{self.calculate_call_id        = :,}",
+                "",
+                sep="\n",
+            )
+            console.rule("Finished known parent.")
         self._evaluations_cache[cache_game_state] = cache_answer
         return (cache_answer, not beat_vertical_prune_threshold)
 

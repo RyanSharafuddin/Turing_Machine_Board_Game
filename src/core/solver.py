@@ -909,6 +909,9 @@ class Solver:
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
     def _called_by_solve(self):
+        console.print(f"{self.state_star = }")
+        console.print(f"\n{self.star_message = }", style="hot_pink")
+        console.print("Star name:", self.star_name_Text)
         self.iterative_deepen(self.initial_game_state, display=True)
 
     def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move):
