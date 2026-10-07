@@ -695,7 +695,7 @@ class Solver_Nightmare(Solver):
                     )
                     console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
                 if log_call:
-                    self.log_to_file("new_gs_cache_state pruned by VPT.")
+                    self.log_to_file("new_gs_cache_state pruned by VPT.", indent_level=indent_level)
                     answer = (new_gs_cache_result, True)
                     self.log_to_file(f"{answer                    = }", indent_level=indent_level)
                 return (new_gs_cache_result, True)
