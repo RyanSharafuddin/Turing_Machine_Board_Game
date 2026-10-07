@@ -19,6 +19,10 @@ class Solver_Nightmare(Solver):
     state_star = cache_game_state = Game_State(num_queries_this_round=1, proposal_used_this_round=525, cwa_set=7550330842299498367)
     star_message = "Only parent of 2_B that lead to evaluations. see parent_2_B for details. 2 evaluations."
     star_name_Text = display.Text("parent_3_BA", style="r " + "#A40C9A")
+
+    state_star = None
+    # call_id_to_log = 3_003_355
+    call_id_to_log = 3_286
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -207,9 +211,24 @@ class Solver_Nightmare(Solver):
         working_cwa_set_convert_cache,
         depth,
         round_depth,
+        indent_level = 0,
+        log_call = False,
     ):
         self.calculate_call_id += 1
         call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
+        log_call = log_call or (call_id == self.call_id_to_log)
+        if log_call:
+            self.log_to_file(f"{call_id = :_}", indent_level=indent_level)
+            indent_level += 1
+            self.log_to_file(
+                f"{round_depth               = }",
+                f"{vpt                       = }",
+                f"{pre_existing_cache_result = }",
+                # TODO: be able to substitute state names. and maybe insert color strings for colorizer.
+                f"{tuple(cache_game_state)   = }",
+                f"{game_state                = }",
+                indent_level=indent_level
+            )
         is_state_star = (cache_game_state == self.state_star)
         is_known_parent = False
 
@@ -239,6 +258,10 @@ class Solver_Nightmare(Solver):
                 # this setting wastes time unnecessarily
                 # if config.CACHE_END_STATES:
                 #     self._evaluations_cache[cache_game_state] = self.end_game_eval
+                if log_call:
+                    self.log_to_file("Returning self.end_game_calc_result", indent_level=indent_level)
+                    answer = self.end_game_calc_result
+                    self.log_to_file(f"{answer                    = }", indent_level=indent_level)
                 if is_state_star:
                     console.print("Returning self.end_game_calc_result.")
                     console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
@@ -249,6 +272,7 @@ class Solver_Nightmare(Solver):
             # TODO: index into premade tups; don't make a new one.
             lower_bound = (is_begin_round_state, 1)
             if solver_utils.roughly_geq_2tup(lower_bound, vpt):
+                assert (round_depth == 0)
                 # TODO: index into premade tups; don't make a new one.
                 cache_result = (0, True, self.double_inf, lower_bound)
                 self._evaluations_cache[cache_game_state] = cache_result
@@ -260,6 +284,10 @@ class Solver_Nightmare(Solver):
                         sep="\n"
                     )
                     console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
+                if log_call:
+                    answer = (cache_result, True)
+                    self.log_to_file("VPT >= a single move, so returning", indent_level=indent_level)
+                    self.log_to_file(f"{answer                    = }", indent_level=indent_level)
                 return (cache_result, True)
 
         # WARN: will likely have to change this assert if start using a LRU cache
@@ -279,6 +307,10 @@ class Solver_Nightmare(Solver):
                 if is_state_star:
                     console.print("Returning self.round_depth_cutoff_calc.")
                     console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
+                if log_call:
+                    answer = self.round_depth_cutoff_calc
+                    self.log_to_file("Returning self.round_depth_cutoff_calc.", indent_level=indent_level)
+                    self.log_to_file(f"{answer                    = }", indent_level=indent_level)
                 return self.round_depth_cutoff_calc
             working_cwa_set_convert_cache = dict()
             minimal_vs_list = self.calc_min_vs_list(self, game_state)
@@ -302,6 +334,10 @@ class Solver_Nightmare(Solver):
             depth,
             self.get_and_apply_moves(game_state, qs_dict, minimal_vs_list)
         )
+        if log_call:
+            self.log_to_file("Move Loop:", indent_level=indent_level)
+        if log_call:
+            indent_level += 1
         for move_info in move_iterable:
             not_found_moves = False
             (move, (f_state_Wgs, t_state_Wgs), p_tup) = move_info
@@ -368,6 +404,23 @@ class Solver_Nightmare(Solver):
             currnode_LB_rq_NO_m = self._cost_calculator(
                 p_tup, (f_lower_bound, t_lower_bound)
             )
+            if log_call:
+                self.log_to_file(
+                    "\n",
+                    f"{move                           = }",
+                    f"{p_tup                          = }",
+                    f"{self.calculate_call_id         = :_}",
+                    f"{round_depth                    = :}",
+                    f"{search_best_rq_NO_m            = }",
+                    f"{vpt_NO_m                       = }",
+                    f"{search_curr_evdepth_LB_rq_NO_m = }",
+                    f"{fcgs_eq_tcgs                   = }",
+                    f"{tuple(f_state_Cgs)             = }",
+                    f"{f_result_cache                 = }",
+                    f"{tuple(t_state_Cgs)             = }",
+                    f"{t_result_cache                 = }",
+                    indent_level=indent_level
+                )
             if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, vpt_NO_m):
                 # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
@@ -375,6 +428,11 @@ class Solver_Nightmare(Solver):
                     self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                 if (f_state_is_state_star or t_state_is_state_star):
                     console.print("Pruning this node before calculating f_state or t_state.")
+                if log_call:
+                    self.log_to_file(
+                        "Pruning this move before calculating f_state or t_state.",
+                        indent_level=indent_level
+                    )
                 continue
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
@@ -384,6 +442,11 @@ class Solver_Nightmare(Solver):
             # TODO: if f_state is state star, print out whether false needs update. Then, when updating it, print out all relevant info.
             if (f_state_is_state_star or t_state_is_state_star):
                 console.print(f"{false_needs_update = }")
+            if log_call:
+                self.log_to_file(
+                    f"{false_needs_update             = }",
+                    indent_level=indent_level
+                )
             if false_needs_update:
                 f_and_t_cache_states_equal = (f_state_Cgs.cwa_set == t_state_Cgs.cwa_set)
                 if f_and_t_cache_states_equal:
@@ -416,6 +479,8 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    log_call                      = log_call,
+                    indent_level                  = indent_level + log_call
                 )
                 f_evdepth = f_result_cache[0]
                 assert ((f_evdepth >= round_depth) or calc_pruned)
@@ -449,6 +514,11 @@ class Solver_Nightmare(Solver):
             )
             if (f_state_is_state_star or t_state_is_state_star):
                 console.print(f"{true_needs_update = }")
+            if log_call:
+                self.log_to_file(
+                    f"{true_needs_update              = }",
+                    indent_level=indent_level
+                )
             if true_needs_update:
                 pFalse_x_falseLB = solver_utils.mul_2tup_by_p(f_lower_bound, p_false)
                 vpt_true = solver_utils.divide_2tup_by_p(
@@ -475,6 +545,8 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = working_cwa_set_convert_cache,
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    log_call                      = log_call,
+                    indent_level                  = indent_level + log_call
                 )
                 t_evdepth = t_result_cache[0]
                 assert ((t_evdepth >= round_depth) or calc_pruned)
@@ -505,6 +577,8 @@ class Solver_Nightmare(Solver):
                     p_tup, (f_lower_bound, t_lower_bound)
                 )
 
+            # WARN: think about how currnode_best_known_rq_NO_m
+            # interacts with the fact that you may have pruned some moves.
             if (f_evdepth == inf) and (t_evdepth == inf):
                 currnode_best_known_rq_NO_m = currnode_LB_rq_NO_m
             else:
@@ -518,6 +592,13 @@ class Solver_Nightmare(Solver):
                     f"{currnode_best_known_rq_NO_m = }",
                     sep="\n"
                 )
+            if log_call:
+                self.log_to_file(
+                    "Beat vertical prune threshold.",
+                    f"{currnode_LB_rq_NO_m         = }",
+                    f"{currnode_best_known_rq_NO_m = }",
+                    indent_level=indent_level
+                )
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
 
@@ -530,6 +611,11 @@ class Solver_Nightmare(Solver):
                     if (currnode_best_known_rq_NO_m[1] == 0):
                         break
                 vpt_NO_m = search_best_rq_NO_m
+                if log_call:
+                    self.log_to_file(
+                        "search_best_rq_NO_m and vpt_NO_m updated.",
+                        indent_level=indent_level
+                    )
 
             if depth < self.num_concurrent_tasks:
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -540,6 +626,9 @@ class Solver_Nightmare(Solver):
                 or solver_utils.roughly_geq_2tup(search_best_rq_NO_m, search_curr_evdepth_LB_rq_NO_m)
             ),\
             f"\nlower bound NO m: {search_curr_evdepth_LB_rq_NO_m}\nbest so far NO m: {search_best_rq_NO_m}\n{game_state}"
+
+        if log_call:
+            indent_level -= 1
 
         if not_found_moves:
             new_gs = Game_State(
@@ -566,6 +655,12 @@ class Solver_Nightmare(Solver):
                     f"{self.calculate_call_id = :,}",
                     sep="\n",
                 )
+            if log_call:
+                self.log_to_file(
+                    "No moves found; creating new gs state.",
+                    f"{new_gs_cache_result         = }",
+                    indent_level=indent_level
+                )
             if solver_utils.roughly_geq_2tup(new_gs_cache_lb, vpt):
                 self._evaluations_cache[cache_game_state] = new_gs_cache_result
                 if new_gs_is_star_state:
@@ -579,6 +674,10 @@ class Solver_Nightmare(Solver):
                         sep="\n",
                     )
                     console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
+                if log_call:
+                    self.log_to_file("new_gs_cache_state pruned by VPT.")
+                    answer = (new_gs_cache_result, True)
+                    self.log_to_file(f"{answer                    = }", indent_level=indent_level)
                 return (new_gs_cache_result, True)
 
             new_gs_cache_pruned = new_gs_cache_result[1]
@@ -587,6 +686,11 @@ class Solver_Nightmare(Solver):
                 (new_gs_evdepth < round_depth)
                 or (new_gs_cache_pruned and (new_gs_evdepth == round_depth))
             )
+            if log_call:
+                self.log_to_file(
+                    f"{new_gs_needs_update               = }",
+                    indent_level=indent_level
+                )
             if new_gs_needs_update:
                 if new_gs_is_star_state:
                     console.print("About to call calculate on state *, which is new gs.")
@@ -601,6 +705,8 @@ class Solver_Nightmare(Solver):
                     working_cwa_set_convert_cache = None, # next invocation will create a new one
                     depth                         = depth+1,
                     round_depth                   = round_depth,
+                    log_call                      = log_call,
+                    indent_level                  = indent_level + log_call
                 )
                 assert ((cache_answer[0] >= round_depth) or calc_pruned)
                 assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
@@ -625,6 +731,9 @@ class Solver_Nightmare(Solver):
                     sep="\n",
                 )
                 console.rule(display.Text.assemble("FINISHED ", self.star_name_Text))
+            if log_call:
+                answer = (cache_answer, calc_pruned)
+                self.log_to_file(f"{answer                    = }", indent_level=indent_level)
             self._evaluations_cache[cache_game_state] = cache_answer
             return (cache_answer, calc_pruned)
 
@@ -693,6 +802,13 @@ class Solver_Nightmare(Solver):
                 sep="\n",
             )
             console.rule("Finished known parent.")
+        if log_call:
+            self.log_to_file(
+                f"{beat_vertical_prune_threshold = }",
+                indent_level=indent_level
+            )
+            answer = (cache_answer, not beat_vertical_prune_threshold)
+            self.log_to_file(f"{answer                    = }", indent_level=indent_level)
         self._evaluations_cache[cache_game_state] = cache_answer
         return (cache_answer, not beat_vertical_prune_threshold)
 

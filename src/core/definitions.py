@@ -58,6 +58,7 @@ Problem = namedtuple(
 STANDARD = 0
 EXTREME = 1
 NIGHTMARE = 2
+INDENT = "    "
 
 NP_INT_TO_NUM_BITS = {
      np.uint8 :  8,

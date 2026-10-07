@@ -1,6 +1,8 @@
 import time, git
 from typing import NamedTuple
 from fractions import Fraction
+from datetime import datetime
+from pathlib import Path
 import numpy as np
 from . import rules, config, solver_utils
 from .definitions import *
@@ -110,6 +112,11 @@ class Solver:
     round_depth_cutoff_calc = (round_depth_cutoff_cache, False)
     never_seen_cache_res = (-1, False, double_inf, double_zero)
     cache_res_lb_double_1 = (0, False, double_inf, double_one)
+
+    state_star = None
+    star_message = None
+    star_name_Text = None
+    call_id_to_log = -1
     __slots__ = (
         "problem",
         "n_mode",
@@ -147,6 +154,9 @@ class Solver:
         "consider_end_round_early",
 
         "calculate_call_id", # for debugging purposes.
+
+        "log_file",
+        "log_file_path",
     )
     def __init__(
             self,
@@ -198,6 +208,10 @@ class Solver:
         self.consider_end_round_early = consider_end_round_early
 
         self.calculate_call_id = 0 # for debugging purposes
+        timestamp_str = datetime.now().strftime('%Y_%m_%d_%H_%M')
+        Path(config.LOG_FILE_DIRECTORY).mkdir(parents=True, exist_ok=True)
+        self.log_file_path = f"{config.LOG_FILE_DIRECTORY}/{problem.identity}_{self.call_id_to_log:_}_{timestamp_str}.txt"
+        self.log_file = open(self.log_file_path, "w")
 
     @staticmethod
     def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
@@ -905,6 +919,13 @@ class Solver:
         console.print(f"Number of bytes they waste                : {wasted_memory:,}")
         console.print(f"Alternate number of bytes they waste      : {asizeof(list_dups) - asizeof([None] * len(list_dups)):,}")
         console.print(f"duplicates with same identity             : {duplicates_with_same_identity:,}")
+    def log_to_file(self, *strs, indent_level):
+        for s in strs:
+            if (s == "\n"):
+                self.log_file.write("\n")
+                continue
+            self.log_file.write(f"{INDENT * indent_level}{s}\n")
+            self.log_file.flush()
     ############################### SAME FOR ALL SOLVERS ###############################
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
@@ -912,6 +933,7 @@ class Solver:
         console.print(f"{self.state_star = }")
         console.print(f"\n{self.star_message = }", style="hot_pink")
         console.print("Star name:", self.star_name_Text)
+        console.print(f"Writing logs to [green]{self.log_file_path}[/green].\n")
         self.iterative_deepen(self.initial_game_state, display=True)
 
     def _get_og_cost_from_state_and_move(self, working_gs: Game_State, move):

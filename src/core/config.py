@@ -143,6 +143,7 @@ DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginni
 VERSION_NAME               = "VPT" # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
+LOG_FILE_DIRECTORY         = f"Outputs/Log_Files/{VERSION_NAME}"
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
 PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
