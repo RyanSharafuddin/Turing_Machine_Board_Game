@@ -21,8 +21,16 @@ class Solver_Nightmare(Solver):
     star_name_Text = display.Text("parent_3_BA", style="r " + "#A40C9A")
 
     state_star = None
-    # call_id_to_log = 3_003_355
-    call_id_to_log = 3_286
+    call_id_to_log = 3_002_355
+    # call_id_to_log = 3_286
+    known_state_names = {
+        Game_State(1, 513, cwa_set=6919790999246368831) : 'State * "#0000FF"',
+        Game_State(0, None, cwa_set=6919791549002182719): 'Parent_1 "#FF0000"',
+        Game_State(2, 512, cwa_set=6919791549002281023) : 'Parent_2_A "#FF6F00"',
+        Game_State(2, 525, cwa_set=6919791551149764671) : 'Parent_2_B "#FFFF00"'
+    }
+
+
     __slots__ = (
         "num_possible_rules",
         "int_verifier_bit_mask",
@@ -218,14 +226,16 @@ class Solver_Nightmare(Solver):
         call_id = self.calculate_call_id # save call_id for this call so future calls don't overwrite it
         log_call = log_call or (call_id == self.call_id_to_log)
         if log_call:
+            known_name = self.known_state_names.get(cache_game_state, "N/A")
             self.log_to_file(f"{call_id = :_}", indent_level=indent_level)
             indent_level += 1
             self.log_to_file(
+                f"{tuple(cache_game_state)   = }",
+                f"{known_name                = }",
                 f"{round_depth               = }",
                 f"{vpt                       = }",
                 f"{pre_existing_cache_result = }",
                 # TODO: be able to substitute state names. and maybe insert color strings for colorizer.
-                f"{tuple(cache_game_state)   = }",
                 f"{game_state                = }",
                 indent_level=indent_level
             )
@@ -407,7 +417,11 @@ class Solver_Nightmare(Solver):
             if log_call:
                 self.log_to_file(
                     "\n",
-                    f"{move                           = }",
+                    f"{move = }",
+                    indent_level=indent_level
+                )
+                indent_level += 1
+                self.log_to_file(
                     f"{p_tup                          = }",
                     f"{self.calculate_call_id         = :_}",
                     f"{round_depth                    = :}",
@@ -433,6 +447,7 @@ class Solver_Nightmare(Solver):
                         "Pruning this move before calculating f_state or t_state.",
                         indent_level=indent_level
                     )
+                indent_level -= log_call
                 continue
             f_evdepth = f_result_cache[0]
             f_cache_pruned = f_result_cache[1]
@@ -496,6 +511,7 @@ class Solver_Nightmare(Solver):
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    indent_level -= log_call
                     continue
                 f_lower_bound = f_result_cache[-1]
                 if f_and_t_cache_states_equal:
@@ -562,6 +578,7 @@ class Solver_Nightmare(Solver):
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    indent_level -= log_call
                     continue
                 t_lower_bound = t_result_cache[-1]
 
@@ -609,6 +626,7 @@ class Solver_Nightmare(Solver):
                     evdepth_infinity = True
                     assert (round_depth == 0), round_depth
                     if (currnode_best_known_rq_NO_m[1] == 0):
+                        indent_level -= log_call
                         break
                 vpt_NO_m = search_best_rq_NO_m
                 if log_call:
@@ -619,6 +637,8 @@ class Solver_Nightmare(Solver):
 
             if depth < self.num_concurrent_tasks:
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+            indent_level -= log_call
+
 
         assert\
             (
