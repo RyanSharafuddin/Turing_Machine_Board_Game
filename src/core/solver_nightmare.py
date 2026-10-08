@@ -444,8 +444,8 @@ class Solver_Nightmare(Solver):
                     console.print("Pruning this node before calculating f_state or t_state.")
                 if log_call:
                     self.log_to_file(
-                        "Pruning this move before calculating f_state or t_state.",
-                        indent_level=indent_level
+                        "❌ (before either).",
+                        indent_level=indent_level - 1 # same level as move value
                     )
                 indent_level -= log_call
                 continue
@@ -511,6 +511,8 @@ class Solver_Nightmare(Solver):
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    if log_call:
+                        self.log_to_file("❌ (F)", indent_level=indent_level - 1) # same level as move value
                     indent_level -= log_call
                     continue
                 f_lower_bound = f_result_cache[-1]
@@ -578,6 +580,8 @@ class Solver_Nightmare(Solver):
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
+                    if log_call:
+                        self.log_to_file("❌ (T)", indent_level=indent_level - 1) # same level as move value
                     indent_level -= log_call
                     continue
                 t_lower_bound = t_result_cache[-1]
@@ -611,10 +615,10 @@ class Solver_Nightmare(Solver):
                 )
             if log_call:
                 self.log_to_file(
-                    "Beat vertical prune threshold.",
+                    "✅ Beat vertical prune threshold.",
                     f"{currnode_LB_rq_NO_m         = }",
                     f"{currnode_best_known_rq_NO_m = }",
-                    indent_level=indent_level
+                    indent_level=indent_level - 1 # same level as move
                 )
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
@@ -626,13 +630,18 @@ class Solver_Nightmare(Solver):
                     evdepth_infinity = True
                     assert (round_depth == 0), round_depth
                     if (currnode_best_known_rq_NO_m[1] == 0):
+                        if log_call:
+                            self.log_to_file(
+                                "This single move solves the state.",
+                                indent_level=indent_level - 1 # same level as move
+                            )
                         indent_level -= log_call
                         break
                 vpt_NO_m = search_best_rq_NO_m
                 if log_call:
                     self.log_to_file(
                         "search_best_rq_NO_m and vpt_NO_m updated.",
-                        indent_level=indent_level
+                        indent_level=indent_level - 1 # same level as move
                     )
 
             if depth < self.num_concurrent_tasks:
