@@ -275,6 +275,7 @@ class Solver_Nightmare(Solver):
             currnode_LB_rq_NO_m = self._cost_calculator(
                 p_tup, (f_lower_bound, t_lower_bound)
             )
+            # LABEL: Prune Before Block
             if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, vpt_NO_m):
                 # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
@@ -314,6 +315,7 @@ class Solver_Nightmare(Solver):
                 f_evdepth = f_result_cache[0]
                 assert ((f_evdepth >= round_depth) or calc_pruned)
                 assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
+                # LABEL: Prune False
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -356,6 +358,7 @@ class Solver_Nightmare(Solver):
                 t_evdepth = t_result_cache[0]
                 assert ((t_evdepth >= round_depth) or calc_pruned)
                 assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
+                # LABEL: Prune True
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
