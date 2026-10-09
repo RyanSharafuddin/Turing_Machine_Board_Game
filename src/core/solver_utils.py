@@ -835,6 +835,14 @@ def fp_leq(a, b):
         return True
     return (a < b)
 
+def fp_gt(a, b):
+    """
+    Returns a > b
+    """
+    if math.isclose(a, b, rel_tol=REL_TOL, abs_tol=A_TOL):
+        return False
+    return (a > b)
+
 def fp_cmp(a, b):
     """
     Params
