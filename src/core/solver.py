@@ -307,10 +307,11 @@ class Solver:
             # whereas the previous best known lower bound was (0, 0), since there could have been
             # 1 answer left. So now we have an opportunity to prune.
             # TODO: index into premade tups; don't make a new one.
+            assert (round_depth == 0)
             lower_bound = (is_begin_round_state, 1)
             if solver_utils.roughly_geq_2tup(lower_bound, vpt):
                 # TODO: index into premade tups; don't make a new one.
-                cache_result = (0, True, self.double_inf, lower_bound)
+                cache_result = (0, not is_begin_round_state, self.double_inf, lower_bound)
                 self._evaluations_cache[cache_game_state] = cache_result
                 return (cache_result, True)
 
@@ -341,7 +342,7 @@ class Solver:
             # self.sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
             round_depth -= 1
 
-        search_curr_evdepth_LB_rq = self.start_search_cost
+        search_curr_evdepth_LB_rq = self.start_search_cost # TODO: is this line necessary?
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
@@ -399,7 +400,8 @@ class Solver:
                     round_depth               = round_depth
                 )
                 f_evdepth = f_result_cache[0]
-                assert ((f_evdepth >= round_depth) or calc_pruned)
+                assert (f_evdepth >= round_depth)
+                # assert ((f_evdepth >= round_depth) or calc_pruned)
                 assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
@@ -434,7 +436,8 @@ class Solver:
                     round_depth               = round_depth
                 )
                 t_evdepth = t_result_cache[0]
-                assert ((t_evdepth >= round_depth) or calc_pruned)
+                assert (t_evdepth >= round_depth)
+                # assert ((t_evdepth >= round_depth) or calc_pruned)
                 assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
@@ -480,7 +483,8 @@ class Solver:
                     assert (round_depth == 0), round_depth
                     if (currnode_best_known_rq_NO_m[1] == 0):
                         break
-                vpt_NO_m = search_best_rq_NO_m
+                if solver_utils.roughly_lt_2tup(search_best_rq_NO_m, vpt_NO_m):
+                    vpt_NO_m = search_best_rq_NO_m
 
             if depth < self.num_concurrent_tasks:
                 self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -527,7 +531,8 @@ class Solver:
                     depth                     = depth+1,
                     round_depth               = round_depth
                 )
-                assert ((cache_answer[0] >= round_depth) or calc_pruned)
+                assert (cache_answer[0] >= round_depth)
+                # assert ((cache_answer[0] >= round_depth) or calc_pruned)
                 assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
             else:
                 cache_answer = new_gs_cache_result

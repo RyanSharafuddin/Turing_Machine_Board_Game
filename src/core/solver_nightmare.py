@@ -215,7 +215,7 @@ class Solver_Nightmare(Solver):
         pre_existing_cache_result,
         vpt,
         check_one_answer: bool,
-        minimal_vs_list: list[set[int]],
+        minimal_vs_list: list[int],
         working_cwa_set_convert_cache,
         depth,
         round_depth,
@@ -280,11 +280,12 @@ class Solver_Nightmare(Solver):
             # whereas the previous best known lower bound was (0, 0), since there could have been
             # 1 answer left. So now we have an opportunity to prune.
             # TODO: index into premade tups; don't make a new one.
+            assert (round_depth == 0)
             lower_bound = (is_begin_round_state, 1)
             if solver_utils.roughly_geq_2tup(lower_bound, vpt):
                 assert (round_depth == 0)
                 # TODO: index into premade tups; don't make a new one.
-                cache_result = (0, True, self.double_inf, lower_bound)
+                cache_result = (0, not is_begin_round_state, self.double_inf, lower_bound)
                 self._evaluations_cache[cache_game_state] = cache_result
                 if is_state_star:
                     console.print(
@@ -331,7 +332,7 @@ class Solver_Nightmare(Solver):
         # self._print_canonical_form_info(game_state, cache_game_state, max_num_forms=500)
         ######################################## DEBUGGING ###################################################
 
-        search_curr_evdepth_LB_rq = self.start_search_cost
+        search_curr_evdepth_LB_rq = self.start_search_cost # TODO: is this line necessary?
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
@@ -437,6 +438,7 @@ class Solver_Nightmare(Solver):
                     f"{t_result_cache                 = }",
                     indent_level=indent_level
                 )
+            # LABEL: Prune Before Block
             if solver_utils.roughly_geq_2tup(currnode_LB_rq_NO_m, vpt_NO_m):
                 # if solver_utils.roughly_lt_2tup(currnode_lower_bound_rqd, search_curr_evdepth_LB_rqd):
                 #     search_curr_evdepth_LB_rqd = currnode_lower_bound_rqd
@@ -500,7 +502,8 @@ class Solver_Nightmare(Solver):
                     indent_level                  = indent_level + log_call
                 )
                 f_evdepth = f_result_cache[0]
-                assert ((f_evdepth >= round_depth) or calc_pruned)
+                assert (f_evdepth >= round_depth)
+                # assert ((f_evdepth >= round_depth) or calc_pruned)
                 assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
                 if (f_state_is_state_star or t_state_is_state_star):
                     console.print(
@@ -510,6 +513,7 @@ class Solver_Nightmare(Solver):
                         f"{self.calculate_call_id = :,}",
                         sep="\n",
                     )
+                # LABEL: Prune False
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -572,7 +576,8 @@ class Solver_Nightmare(Solver):
                     indent_level                  = indent_level + log_call
                 )
                 t_evdepth = t_result_cache[0]
-                assert ((t_evdepth >= round_depth) or calc_pruned)
+                assert (t_evdepth >= round_depth)
+                # assert ((t_evdepth >= round_depth) or calc_pruned)
                 assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
                 if (f_state_is_state_star or t_state_is_state_star):
                     console.print(
@@ -582,6 +587,7 @@ class Solver_Nightmare(Solver):
                         f"{self.calculate_call_id = :,}",
                         sep="\n",
                     )
+                # LABEL: Prune True
                 if calc_pruned:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
@@ -757,7 +763,8 @@ class Solver_Nightmare(Solver):
                     log_call                      = log_call,
                     indent_level                  = indent_level + log_call
                 )
-                assert ((cache_answer[0] >= round_depth) or calc_pruned)
+                assert (cache_answer[0] >= round_depth)
+                # assert ((cache_answer[0] >= round_depth) or calc_pruned)
                 assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
             else:
                 cache_answer = new_gs_cache_result
