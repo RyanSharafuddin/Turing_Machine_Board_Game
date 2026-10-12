@@ -502,8 +502,7 @@ class Solver_Nightmare(Solver):
                     indent_level                  = indent_level + log_call
                 )
                 f_evdepth = f_result_cache[0]
-                assert (f_evdepth >= round_depth)
-                # assert ((f_evdepth >= round_depth) or calc_pruned)
+                assert ((f_evdepth >= round_depth) or calc_pruned)
                 assert not (f_result_cache[1] and (not calc_pruned) and (f_evdepth == round_depth))
                 if (f_state_is_state_star or t_state_is_state_star):
                     console.print(
@@ -576,8 +575,7 @@ class Solver_Nightmare(Solver):
                     indent_level                  = indent_level + log_call
                 )
                 t_evdepth = t_result_cache[0]
-                assert (t_evdepth >= round_depth)
-                # assert ((t_evdepth >= round_depth) or calc_pruned)
+                assert ((t_evdepth >= round_depth) or calc_pruned)
                 assert not (t_result_cache[1] and (not calc_pruned) and (t_evdepth == round_depth))
                 if (f_state_is_state_star or t_state_is_state_star):
                     console.print(
@@ -763,8 +761,7 @@ class Solver_Nightmare(Solver):
                     log_call                      = log_call,
                     indent_level                  = indent_level + log_call
                 )
-                assert (cache_answer[0] >= round_depth)
-                # assert ((cache_answer[0] >= round_depth) or calc_pruned)
+                assert ((cache_answer[0] >= round_depth) or calc_pruned)
                 assert not (cache_answer[1] and (not calc_pruned) and (cache_answer[0] == round_depth))
             else:
                 cache_answer = new_gs_cache_result
