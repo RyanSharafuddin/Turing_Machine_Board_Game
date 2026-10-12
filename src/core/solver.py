@@ -560,6 +560,7 @@ class Solver:
             else:
                 evdepth = min_round_depth + is_begin_round_state
                 assert (evdepth != inf)
+                # Consider keeping track of minimum pruned lower bound and logging it here.
                 cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
             self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
 

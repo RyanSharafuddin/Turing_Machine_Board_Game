@@ -5,12 +5,13 @@ class Solver_Nightmare(Solver):
     # state_star : Game_State = Game_State(1, 513, cwa_set=6919790999246368831)
     # star_message = "The state that failed the assert."
 
-    # state_star: Game_State = Game_State(
-    #     num_queries_this_round=0,
-    #     proposal_used_this_round=None,
-    #     cwa_set=6919791549002182719
-    # )
-    # star_message = "The sole parent of the state that failed the assert."
+    state_star: Game_State = Game_State(
+        num_queries_this_round=0,
+        proposal_used_this_round=None,
+        cwa_set=6919791549002182719
+    )
+    star_message = ""
+    star_name_Text = display.Text("Parent_1", style="r " + "red")
 
     # state_star = Game_State(2, 525, cwa_set=6919791551149764671)
     # star_message = ""
@@ -20,9 +21,10 @@ class Solver_Nightmare(Solver):
     # star_message = "Only parent of 2_B that lead to evaluations. see parent_2_B for details. 2 evaluations."
     # star_name_Text = display.Text("parent_3_BA", style="r " + "#A40C9A")
 
-    state_star = None
-    call_id_to_log = 3_002_355
+    # state_star = None
+    # call_id_to_log = 3_002_355
     # call_id_to_log = 3_286
+    call_id_to_log = 0 # don't log any specific call_id, since it starts at 1
     known_state_names = {
         Game_State(1, 513, cwa_set=6919790999246368831) : 'State * "#0000FF"',
         Game_State(0, None, cwa_set=6919791549002182719): 'Parent_1 "#FF0000"',
@@ -369,8 +371,6 @@ class Solver_Nightmare(Solver):
             t_result_cache = self._evaluations_cache.get(t_state_Cgs, self.never_seen_cache_res)
             original_round_depth = round_depth + is_begin_round_state
             fcgs_eq_tcgs = (f_state_Cgs == t_state_Cgs)
-            vpt_NO_m_gt_rd = solver_utils.fp_gt(vpt_NO_m[0], round_depth)
-            vpt_NO_m_gt_rd_emoji = '✅' if vpt_NO_m_gt_rd else '❌'
             if (f_state_is_state_star or t_state_is_state_star):
                 console.rule(display.Text.assemble("Called parent of ", self.star_name_Text))
                 is_known_parent = True
@@ -448,7 +448,7 @@ class Solver_Nightmare(Solver):
                     console.print("Pruning this node before calculating f_state or t_state.")
                 if log_call:
                     self.log_to_file(
-                        f"❌ (before either). vpt_NO_m > round_depth: {vpt_NO_m_gt_rd_emoji}",
+                        f"❌ (before either).",
                         indent_level=indent_level - 1 # same level as move value
                     )
                 indent_level -= log_call
@@ -519,7 +519,7 @@ class Solver_Nightmare(Solver):
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     if log_call:
                         self.log_to_file(
-                            f"❌ (F). vpt_NO_m > round_depth: {vpt_NO_m_gt_rd_emoji}",
+                            f"❌ (F).",
                             indent_level=indent_level - 1
                         ) # same level as move value
                     indent_level -= log_call
@@ -593,7 +593,7 @@ class Solver_Nightmare(Solver):
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     if log_call:
                         self.log_to_file(
-                            f"❌ (T). vpt_NO_m > round_depth: {vpt_NO_m_gt_rd_emoji}",
+                            f"❌ (T).",
                             indent_level=indent_level - 1
                         ) # same level as move value
                     indent_level -= log_call
@@ -812,6 +812,14 @@ class Solver_Nightmare(Solver):
                 evdepth = inf
                 cache_answer = (evdepth, False, search_best_rq)
             else:
+                # Consider keeping track of mplb and logging it here.
+                vpt_eq_search_best = solver_utils.fp_eq_tup(vpt_NO_m, search_best_rq_NO_m)
+                vpt_eq_search_best_emoji = "✅" if vpt_eq_search_best else "❌"
+                if log_call:
+                    self.log_to_file(
+                        f"vpt_NO_m = search_best_rq_NO_m: {vpt_eq_search_best_emoji}",
+                        indent_level=indent_level
+                    )
                 evdepth = min_round_depth + is_begin_round_state
                 assert (evdepth != inf)
                 cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
