@@ -129,6 +129,8 @@ N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progres
 }
 N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have less than this # of moves
+COST_PRECISION               = 3     # Number of decimal digits to show in rounded/truncated costs.
+MEM_PRECISION                = 2     # Decimal digits for num GB/MB. Num bytes is exact
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True
@@ -140,7 +142,7 @@ LOCALS_MAX_LENGTH           = 5     # max length of local containers to print be
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "VPT" # The name of this version of the program
+VERSION_NAME               = "VPT_With_Mem" # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
