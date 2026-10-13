@@ -326,6 +326,10 @@ class Solver:
         curr_cache_result = prev_cache_result
         curr_cache_result_evdepth = curr_cache_result[0]
         curr_cache_result_pruned = curr_cache_result[1]
+        # NOTE: I think I don't need to calculate (not curr_cache_result_pruned) and add it to
+        #       curr_cache_result every time. I think I only need to add it the first time,
+        #       before the loop, and then at the end of the loop, increase rd_to_evaluate_to by 1.
+        #       Think about this more carefully before implementing it.
         while True:
             rd_to_evaluate_to = curr_cache_result_evdepth + (not curr_cache_result_pruned)
             (curr_cache_result, curr_calc_pruned) = self._calculate_best_move(
@@ -614,9 +618,16 @@ class Solver:
                 cache_answer = (evdepth, False, search_best_rq)
             else:
                 evdepth = round_depth + is_begin_round_state
+                # TODO: consider keeping track of a minimum pruned lower bound (the smallest
+                #       lower bound of all pruned moves), and setting the lower bound here to
+                #       that instead of vpt, and measuring effects on time and memory usage.
+                #       Note that since the lower bound will be the mplb, in the above if block,
+                #       you should compare mplb (instead of vpt) to search_best_rq.
+                #       Will have to update mplb at ALL moments when prune a move.
                 cache_answer = (evdepth, True, search_best_rq, vpt)
 
         if (self.consider_end_round_early and (not (is_begin_round_state or evdepth_infinity))):
+            # NOTE: Consider putting this block before the above if-else blocks.
             # TODO: if have beat the vp threshold, update the vpt value here before using it in the rest of
             #       this block by adding is_begin_round to vpt_NO_m w/solver_utils.add
             if beat_vertical_prune_threshold:
