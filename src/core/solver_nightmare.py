@@ -277,9 +277,10 @@ class Solver_Nightmare(Solver):
                     # since we never delete anything from cache.
                     t_result = f_result
                     t_lower_bound = f_lower_bound
-                # A time consuming assert. I'm pretty sure this is always True anyway.
-                # else:
-                #     assert (self._evaluations_cache.get(t_state_Cgs, self.never_seen_res) is t_result)
+                else:
+                    # A time consuming assert. I'm pretty sure this is always True anyway.
+                    # NOTE: will have to deal with this once start using LRU cache.
+                    assert (self._evaluations_cache.get(t_state_Cgs, self.never_seen_res) is t_result)
                 currnode_LB_rq_NO_m = self._cost_calculator(
                     p_tup, (f_lower_bound, t_lower_bound)
                 )
