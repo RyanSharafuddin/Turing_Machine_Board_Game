@@ -311,6 +311,51 @@ def get_link_Text(name, path):
     return link_Text
 def get_problem_name_Text(p: Problem):
     return Text(p.identity, PROBLEM_TITLE_COLOR)
+def get_expected_cost_Text(
+    rq_cost : tuple[float | Fraction, float | Fraction],
+    r_style=ROUND_COST_STYLE,
+    q_style=QUERY_COST_STYLE,
+    r_justify=0,
+    q_justify=0,
+    dec_digits=COST_PRECISION,
+) -> Text:
+    """
+    Params
+    ------
+    rq_cost: 2-tuple of floats or Fractions
+        Expected (round, query) cost.
+    r_style: Style
+        Style to apply to rounds. If not given, will be config.ROUND_COST_STYLE.
+    q_style: Style
+        Style to apply to queries. If not given, will be config.QUERY_COST_STYLE
+    r_justify: int
+        Minimum amount of characters the round cost takes up.
+    q_justify: int
+        Minimum amount of characters the query cost takes up.
+    dec_digits: int
+        The amount of digits after decimal place to display.
+    Returns
+    -------
+    A Text for pretty displaying of expected cost.
+    """
+    if (rq_cost is None):
+        return Text("")
+    (rounds, queries) = rq_cost
+    r_str = f'{rounds:>{r_justify}.{dec_digits}f}'
+    q_str = f'{queries:>{q_justify}.{dec_digits}f}'
+    r_Text = Text(r_str, r_style)
+    q_Text = Text(q_str, q_style)
+    return Text.assemble(r_Text, " ", q_Text)
+def get_gigabytes_Text(num_bytes, dec_digits=MEM_PRECISION):
+    if (num_bytes == -1):
+        return Text("")
+    num_gigabytes = Fraction(num_bytes, (2 ** 30))
+    return Text(f"{num_gigabytes:,.{dec_digits}f}", COLOR_OF_SPACE, justify="right")
+def get_megabytes_Text(num_bytes, dec_digits=MEM_PRECISION):
+    if (num_bytes == -1):
+        return Text("")
+    num_megabytes = Fraction(num_bytes, (2 ** 20))
+    return Text(f"{num_megabytes:,.{dec_digits}f}", COLOR_OF_SPACE, justify="right")
 
 class Solver_Displayer:
     def __init__(self, solver: solver.Solver):
@@ -1147,9 +1192,9 @@ class Solver_Displayer:
         if (size < 0):
             return
         if (size >= (2 ** 30)):
-            row_args_l.append(["Gigabytes", Text(f"{size /(2 ** 30):,.2f}", COLOR_OF_SPACE)])
+            row_args_l.append(["Gigabytes", get_gigabytes_Text(size)])
         if(size >= (2 ** 20)):
-            row_args_l.append(["Megabytes", Text(f"{size /(2 ** 20):,.2f}", COLOR_OF_SPACE)])
+            row_args_l.append(["Megabytes", get_megabytes_Text(size)])
         row_args_l.append([Text("Bytes", justify="right"), Text(f"{size:,}", COLOR_OF_SPACE)])
         for ra in row_args_l:
             t.add_row(*ra)
@@ -1160,7 +1205,8 @@ class Solver_Displayer:
         r_style=ROUND_COST_STYLE,
         q_style=QUERY_COST_STYLE,
         r_justify=0,
-        q_justify=0
+        q_justify=0,
+        dec_digits=COST_PRECISION,
     ) -> Text:
         """
         Params
@@ -1171,18 +1217,24 @@ class Solver_Displayer:
             Style to apply to rounds. If not given, will be config.ROUND_COST_STYLE.
         q_style: Style
             Style to apply to queries. If not given, will be config.QUERY_COST_STYLE
-
+        r_justify: int
+            Minimum amount of characters the round cost takes up.
+        q_justify: int
+            Minimum amount of characters the query cost takes up.
+        dec_digits: int
+            The amount of digits after decimal place to display.
         Returns
         -------
         A Text for pretty displaying of expected cost.
         """
-        (rounds, queries) = rq_cost
-        dec_digits = 3 # number of digits after decimal #TODO: set by config. And use this in problem table printed by solve.
-        r_str = f'{rounds:>{r_justify}.{dec_digits}f}'
-        q_str = f'{queries:>{q_justify}.{dec_digits}f}'
-        r_Text = Text(r_str, r_style)
-        q_Text = Text(q_str, q_style)
-        return Text.assemble(r_Text, " ", q_Text)
+        return get_expected_cost_Text(
+            rq_cost=rq_cost,
+            r_style=r_style,
+            q_style=q_style,
+            r_justify=r_justify,
+            q_justify=q_justify,
+            dec_digits=dec_digits,
+        )
     def _add_n_mode_deets_to_table(self, t: Table):
         if self.solver.n_mode:
             t.add_row(

@@ -7,6 +7,7 @@ from rich.text import Text
 from ..core.config import *
 from ..core.definitions import *
 from ..core.display import MODE_NAMES, Solver_Displayer
+from ..core import display
 from ..core.rules import rcs_deck
 from ..core import solver
 from . import website
@@ -141,15 +142,6 @@ def _get_sec_col_item(p: Problem):
         num_verifiers = len(p.rc_nums_list) // (2 if (p.mode == EXTREME) else 1)
         result = Text(f'{num_verifiers}', style=NUM_V_COLORS[num_verifiers - 4])
     return result
-def _cost_to_text(cost):
-    if cost is None:
-        return Text("")
-    return (
-        Text.assemble(
-            Text(f"{cost[0]:0.3f} ", style=ROUND_COST_STYLE),
-            Text(f"{cost[1]:0.3f}", style=QUERY_COST_STYLE)
-        )
-    )
 def _get_other_version_id(p: Problem):
     if p.identity.endswith(("_S", "_N")):
         return p.identity[:-2]
@@ -249,15 +241,18 @@ def print_all_local_problems():
     table.add_column(Text("Cost", justify="center"), justify="right")
     if SHOW_COST_OTHER:
         table.add_column(Text("Cost Other", justify="center"), justify="center")
+    table.add_column(Text("GB Used", justify="center"), justify="right")
     probs_list = list(_ID_TO_PROBLEM_DICT.values())
     probs_list.sort(key=get_problem_sort_key)
     for (problem_index, p) in enumerate(probs_list):
-        time_pickle = _PICKLED_PROB_INFO_DICT.get(p.identity, (None,) * 2)
+        time_pickle = _PICKLED_PROB_INFO_DICT.get(p.identity, (None, None, -1))
         # don't unpack tuple. This way, can put more items in tuple without breaking program.
         time_pickle_seconds = time_pickle[0]
         cost = time_pickle[1]
+        bytes_used = time_pickle[2]
+        gigabytes_Text = display.get_gigabytes_Text(bytes_used)
         time_pickle_str = "" if (time_pickle_seconds is None) else f"{time_pickle_seconds:,}"
-        cost_text = _cost_to_text(cost)
+        cost_text = display.get_expected_cost_Text(cost)
         sec_col_item = _get_sec_col_item(p)
         row_args = [
             p.identity,
@@ -269,8 +264,11 @@ def print_all_local_problems():
         ]
         if SHOW_COST_OTHER:
             row_args.append(
-                _cost_to_text(_PICKLED_PROB_INFO_DICT.get(_get_other_version_id(p), (None, None))[1])
+                display.get_expected_cost_Text(
+                    _PICKLED_PROB_INFO_DICT.get(_get_other_version_id(p), (None, None))[1]
+                )
             )
+        row_args.append(gigabytes_Text)
         table.add_row(*row_args)
         if(p.mode < 2) and (probs_list[problem_index +1].mode != p.mode):
             table.add_section()
@@ -308,50 +306,46 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
     """
-    time_pickle = _PICKLED_PROB_INFO_DICT.get(s.problem.identity)
-    if (time_pickle is None):
-        previous_best = inf
-        previous_cost = None
-    elif (type(time_pickle) == tuple):
-        # don't unpack. This is more robust
-        previous_best = time_pickle[0]
-        previous_cost = time_pickle[1]
-    else:
-        previous_best = time_pickle
-        previous_cost = None
+    time_pickle = _PICKLED_PROB_INFO_DICT.get(s.problem.identity, (None, None, -1))
+    # don't unpack. This is more robust
+    previous_best_time = time_pickle[0]
+    previous_cost = time_pickle[1]
+    previous_memory_bytes = time_pickle[2]
     p_ids_to_delete = [p_id for p_id in _PICKLED_PROB_INFO_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
     for p_id in p_ids_to_delete:
         del(_PICKLED_PROB_INFO_DICT[p_id])
-    changed_time = s.seconds_to_solve < previous_best
-    if changed_time and (previous_best != inf):
+    changed_time = (previous_best_time is None) or (s.seconds_to_solve < previous_best_time)
+    if changed_time and (previous_best_time is not None):
         console.print(
-            f"This solver beat the previous record by {previous_best - s.seconds_to_solve:,} seconds."
+            f"This solver beat the previous record by {previous_best_time - s.seconds_to_solve:,} seconds."
         )
-    cost_types_match = (
-        (previous_cost is not None)
-        and all(
-            (
-                (type(prev_c_item) is type(curr_c_item))
-                for (prev_c_item, curr_c_item) in zip(previous_cost, s.expected_cost)
-            )
-        )
-    )
-    if cost_types_match:
-        if (type(previous_cost[0]) is Fraction):
-            costs_equal = (previous_cost == s.expected_cost) # perfect accuracy
-        elif (type(previous_cost[0] is float)):
-            costs_equal = np.allclose(previous_cost, s.expected_cost, rtol=REL_TOL, atol=A_TOL)
-    changed_cost = not (cost_types_match and costs_equal)
+    changed_cost = (previous_cost != s.expected_cost) # Fractions have perfect accuracy
     if (previous_cost is not None) and changed_cost:
         console.print("Warn:", style=SMALL_WARN)
         console.print(
             f"The cost on this solver run is not approximately equal to the cost on the pickled solver run. This may be acceptable.\nCost this time: {s.expected_cost}.\nCost last time: {previous_cost}."
         )
-    update_this_problem = changed_time or changed_cost
+    changed_mem = (
+        (previous_memory_bytes != s.size_of_evaluations_cache_in_bytes)
+        and (s.size_of_evaluations_cache_in_bytes != -1)
+    )
+    if (
+        changed_mem and (previous_memory_bytes != -1)
+    ):
+        console.print(
+            Text("Warn:", style=SMALL_WARN),
+            "The memory used by this solver is different from the memory used by the solver last time. This may be acceptable.",
+            f"Memory used this time: {s.size_of_evaluations_cache_in_bytes:,}",
+            f"Memory used last time: {previous_memory_bytes:,}",
+            sep="\n"
+        )
+    update_this_problem = ((changed_time or changed_cost) or changed_mem)
     if(bool(p_ids_to_delete) or update_this_problem):
         print(f"Pickling problem info dict . . .")
         if update_this_problem:
-            _PICKLED_PROB_INFO_DICT[s.problem.identity] = (s.seconds_to_solve, s.expected_cost)
+            mem_to_write = s.size_of_evaluations_cache_in_bytes if changed_mem else previous_memory_bytes
+            seconds_to_write = s.seconds_to_solve if changed_time else previous_best_time
+            _PICKLED_PROB_INFO_DICT[s.problem.identity] = (seconds_to_write, s.expected_cost, mem_to_write)
         f = open(PROB_INFO_PICKLE_FILE_NAME, "wb")
         pickle.dump(_PICKLED_PROB_INFO_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()

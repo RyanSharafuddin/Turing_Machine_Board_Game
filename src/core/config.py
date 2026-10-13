@@ -129,18 +129,20 @@ N_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progres
 }
 N_MODE_DEFAULT_PROGRESS_BARS = 4     # default number of progress bars in nightmare mode
 MIN_MOVES_TO_SHOW            = 7     # do not show progress bars if they have less than this # of moves
+COST_PRECISION               = 3     # Number of decimal digits to show in rounded/truncated costs.
+MEM_PRECISION                = 2     # Decimal digits for num GB/MB. Num bytes is exact
 
 # Change Whether Debugging Informations Is Displayed
 PRINT_POST_SOLVE_DEBUG_INFO = True
 PRINT_WIDE_TREES            = False # Whether to print trees that are too wide for the console.
-CALCULATE_EVCACHE_MEM_USAGE = False # WARN: Takes a lot of memory/time.
+CALCULATE_EVCACHE_MEM_USAGE = True # WARN: Takes a lot of memory/time.
 PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to color dictionary?
 SHOW_LOCALS                 = False # print local variables when an unexpected exception occurs?
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "Iterative_Deepen"                # The name of this version of the program
+VERSION_NAME               = "Iterative_Deepen_With_Mem"       # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
