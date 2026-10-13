@@ -518,7 +518,7 @@ class Solver:
                     p_tup, (f_lower_bound, t_lower_bound)
                 )
 
-            if (f_evdepth == inf) and (t_evdepth == inf):
+            if ((f_evdepth == inf) and (t_evdepth == inf)):
                 currnode_best_known_rq_NO_m = currnode_LB_rq_NO_m
             else:
                 currnode_best_known_rq_NO_m = self._cost_calculator(
