@@ -7,7 +7,8 @@ function solve_problems {
 }
 git checkout $1
 v1=$(grep "^VERSION_NAME[ ]*=" src/core/config.py | cut -d "\"" -f 2)
-solve_problems
+# don't solve_problems in the first one. Only the second one.
+# If you need to solve problems in the first one, just do sh compare_versions.sh first_tree first_tree
 
 git checkout $2
 v2=$(grep "^VERSION_NAME[ ]*=" src/core/config.py | cut -d "\"" -f 2)
