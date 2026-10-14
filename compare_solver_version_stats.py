@@ -98,7 +98,7 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
             table.add_section()
         table.add_row(*raw_row_datum)
     print()
-    console.print(table)
+    console.print(table, justify="center")
 
 # NOTE: may want to put in an argument to write all problems that haven't been solved, instead of
 #       only those whose memory usage hasn't been recorded.
