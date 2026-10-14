@@ -9,11 +9,11 @@ function solve_problems {
     done < $temp_file_name
 }
 
-git checkout $1
+git checkout $1 -q
 v1=$(grep "^VERSION_NAME[ ]*=" src/core/config.py | cut -d "\"" -f 2)
 solve_problems
 
-git checkout $2
+git checkout $2 -q
 v2=$(grep "^VERSION_NAME[ ]*=" src/core/config.py | cut -d "\"" -f 2)
 solve_problems
 python compare_solver_version_stats.py -c $v1 $v2
