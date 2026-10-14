@@ -8,12 +8,19 @@ class Solver_Nightmare(Solver):
         "shift_amounts",
         "calc_min_vs_list",
     )
-    def __init__(self, problem: Problem, fail_on_warn=False, consider_end_round_early=config.CONSIDER_END_ROUND_EARLY):
+    def __init__(
+        self,
+        problem: Problem,
+        fail_on_warn=False,
+        consider_end_round_early=config.CONSIDER_END_ROUND_EARLY,
+        calculate_mem_usage=config.CALCULATE_EVCACHE_MEM_USAGE,
+    ):
         Solver.__init__(
             self,
             problem,
             fail_on_warn=fail_on_warn,
             consider_end_round_early=consider_end_round_early,
+            calculate_mem_usage=calculate_mem_usage,
         )
         self.put_cache_gs_in_new_ev_cache = False
         if not self.full_cwas_list: # invalid problem with no solutions

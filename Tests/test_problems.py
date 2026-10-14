@@ -25,18 +25,13 @@ def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early
         expected_cost = tuple(Fraction(s) for s in expected_cost)
     p = problems.get_requested_problem(p_id=p_id)
     console.print(f"\nNow testing problem {p.identity}")
-    if (p.mode == NIGHTMARE):
-        s: Solver_Nightmare = Solver_Nightmare(
-            p,
-            fail_on_warn=True,
-            consider_end_round_early=consider_end_round_early,
-        )
-    else:
-        s : Solver = Solver(
-            p,
-            fail_on_warn=True,
-            consider_end_round_early=consider_end_round_early,
-        )
+    s_cons = Solver_Nightmare if (p.mode == NIGHTMARE) else Solver
+    s = s_cons(
+        p,
+        fail_on_warn=True,
+        consider_end_round_early=consider_end_round_early,
+        calculate_mem_usage=False,
+    )
     s.solve()
     assert (s.expected_cost == expected_cost), s.expected_cost # Fractions have perfect accuracy
     # previous_best_time = get_best_time(p)
