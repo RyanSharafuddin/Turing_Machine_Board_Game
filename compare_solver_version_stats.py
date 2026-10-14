@@ -5,20 +5,16 @@ from src.core import display
 from src.core.display import Text, Table
 from src.core import config
 import src.problems.problems as problems
-from src.core.solver import Solver
-from src.core.solver_nightmare import Solver_Nightmare
 
 # Don't show stats for problems that don't take at least MIN_SEC seconds and MIN_BYTES bytes to solve,
 # b/c they are too easy and distort stats.
 MIN_SEC = 5
-MIN_BYTES = 1024
+MIN_BYTES = int(.01 * (2 ** 30))
 PERCENT_PREC = 1 # number decimal digits to show for percentages
 DISPLAY_SIGN = False # Whether to display a sign in front of improvement percentages.
+COLOR_1 = ""
+COLOR_2 = ""
 def get_improvement_percent_Text(val1, val2, prec=PERCENT_PREC):
-    if (val1 == 0):
-        val1 = 1
-    if (val2 == 0):
-        val2 = 1
     improvement_percent = round(Fraction((val2 - val1), val1) * 100, prec)
     if (improvement_percent == 0):
         color = "grey69"
@@ -48,7 +44,8 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
         if (v1_cost != v2_cost):
             console.print(
                 Text("WARN", style=config.BIG_WARN),
-                f": Costs for problem {p_id} are not equal b/t {v_name_1} and {v_name_2}."
+                f": Costs for problem {p_id} are not equal b/t {v_name_1} and {v_name_2}. ",
+                f"cost1: {v1_cost}. cost2: {v2_cost}.",
             )
         time_improvement = get_improvement_percent_Text(v1_time, v2_time)
         memory_improvement = get_improvement_percent_Text(v1_bytes_used, v2_bytes_used)
@@ -63,8 +60,8 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
             (
                 (
                     p_id,
-                    Text(f"{num_vs}", style=["purple", "deep_pink4", "gold3"][num_vs - 4]),
-                    ["S", "E", "N"][mode],
+                    Text(f"{num_vs}", style=["purple", "deep_pink4", "gold3"][num_vs - 4], justify="right"),
+                    Text(problems.get_mode_Text(mode).plain, justify="right"),
                     f"{v1_time:,}",
                     time_improvement,
                     f"{v2_time:,}",
@@ -78,7 +75,8 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
     raw_row_data.sort(key=lambda r:r[1])
     raw_row_data = [r[0] for r in raw_row_data]
     table = Table(
-        title=f"{v_name_1} Compared To {v_name_2}",
+        # title=Text.assemble(Text(v_name_1, COLOR_1), " vs. ", Text(v_name_2, COLOR_2)),
+        title=f"{v_name_1} vs. {v_name_2}",
         title_style="bright_white",
         header_style=config.PROBLEM_TABLE_HEADER_COLOR,
         border_style=config.PROBLEM_TABLE_BORDER,
@@ -87,12 +85,12 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
     table.add_column(Text("ID", justify="center"), justify="right", style=config.PROBLEM_ID_COLOR)
     table.add_column(Text("# Vs", justify="center"))
     table.add_column(Text("Mode", justify="center"))
-    table.add_column(Text("Time 1", justify="center"), justify="right")
+    table.add_column(Text("Time 1", justify="center", style=COLOR_1), justify="right")
     table.add_column(Text("Time %", justify="center"), justify="right")
-    table.add_column(Text("Time 2", justify="center"), justify="right")
-    table.add_column(Text("Memory 1", justify="center"), justify="right")
+    table.add_column(Text("Time 2", justify="center", style=COLOR_2), justify="right")
+    table.add_column(Text("Memory 1", justify="center", style=COLOR_1), justify="right")
     table.add_column(Text("Memory %", justify="center"), justify="right")
-    table.add_column(Text("Memory 2", justify="center"), justify="right")
+    table.add_column(Text("Memory 2", justify="center", style=COLOR_2), justify="right")
     for (index, raw_row_datum) in enumerate(raw_row_data):
         prev_mode = raw_row_data[index-1][2]
         curr_mode = raw_row_datum[2]
@@ -102,50 +100,22 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
     print()
     console.print(table)
 
-# display_compare_versions("Iterative_Deepen_With_Mem", "VPT_With_Mem")
-
-def solve_problem_with_mem(p: Problem, consider_end_round_early):
-    """
-    Makes a solver for the given problem, solves it, and returns the solver.
-    """
-    solver_constructor = Solver_Nightmare if (p.mode == NIGHTMARE) else Solver
-    s = solver_constructor(
-        p,
-        fail_on_warn=False,
-        consider_end_round_early=consider_end_round_early,
-        calculate_mem_usage=True,
-    )
-    s.solve()
-    return s
-
-def record_problems(consider_end_round_early=config.CONSIDER_END_ROUND_EARLY):
+# NOTE: may want to put in an argument to write all problems that haven't been solved, instead of
+#       only those whose memory usage hasn't been recorded.
+def write_file_problems_to_solve():
     prob_info_dict = problems.get_problem_stats_for_version(config.VERSION_NAME)
-    for p in problems.get_all_matching_problems():
-        if p.identity in config.KNOWN_KILLED_9_PROBLEMS:
-            continue
-        problem_stats = prob_info_dict.get(p.identity, (None, None, -1))
-        (seconds_used, cost, bytes_used) = problem_stats[0:3]
-        if (bytes_used == -1):
-            s = solve_problem_with_mem(p, consider_end_round_early=consider_end_round_early)
-            problems.pickle_solved_solver_info(s)
+    with open(config.TEMP_PROBLEM_FILE, 'w') as f:
+        for p in problems.get_all_matching_problems():
+            if p.identity in config.KNOWN_KILLED_9_PROBLEMS:
+                continue
+            problem_stats = prob_info_dict.get(p.identity, (None, None, -1))
+            (seconds_used, cost, bytes_used) = problem_stats[0:3]
+            if (bytes_used == -1):
+                f.write(f"{p.identity}\n")
 
-def record_problem_if_needed(s: str, consider_end_round_early=False):
-    p = eval(s)
-    if p.identity in config.KNOWN_KILLED_9_PROBLEMS:
-        console.print(p.identity, "Deadly problem; skipping.")
-        return
-    prob_info_dict = problems.get_problem_stats_for_version(config.VERSION_NAME)
-    problem_stats = prob_info_dict.get(p.identity, (None, None, -1))
-    (seconds_used, cost, bytes_used) = problem_stats[0:3]
-    if (bytes_used == -1):
-        console.print(f"Solving {p.identity}.")
-        s = solve_problem_with_mem(p, consider_end_round_early=consider_end_round_early)
-        problems.pickle_solved_solver_info(s)
-    else:
-        console.print(p.identity, "Already solved with mem.")
 def make_parser():
     parser = argparse.ArgumentParser(
-        description="Ways To Use: 'python compare_solver_version_stats.py -c version1_name version2_name' to display a table comparing two versions, or 'python compare_solver_version_stats.py -r' to record stats for all problems, except a set of problems specified in config.py that are known to crash the program. Can combine both."
+        description="Ways To Use: 'python compare_solver_version_stats.py -c version1_name version2_name' to display a table comparing two versions, or 'python compare_solver_version_stats.py -r' to write the p_ids of all problems (except a set of problems specified in config.py that are known to crash the program) whose memory usage hasn't been recorded to a temporary file."
     )
     parser.add_argument(
         "arg0",
@@ -163,14 +133,14 @@ def make_parser():
         "--compare",
         "-c",
         action="store_true",
-        help="Specify this to compare the two version names you provided as arg0 and arg1."
+        help="Compare the two version names you provided as arg0 and arg1."
     )
 
     parser.add_argument(
         "--record",
         "-r",
         action="store_true",
-        help="Specify this to record the stats, including memory used, for all problems that aren't in config.KNOWN_KILLED_9_PROBLEMS."
+        help="Write the problem ids of problems whose memory usage has not been recorded to a temporary text file."
     )
     return parser
 
@@ -179,10 +149,8 @@ if(__name__ == "__main__"):
     args = parser.parse_args()
 
     if args.record:
-        # breakpoint()
-        record_problem_if_needed(args.arg0)
+        write_file_problems_to_solve()
         exit()
-        # record_problems(consider_end_round_early=config.CONSIDER_END_ROUND_EARLY)
 
     if args.compare:
         # python compare_solver_version_stats.py -c v1_name v2_name

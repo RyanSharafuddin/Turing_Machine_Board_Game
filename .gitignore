@@ -6,7 +6,6 @@ __pycache__/
 **/user_problems.txt
 **/scratch_experiments/
 **/Tree_Directory/
-**/curated_compare_problems.txt
 .python-version
 todo.txt
 *.svg

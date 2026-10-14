@@ -140,12 +140,14 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 SHOW_LOCALS                 = True # print local variables when an unexpected exception occurs?
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
+KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "VPT_With_Mem" # The name of this version of the program
+VERSION_NAME               = "VPT" # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
 PROB_INFO_PICKLE_FILE_NAME = f"{PICKLE_DIRECTORY}/prob_info_pickle_file.bin"
 PROBLEM_INFO_TXT_FILE_NAME = "src/problems/Version_Controlled_Metadata/problem_comments.txt"
+TEMP_PROBLEM_FILE          = "Outputs/Temp_Problem_File.txt"
 PROB_INFO_SEPARATOR        = '│'
