@@ -185,7 +185,6 @@ def get_problem_sort_key(p: Problem):
         _PICKLED_PROB_INFO_DICT.get(p.identity, (inf, (inf, inf)))[1], # cost to solve
         p.identity
     )
-
 def add_problem_to_known_problems(p: Problem, ignore_warning=False):
     """
     Add problem to the ids dict and the prefixes dict that problems uses to retrieve problems, and also add it to the file of user problems. Return the problem.
@@ -219,6 +218,14 @@ def get_other_version_problem(p: Problem):
     return None
 def get_num_verifiers(p: Problem):
     return (len(p.rc_nums_list) // (2 if (p.mode == EXTREME) else 1))
+def get_mode_num_vs_and_sort_key_from_pid(p_id):
+    p = _ID_TO_PROBLEM_DICT.get(p_id)
+    if (p is None):
+        return (None, None, None)
+    return (p.mode, get_num_verifiers(p), get_problem_sort_key(p))
+def get_mode_Text(mode):
+    # NOTE: mode must be 0, 1, or 2, NOT 'S', 'E', or 'N'
+    return Text(MODE_NAMES[mode][0], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[mode])
 
 def print_all_local_problems():
     """
@@ -257,7 +264,7 @@ def print_all_local_problems():
         row_args = [
             p.identity,
             sec_col_item,
-            Text(MODE_NAMES[p.mode][0], style=STANDARD_EXTREME_NIGHTMARE_MODE_COLORS[p.mode]),
+            get_mode_Text(p.mode),
             _PROBLEM_INFO_FROM_TEXT.get(p.identity, [""])[0],
             Text(time_pickle_str, style=""),
             cost_text
@@ -302,6 +309,26 @@ def pre_process_p_id(p_id: str):
     p_id = p_id.upper()
     p_id = ''.join(p_id.split())
     return p_id
+def solver_pickle_filename_from_id(identity):
+    """
+    Given a problem identity, return the filename of the file where the pickled solver info is to be stored.
+    Stored in f"{PICKLE_DIRECTORY}/{identity}.bin"
+    """
+    identity = pre_process_p_id(identity)
+    f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
+    return f_name
+def pickle_solved_solver_info(s: solver.Solver):
+    """Pickles the solver info from a *solved* solver. Overwrites any existing pickle file."""
+    f_name = solver_pickle_filename_from_id(s.problem.identity)
+    if not os.path.exists(PICKLE_DIRECTORY):
+        os.makedirs(PICKLE_DIRECTORY)
+    with open(f_name, 'wb') as f:
+        console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
+        solver_info_to_save = s.get_info_to_save()
+        pickle.dump(solver_info_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
+    console.print("Done.")
+    update_pickled_time_dict_if_necessary(s)
+
 def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
@@ -427,6 +454,14 @@ def get_requested_problem(
         return None
     p = _get_local_problem_by_id(p_id)
     return p
+def get_problem_stats_for_version(v_name) -> dict:
+    """
+    "Given a version name, returns that version's dictionary of problem stats.
+    """
+    prob_info_file_name = f"Outputs/Pickles/{v_name}/prob_info_pickle_file.bin"
+    with open(prob_info_file_name, 'rb') as prob_info_dict_pickle:
+        prob_info_dict : dict = pickle.load(prob_info_dict_pickle)
+    return prob_info_dict
 
 # NOTE: Any standard mode problem is now also a nightmare mode problem if just add "_N" to its problem id.
 #       Also, any nightmare mode problem is a standard mode problem by adding "_S".
@@ -454,7 +489,9 @@ _PROBLEM_INFO_FROM_TEXT = _problem_info_text_file_to_dict(PROBLEM_INFO_TXT_FILE_
 # _PROBLEM_INFO_FROM_TEXT is a dictionary. Call it d. d[full_problem_id] = [info items about problems]
 # In that list l, l[0] is the comment about the problem. Currently, there is nothing else in l, but l is extensible without breaking the program.
 
-# NOTE: _PICKLED_PROB_INFO_DICT[problem.identity] = (time_taken_in_seconds, (round_cost, query_cost))
+# NOTE: _PICKLED_PROB_INFO_DICT[problem.identity] = (
+#    time_taken_in_seconds, (round_cost, query_cost), bytes_used
+# )
 #        The tuple in the comment above can be extended to include additional info w/o breaking program.
 # TODO: use a trie instead of the wildly inefficient prefix dict
 # TODO: Put the problems and their pickles and comments and evaluations in an actual database, rather than some text files.
