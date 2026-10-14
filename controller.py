@@ -96,18 +96,8 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
         sd.display_tree(alternate_first_state=None)
 
 def unpickle_solver(identity):
-    f_name = f_name_from_id(identity)
+    f_name = problems.solver_pickle_filename_from_id(identity)
     return(unpickle_solver_from_f_name(f_name))
-
-def f_name_from_id(identity):
-    """
-    identity is a string that is the ID of a problem from the website, without the '#' symbol.
-    Stored in f"{PICKLE_DIRECTORY}/{identity}.bin"
-    """
-    if(identity[0] == '#'):
-        identity = identity[1:]
-    f_name = f"{PICKLE_DIRECTORY}/{identity}.bin"
-    return f_name
 
 def make_solver(problem: Problem, capitulate=False):
     """ Makes a solver and solve()s the problem. """
@@ -152,20 +142,12 @@ def pickle_solver(problem: Problem, pickle_entire=False, force_overwrite=False):
     If force_overwrite is true, then it remakes the solver regardless of whether the corresponding file exists, and overwrites the file if it does exist.
     """
     # NOTE: as of now, setting pickle_entire to True doesn't do anything. To restore this functionality, will need to change the solver and nightmare_solver classes to offer a way to preserve the old evaluations cache that contains *all* evaluated game states so that it can be pickled. However, this is not high priority.
-    f_name = f_name_from_id(problem.identity)
-    if(not os.path.exists(PICKLE_DIRECTORY)):
-        os.makedirs(PICKLE_DIRECTORY)
+    f_name = problems.solver_pickle_filename_from_id(problem.identity)
     if(os.path.exists(f_name) and not force_overwrite):
         print(f"Asked to pickle {f_name}, but it already exists. Returning None.")
         return
     s = make_solver(problem)
-    f = open(f_name, 'wb') # open mode write binary. Needed for pickling to work.
-    console.print(Text.assemble("\nPickling ", display.get_filename_text(f_name), ". . ."))
-    solver_info_to_save = s.get_info_to_save()
-    pickle.dump(solver_info_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
-    f.close()
-    console.print("Done.")
-    problems.update_pickled_time_dict_if_necessary(s)
+    problems.pickle_solved_solver_info(s)
     return s
 
 def get_or_make_solver(
@@ -193,7 +175,7 @@ def get_or_make_solver(
         s = make_solver(problem, capitulate=capitulate)
         made_from_scratch = True
     else:
-        f_name = f_name_from_id(problem.identity)
+        f_name = problems.solver_pickle_filename_from_id(problem.identity)
         if(os.path.exists(f_name)):
             if(not force_overwrite):
                 display.cprint_if_active(
