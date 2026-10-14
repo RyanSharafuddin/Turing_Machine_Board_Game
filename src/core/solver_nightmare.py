@@ -122,7 +122,7 @@ class Solver_Nightmare(Solver):
             verifier_index = 0
             while v_set:
                 if (v_set & 1):
-                    pass # verifier_index is in v_set
+                    # verifier_index is in v_set
                     corresponding_q_info = inner_dict_this_proposal.get(verifier_index)
                     if corresponding_q_info is not None:
                         move = (game_state.proposal_used_this_round, verifier_index)
