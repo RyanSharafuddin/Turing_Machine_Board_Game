@@ -2,8 +2,7 @@ function solve_problems {
     while read -r line
     do
         p_id=`echo "$line" | cut -d"'" -f 2`
-        echo $p_id
-        # python controller.py -fo $p_id
+        python controller.py -fo $p_id
     done < src/problems/curated_compare_problems.txt
 }
 git checkout $1
