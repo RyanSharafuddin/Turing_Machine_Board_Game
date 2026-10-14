@@ -1,3 +1,6 @@
+# Example Usage: sh compare_versions.sh master vpt
+# Given 2 git branches/commits with different version names, solve all problems in both and compare time/mem.
+
 function solve_problems {
     python compare_solver_version_stats.py -r # make a temporary file of problems that need to be solved.
     temp_file_name=$(grep "^TEMP_PROBLEM_FILE[ ]*=" src/core/config.py | cut -d "\"" -f 2)
