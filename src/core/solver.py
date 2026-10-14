@@ -148,12 +148,14 @@ class Solver:
         "consider_end_round_early",
 
         "calculate_call_id", # for debugging purposes
+        "calculate_mem_usage",
     )
     def __init__(
             self,
             problem: Problem,
             fail_on_warn=False,
-            consider_end_round_early=config.CONSIDER_END_ROUND_EARLY
+            consider_end_round_early=config.CONSIDER_END_ROUND_EARLY,
+            calculate_mem_usage=config.CALCULATE_EVCACHE_MEM_USAGE,
         ):
         self.problem            = problem
         self.n_mode             = (problem.mode == NIGHTMARE)
@@ -198,6 +200,7 @@ class Solver:
         self.fail_on_warn = fail_on_warn # used by tests to fail on warnings.
         self.consider_end_round_early = consider_end_round_early
         self.calculate_call_id = 0 # for debugging purposes
+        self.calculate_mem_usage : bool = calculate_mem_usage
 
     @staticmethod
     def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
@@ -588,7 +591,7 @@ class Solver:
         Print out all the info learned from solving a problem. At this point, solver.expected_cost has been set to the rq value. NOTE: Do not mutate `filtered_cache` or `original_cache`, or any fields of Solver, with the possible exception of self.size_of_evaluations_cache_in_bytes. Also do not rely on the value of self._evaluations_cache. Use the provided original_cache and filtered_cache instead.
         """
         show_debug = config.PRINT_POST_SOLVE_DEBUG_INFO
-        show_ec_mem = config.CALCULATE_EVCACHE_MEM_USAGE
+        show_ec_mem = self.calculate_mem_usage
         self.sd.non_capitulate_final_printing(show_debug, show_ec_mem, original_cache, filtered_cache)
 
     ############################### SAME FOR ALL SOLVERS ###############################
