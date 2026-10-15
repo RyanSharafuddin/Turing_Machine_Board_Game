@@ -359,13 +359,12 @@ class Solver_Nightmare(Solver):
             # There is not one answer left, but we now know a lower bound is (is_begin_round_state, 1),
             # whereas the previous best known lower bound was (0, 0), since there could have been
             # 1 answer left. So now we have an opportunity to prune.
-            # TODO: index into premade tups; don't make a new one.
             assert (round_depth == 0)
-            lower_bound = (is_begin_round_state, 1)
+            lower_bound = Solver.premade_lower_bounds[is_begin_round_state]
             if solver_utils.roughly_geq_2tup(lower_bound, vpt):
-                # TODO: index into premade tups; don't make a new one.
-                cache_result = (0, not is_begin_round_state, self.double_inf, lower_bound)
+                cache_result = Solver.premade_lb_cache_results[is_begin_round_state]
                 self._evaluations_cache[cache_game_state] = cache_result
+                # TODO: see if it's faster to construct the below tuple, or look up a premade one.
                 return (cache_result, True)
 
         assert (

@@ -99,6 +99,7 @@ class Info_To_Save(NamedTuple):
 class Solver:
     zero_frac = Fraction(0)
     double_zero_frac = (zero_frac, zero_frac)
+    zero_one = (0, 1)
     double_zero = (0, 0)
     double_one = (1, 1)
     double_inf = (inf, inf)
@@ -110,6 +111,12 @@ class Solver:
     round_depth_cutoff_calc = (round_depth_cutoff_cache, False)
     never_seen_cache_res = (-1, False, double_inf, double_zero)
     cache_res_lb_double_1 = (0, False, double_inf, double_one)
+
+    premade_lower_bounds = [zero_one, double_one]
+    premade_lb_cache_results = [
+        (0, True, double_inf, zero_one),
+        (0, False, double_inf, double_one)
+    ]
     __slots__ = (
         "problem",
         "n_mode",
@@ -390,13 +397,12 @@ class Solver:
         if check_one_answer:
             if one_answer_left(self.full_cwas_list, game_state.cwa_set):
                 return self.end_game_calc_result
-            # TODO: index into premade tups; don't make a new one.
             assert (round_depth == 0)
-            lower_bound = (is_begin_round_state, 1)
+            lower_bound = Solver.premade_lower_bounds[is_begin_round_state]
             if solver_utils.roughly_geq_2tup(lower_bound, vpt):
-                # TODO: index into premade tups; don't make a new one.
-                cache_result = (0, not is_begin_round_state, self.double_inf, lower_bound)
+                cache_result = Solver.premade_lb_cache_results[is_begin_round_state]
                 self._evaluations_cache[cache_game_state] = cache_result
+                # TODO: see if it's faster to construct the below tuple, or look up a premade one.
                 return (cache_result, True)
 
         assert (
