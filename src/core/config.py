@@ -143,7 +143,7 @@ DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginni
 KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "VPT_With_Pre_Indexed" # The name of this version of the program
+VERSION_NAME               = "VPT_1" # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
