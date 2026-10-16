@@ -1,8 +1,10 @@
 from collections import namedtuple
 import numpy as np
+from typing import Any
 from rich.console import Console
 from rich.traceback import install
 
+from recordclass import dataobject, make_dataclass
 from . import config
 
 console = Console(force_terminal=True) # See https://rich.readthedocs.io/en/latest/console.html
@@ -37,13 +39,20 @@ Query_Info = namedtuple(
     ]
 )
 
-Game_State = namedtuple(
+# Game_State = namedtuple(
+#     'Game_State',
+#     [
+#         'num_queries_this_round',
+#         'proposal_used_this_round',
+#         'cwa_set', # a set of ints corresponding to the indexes of the cwas in the the full_cwas_list
+#     ]
+# )
+
+Game_State = make_dataclass(
     'Game_State',
-    [
-        'num_queries_this_round',
-        'proposal_used_this_round',
-        'cwa_set', # a set of ints corresponding to the indexes of the cwas in the the full_cwas_list
-    ]
+    'num_queries_this_round proposal_used_this_round cwa_set',
+    hashable=True,
+    readonly=True
 )
 
 Problem = namedtuple(
