@@ -100,18 +100,34 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
     print()
     console.print(table, justify="center")
 
-# NOTE: may want to put in an argument to write all problems that haven't been solved, instead of
-#       only those whose memory usage hasn't been recorded.
-def write_file_problems_to_solve():
+# NOTE: may want to put in an argument to only write problems that haven't been solved at all,
+#       instead of all problems whose memory usage hasn't been recorded.
+def write_file_problems_to_solve(modes=(0, 1, 2)):
     prob_info_dict = problems.get_problem_stats_for_version(config.VERSION_NAME)
     with open(config.TEMP_PROBLEM_FILE, 'w') as f:
         for p in problems.get_all_matching_problems():
-            if p.identity in config.KNOWN_KILLED_9_PROBLEMS:
+            if (p.identity in config.KNOWN_KILLED_9_PROBLEMS) or (p.mode not in modes):
                 continue
             problem_stats = prob_info_dict.get(p.identity, (None, None, -1))
             (seconds_used, cost, bytes_used) = problem_stats[0:3]
             if (bytes_used == -1):
+                # everything that has not been solved at all,
+                # or which has been solved, but whose memory use was not recorded.
                 f.write(f"{p.identity}\n")
+
+def get_modes(only_nightmare, only_standard):
+    if (only_nightmare and only_standard):
+        console.print(
+            display.ERROR_TEXT,
+            "You specified both -s and -n. That is, both args.only_nightmare and args.only_standard."
+        )
+        exit()
+    if args.only_nightmare:
+        return (2,)
+    elif args.only_standard:
+        return (0, 1)
+    else:
+        return (0, 1, 2)
 
 def make_parser():
     parser = argparse.ArgumentParser(
@@ -135,12 +151,23 @@ def make_parser():
         action="store_true",
         help="Compare the two version names you provided as arg0 and arg1."
     )
-
     parser.add_argument(
         "--record",
         "-r",
         action="store_true",
         help="Write the problem ids of problems whose memory usage has not been recorded to a temporary text file."
+    )
+    parser.add_argument(
+        "--only_nightmare",
+        "-n",
+        action="store_true",
+        help="If this is specified with -r, will only write nightmare problems to the text file. No effect with -c."
+    )
+    parser.add_argument(
+        "--only_standard",
+        "-s",
+        action="store_true",
+        help="If this is specified with -r, will only write standard and extreme problems to the text file. No effect with -c."
     )
     return parser
 
@@ -149,7 +176,7 @@ if(__name__ == "__main__"):
     args = parser.parse_args()
 
     if args.record:
-        write_file_problems_to_solve()
+        write_file_problems_to_solve(modes=get_modes(args.only_nightmare, args.only_standard))
         exit()
 
     if args.compare:

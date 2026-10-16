@@ -21,6 +21,7 @@ MODE_NAMES = ["Standard", "Extreme", "Nightmare"]
 BIT_ONE_TEXT = Text('1', style="bright_green")
 BIT_ZERO_TEXT = Text('0', style="bright_red")
 INFO_NOTE_TEXT = Text("NOTE", style=INFO_STYLE).append_text(Text(":", style="default"))
+ERROR_TEXT = Text("ERROR", style=BIG_WARN).append_text(Text(":", style="default"))
 OVERLINED_DIGITS = "0̅1̅2̅3̅4̅5̅6̅7̅8̅9̅"
 
 letters = string.ascii_uppercase

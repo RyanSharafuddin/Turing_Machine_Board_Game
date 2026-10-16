@@ -1,5 +1,12 @@
-# Example Usage: sh compare_versions.sh master vpt
-# Given 2 git branches/commits with different version names, solve all problems in both and compare time/mem.
+# Example Usages:
+# sh compare_versions.sh master vpt
+# sh compare_versions.sh master vpt -n
+# sh compare_versions.sh master vpt -s
+
+# Given 2 git commit-ishes that have different version names, solve all problems in both and compare time/mem.
+# Can optionally specify -n or -s at the end to avoid wasting time on solving problems of other modes.
+# i.e. -n means only solve nightmare problems, -s means only standard or extreme.
+# Note that this MUST be the third argument.
 
 function solve_problems {
     python compare_solver_version_stats.py -r # make a temporary file of problems that need to be solved.
@@ -16,4 +23,4 @@ solve_problems
 git checkout $2 -q
 v2=$(grep "^VERSION_NAME[ ]*=" src/core/config.py | cut -d "\"" -f 2)
 solve_problems
-python compare_solver_version_stats.py -c $v1 $v2
+python compare_solver_version_stats.py -c $v1 $v2 $3
