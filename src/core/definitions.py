@@ -1,7 +1,9 @@
 from collections import namedtuple
 import numpy as np
+from typing import Any
 from rich.console import Console
 from rich.traceback import install
+from recordclass import dataobject, make_dataclass
 
 from . import config
 
@@ -37,14 +39,10 @@ Query_Info = namedtuple(
     ]
 )
 
-Game_State = namedtuple(
-    'Game_State',
-    [
-        'num_queries_this_round',
-        'proposal_used_this_round',
-        'cwa_set', # a set of ints corresponding to the indexes of the cwas in the the full_cwas_list
-    ]
-)
+class Game_State(dataobject, readonly=True, hashable=True):
+    num_queries_this_round: int
+    proposal_used_this_round: int | None
+    cwa_set: Any
 
 Problem = namedtuple(
     'Problem',
