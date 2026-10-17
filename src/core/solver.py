@@ -1038,10 +1038,12 @@ class Solver:
             display.INFO_NOTE_TEXT,
             "This may take a lot of time. If this is taking too long, press ctrl-c to stop it.\n",
         )
-        from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+        # from pympler.asizeof import asizeof # only import this if printing post solve debug info.
+        import psutil
         try:
             # WARN: The line below itself uses up a lot of memory and time.
-            self.size_of_evaluations_cache_in_bytes = asizeof(original_cache)
+            # self.size_of_evaluations_cache_in_bytes = asizeof(original_cache)
+            self.size_of_evaluations_cache_in_bytes = psutil.Process().memory_full_info().uss
             # self.print_eval_cache_stats()
             # self.print_cache_by_size()
         except KeyboardInterrupt:
