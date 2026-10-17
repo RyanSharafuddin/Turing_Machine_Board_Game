@@ -39,21 +39,17 @@ Query_Info = namedtuple(
     ]
 )
 
-# Game_State = namedtuple(
+# Game_State = make_dataclass(
 #     'Game_State',
-#     [
-#         'num_queries_this_round',
-#         'proposal_used_this_round',
-#         'cwa_set', # a set of ints corresponding to the indexes of the cwas in the the full_cwas_list
-#     ]
+#     'num_queries_this_round proposal_used_this_round cwa_set',
+#     hashable=True,
+#     readonly=True
 # )
 
-Game_State = make_dataclass(
-    'Game_State',
-    'num_queries_this_round proposal_used_this_round cwa_set',
-    hashable=True,
-    readonly=True
-)
+class Game_State(dataobject, readonly=True, hashable=True):
+    num_queries_this_round: int
+    proposal_used_this_round: int | None
+    cwa_set: Any
 
 Problem = namedtuple(
     'Problem',
