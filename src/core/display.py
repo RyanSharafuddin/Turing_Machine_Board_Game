@@ -2014,7 +2014,7 @@ def _get_max_string_height_by_depth(tree: Tree):
     while(q):
         curr_node : Tree = q.popleft()
         full_cwas_current_node = tree.solver.full_cwa_list_from_cwa_set(curr_node.gs.cwa_set)
-        if not(solver.one_answer_left(tree.solver.full_cwas_list, curr_node.gs.cwa_set)): # internal node
+        if not(tree.solver.one_answer_left(curr_node.gs)): # internal node
             num_combinations = len(full_cwas_current_node)
             if(curr_node.depth == len(answer)):
                 answer.append(num_combinations)
@@ -2037,7 +2037,7 @@ def _eliminate_trailing_zeros(s: str):
     return(s[:end_range])
 
 def _get_children(tree: Tree):
-    if (solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
+    if (tree.solver.one_answer_left(tree.gs)):
         return([])
     result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
     assert (result is not None)
@@ -2085,7 +2085,7 @@ def _get_node_background_color(tree: Tree, result):
 def _node_to_str_table(tree: Tree, colored=True):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
-    if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
+    if not(tree.solver.one_answer_left(tree.gs)):
         result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         (best_move, best_move_cost, gs_tup, total_expected_cost) = result
         verifier_to_sort_by = (

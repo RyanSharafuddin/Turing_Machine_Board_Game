@@ -12,26 +12,6 @@ def make_initial_game_state(full_cwas_list):
     initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
     return initial_game_state
 
-def one_answer_left(full_cwas_list, working_cwa_set: working_cwa_set):
-    """
-    Given a set of CWA as stored in the working game state object (as opposed to the cache game state object), returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
-    """
-    # cwa_set representation_change
-    # TODO: see if using answer block intersection helps or hurts.
-    # TODO: see which of sorting/not sorting the full cwas list in solver_utils.make_full_cwas_list is better.
-    # See comments in definitions.Game_State for the format game_state_cwa_set is in.
-    # May not be a literal Python set object.
-    iterator = iter(working_cwa_set)
-    zeroth_cwa_representation = next(iterator)
-    zeroth_answer = full_cwas_list[zeroth_cwa_representation][-1]
-    current_cwa_representation = next(iterator, None)
-
-    while (current_cwa_representation is not None):
-        if (full_cwas_list[current_cwa_representation][-1] != zeroth_answer):
-            return False
-        current_cwa_representation = next(iterator, None)
-    return True
-
 class Info_To_Save(NamedTuple):
     """ Represents the info of Solver to be saved (pickled)."""
     problem                            : Problem
@@ -205,6 +185,19 @@ class Solver:
         expected_ans_gap = (p_tup[0] * ans_gap_F) + (p_tup[1] * ans_gap_T)
         return (-1 * expected_ans_gap)
 
+    def one_answer_left(self, working_gs: Game_State):
+        # cwa_set representation_change
+        cwas_i_ans_idx_int = self.cwas_i_ans_idx_int # hoist out of loop
+        iterator = iter(working_gs.cwa_set)
+        zeroth_cwa_representation = next(iterator)
+        zeroth_answer_idx = cwas_i_ans_idx_int[zeroth_cwa_representation]
+        current_cwa_representation = next(iterator, None)
+        while (current_cwa_representation is not None):
+            if (cwas_i_ans_idx_int[current_cwa_representation] != zeroth_answer_idx):
+                return False
+            current_cwa_representation = next(iterator, None)
+        return True
+
     # useless_queries = 0
     # useful_queries = 0
     def create_move_info(
@@ -338,7 +331,7 @@ class Solver:
         # self.calculate_call_id += 1
         # call_id = self.calculate_call_id
 
-        if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
+        if check_one_answer and self.one_answer_left(game_state):
             return self.end_game_eval
         # WARN: will likely have to change this assert if start using a LRU cache
         assert (
@@ -590,7 +583,7 @@ class Solver:
 
     # Same for all solvers.
     def iterative_deepen(self, working_gs: Game_State, display):
-        if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
+        if self.one_answer_left(working_gs):
             self.best_move = None
             return self.end_game_eval
         is_begin_round = working_gs.proposal_used_this_round is None
@@ -673,7 +666,7 @@ class Solver:
         """
         Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
         """
-        if one_answer_left(self.full_cwas_list, wgs.cwa_set):
+        if self.one_answer_left(wgs):
             return Solver.double_zero_frac
         cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
         (best_move, purported_cost) = fcache[cache_gs] # cache_gs should always be in fcache at this point.
@@ -908,7 +901,7 @@ class Solver:
             gs_to_put_in_cache = curr_cache_gs if self.put_cache_gs_in_new_ev_cache else curr_working_gs
             if(
                 (gs_to_put_in_cache in filtered_cache) or
-                one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set)
+                self.one_answer_left(curr_working_gs)
             ):
                 continue
             self._handle_state(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, filtered_cache)

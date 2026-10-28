@@ -199,7 +199,7 @@ class Solver_Nightmare(Solver):
         round_depth,
     ):
         # self.called_calculate += 1
-        if check_one_answer and one_answer_left(self.full_cwas_list, game_state.cwa_set):
+        if check_one_answer and self.one_answer_left(game_state):
             # caching end game states uses up too much memory. And constantly checking
             # this setting wastes time unnecessarily
             # if config.CACHE_END_STATES:

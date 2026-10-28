@@ -37,7 +37,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         active=display_bitsets
     )
     print()
-    while not(solver.one_answer_left(s.full_cwas_list, current_gs.cwa_set)):
+    while not(s.one_answer_left(current_gs)):
         (best_move, mcost, gs_tup, expected_cost) = s.get_move_mcost_gs_ncost_from_cache(
             current_gs
         )
@@ -72,7 +72,7 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     if display_problem:
         sd.print_problem(s.rcs_list, s.problem, active=True)
     full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    if solver.one_answer_left(s.full_cwas_list, s.initial_game_state.cwa_set):
+    if s.one_answer_left(s.initial_game_state):
         title = "\nANSWER" + (" (Without Rearrangement)" if s.n_mode else "")
         sd.print_all_possible_answers(full_cwa, title, unique_perm=True)
         if display_problem:

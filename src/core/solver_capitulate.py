@@ -154,7 +154,7 @@ class Solver_Capitulate(Solver):
             current_gs = stack.pop()
             if current_gs in self._evaluations_cache:
                 continue
-            if not one_answer_left(self.full_cwas_list, current_gs.cwa_set):
+            if not self.one_answer_left(current_gs):
                 move_infos = list(self.get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
                 if not move_infos:
                     new_game_state = Game_State(
@@ -175,7 +175,7 @@ class Solver_Capitulate(Solver):
         if game_state in new_ev_cache:
             return new_ev_cache[game_state]
         assert bool(game_state.cwa_set)
-        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+        if self.one_answer_left(game_state):
             return((None, (0, 0)))
         assert (game_state in self._evaluations_cache)
         (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
