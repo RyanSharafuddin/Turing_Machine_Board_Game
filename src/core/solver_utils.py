@@ -494,6 +494,16 @@ def _min_vs_list_ndarray_bit_mani(nightmare_solver, working_gs) -> list[int]:
             minimal_vs_list[vset_index_this_bitset] |= (1 << v_index)
     return minimal_vs_list
 ############################## PUBLIC FUNCTIONS #################################################
+def get_ans_index_cwas(full_cwas_list, unique_answers):
+    """
+    Returns
+    -------
+    l: l[i] = unique_answer_index of answer in full_cwas_list[i]
+    l is an np array of np.uint32
+    """
+    d_answer_to_index = {answer: index for (index, answer) in enumerate(unique_answers)}
+    return np.array([d_answer_to_index[cwa[-1]] for cwa in full_cwas_list], dtype=np.uint32)
+
 def get_cwa_bitsets(solver) -> np.ndarray :
     """
     Get the list of bitsets corresponding to the cwas of the problem, or None if `set_type` is set.
