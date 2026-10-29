@@ -12,80 +12,6 @@ def make_initial_game_state(full_cwas_list):
     initial_game_state = Game_State(num_queries_this_round=0, proposal_used_this_round=None, cwa_set=cwa_set)
     return initial_game_state
 
-def one_answer_left(full_cwas_list, working_cwa_set):
-    """
-    Given a set of CWA as stored in the working game state object (as opposed to the cache game state object), returns a boolean according to whether or not there is exactly one unique answer remaining in the CWA set. Faster than just making the entire answer set and calling len() on it, b/c instead of going through every CWA, this returns the moment it finds a second answer.
-    """
-    # cwa_set representation_change
-    # See comments in definitions.Game_State for the format game_state_cwa_set is in.
-    # May not be a literal Python set object.
-    iterator = iter(working_cwa_set)
-    zeroth_cwa_representation = next(iterator)
-    zeroth_answer = full_cwas_list[zeroth_cwa_representation][-1]
-    current_cwa_representation = next(iterator, None)
-
-    while (current_cwa_representation is not None):
-        if (full_cwas_list[current_cwa_representation][-1] != zeroth_answer):
-            return False
-        current_cwa_representation = next(iterator, None)
-    return True
-
-# useless_queries = 0
-# useful_queries = 0
-def create_move_info(
-        num_combos_currently,
-        game_state: Game_State,
-        num_queries_this_round,
-        q_info: Query_Info,
-        move,
-        force_set_intersect: bool,
-    ):
-    """
-    `num_queries_this_round`
-        the number there will be after making this move.
-    `force_set_intersect`
-        if this is True, then this function will set intersect the q_info sets with the game state sets in order to determine which cwas are left in each case. (used in the filter_cache function, which does not update the qs_dict). If this is False, then it will only do the set intersect if game_state.proposal_used_this_round is not None. If it is None, it will just pull the cwa_sets straight from the qs dict, b/c the qs_dict was just updated at the beginning of the round.
-    WARN: could return None
-    """
-    # cwa_set representation_change
-    # will need the function to intersect two sets as well as to see if a set is nonempty.
-    # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's
-    # type will match the type of the first operand.
-    # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
-    # Therefore, all of the game states' cwa_sets created below are frozensets.
-    if((game_state.proposal_used_this_round is not None) or force_set_intersect):
-        cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
-        # NOTE: bc working game states' cwa_sets are currently of type frozenset, taking the length of a cwa set is less expensive than taking their intersection, which is why true_cwa_set_len is calculated first and its value is used to potentially 'short-circuit' (return early, before doing the set intersection for cwa_set_if_false). If change type from frozenset to Python integer bitset or numpy Hashable array, this may no longer be true (will have to look into the performance of a numpy array 'population count', or see if there's an efficient way to get the population count of a Python integer). If getting the population count is more costly in that case, then you could do the set intersection first, and compare both the ints/numpy arrays to 0 (or the all 0 array) in order to short circuit out of doing a population count.
-        true_cwa_set_len = len(cwa_set_if_true)
-        if not ((0 < true_cwa_set_len) and (true_cwa_set_len < num_combos_currently)):
-            return None # not a useful query
-        cwa_set_if_false = game_state.cwa_set & q_info.cwa_set_false
-    else:
-        # if the game_state.proposal_used_this_round is None, then can pull the cwa_sets directly from the q_info, as they were just updated at the beginning of the round when filtering the query dict.
-        cwa_set_if_true = q_info.cwa_set_true
-        cwa_set_if_false = q_info.cwa_set_false
-        true_cwa_set_len = len(cwa_set_if_true)
-
-    # this is a useful query.
-    # cwa_set representation_change Will need a function to get the length of a set.
-    p_true = true_cwa_set_len / num_combos_currently
-    p_false = 1 - p_true
-    # p_false = len(cwa_set_if_false) / num_combos_currently
-    p_tuple = (p_false, p_true)
-    proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
-    game_state_false = Game_State(
-        num_queries_this_round = num_queries_this_round,
-        proposal_used_this_round = proposal_used_this_round,
-        cwa_set = cwa_set_if_false,
-    )
-    game_state_true = Game_State(
-        num_queries_this_round = num_queries_this_round,
-        proposal_used_this_round = proposal_used_this_round,
-        cwa_set = cwa_set_if_true,
-    )
-    gs_tuple = (game_state_false, game_state_true)
-    return (move, gs_tuple, p_tuple)
-
 class Info_To_Save(NamedTuple):
     """ Represents the info of Solver to be saved (pickled)."""
     problem                            : Problem
@@ -141,9 +67,7 @@ class Solver:
         "num_concurrent_tasks",
         "depth_to_tasks_l",
 
-        "biggest_avg_difference_info",
-        "biggest_begin_round_avg_difference_info",
-        "biggest_depth_difference_info",
+        "_heuristic_func",
 
         "best_move",
         "put_cache_gs_in_new_ev_cache",
@@ -153,6 +77,11 @@ class Solver:
         "fail_on_warn",
         "consider_end_round_early",
 
+        "unique_answers",
+        "num_unique_answers",
+        "cwas_i_ans_int",
+        "cwas_i_ans_idx_np",
+        "cwas_i_ans_idx_int",
         "calculate_call_id", # for debugging purposes
         "calculate_mem_usage",
     )
@@ -163,25 +92,30 @@ class Solver:
             consider_end_round_early=config.CONSIDER_END_ROUND_EARLY,
             calculate_mem_usage=config.CALCULATE_EVCACHE_MEM_USAGE,
         ):
-        self.problem            = problem
-        self.n_mode             = (problem.mode == NIGHTMARE)
-        self._evaluations_cache = dict()
-        self._cost_calculator   = solver_utils.calculate_expected_rq_wo_curr_move
-        self.rcs_list           = rules.make_rcs_list(problem)
-        self.num_rcs            = len(self.rcs_list)
-        self.flat_rule_list     = rules.make_flat_rule_list(self.rcs_list)
-        self.full_cwas_list     = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
+        self.problem             = problem
+        self.n_mode              = (problem.mode == NIGHTMARE)
+        self._evaluations_cache  = dict()
+        self._cost_calculator    = solver_utils.calculate_expected_rq_wo_curr_move
+        self.rcs_list            = rules.make_rcs_list(problem)
+        self.num_rcs             = len(self.rcs_list)
+        self.flat_rule_list      = rules.make_flat_rule_list(self.rcs_list)
+        self.full_cwas_list      = solver_utils.make_full_cwas_list(self.n_mode, self.rcs_list)
+        self.unique_answers      = sorted({cwa[-1] for cwa in self.full_cwas_list})
+        self.num_unique_answers  = len(self.unique_answers)
+        self.cwas_i_ans_idx_np   = solver_utils.get_ans_index_cwas(self.full_cwas_list, self.unique_answers)
+        self.cwas_i_ans_idx_int  = [int(x) for x in self.cwas_i_ans_idx_np]
+        self.cwas_i_ans_int      = [cwa[-1] for cwa in self.full_cwas_list]
         self.possible_rules_by_verifier = solver_utils.get_possible_rules_by_verifier(self)
-        self.initial_game_state = make_initial_game_state(self.full_cwas_list)
-        self.best_move          = None
-        self.qs_dict            = solver_utils.make_useful_qs_dict(self, self.initial_game_state)
+        self.initial_game_state  = make_initial_game_state(self.full_cwas_list)
+        self.best_move           = None
+        self.qs_dict             = solver_utils.make_useful_qs_dict(self, self.initial_game_state)
         self.put_cache_gs_in_new_ev_cache = True
         if not self.full_cwas_list: # invalid problem with no solutions.
             return
         # NOTE: the flat_rule_list is *all* rules; not just all possible rules.
-        self.bitset_type        = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
-        self.ndarr_dtype        = config.ND_ARR_DTYPE if (self.bitset_type is np.ndarray) else None
-        self.all_cwa_bitsets    = solver_utils.get_cwa_bitsets(self)
+        self.bitset_type         = config.NIGHTMARE_BITSET_TYPE if self.n_mode else config.STANDARD_BITSET_TYPE
+        self.ndarr_dtype         = config.ND_ARR_DTYPE if (self.bitset_type is np.ndarray) else None
+        self.all_cwa_bitsets     = solver_utils.get_cwa_bitsets(self)
         self.convert_working_gs_to_cache_gs = solver_utils.get_convert_working_to_cache_gs_standard(
             self.bitset_type
         )
@@ -209,8 +143,140 @@ class Solver:
         self.calculate_call_id = 0 # for debugging purposes
         self.calculate_mem_usage : bool = calculate_mem_usage
 
-    @staticmethod
-    def get_and_apply_moves(game_state : Game_State, qs_dict: dict, force_set_intersect=False):
+    def _get_num_answers(self, cwa_set: working_cwa_set):
+        # cwa_set representation_change
+        # NOTE: when switch to Rust or C, instead of making a literal set of answers, consider
+        #       making an array of booleans, where each slot corresponds to an answer index.
+        #       or a bitset out of an array of 2 ints.
+        cwas_i_ans_int = self.cwas_i_ans_int # hoist attribute lookup out of loop.
+        return len(frozenset([cwas_i_ans_int[cwa_index] for cwa_index in cwa_set]))
+
+    def _get_answer_proportion_gap(self, ans_index_list: list[int], total_combos):
+        """
+        Define the proportion of an answer in a game state to be the fraction of all the *combos* in a game state that have that answer. This function returns the difference between the answer with the highest proportion and the answer with the second highest proportion (or 1 if there is only 1 answer).
+        """
+        highest_amount = 0
+        second_highest_amount = 0
+        ans_to_num_arr = [0] * self.num_unique_answers
+        for answer_index in ans_index_list:
+            ans_to_num_arr[answer_index] += 1
+            amount_of_answer = ans_to_num_arr[answer_index]
+            if (amount_of_answer > highest_amount):
+                highest_amount = amount_of_answer
+            elif (amount_of_answer > second_highest_amount):
+                second_highest_amount = amount_of_answer
+        return ((highest_amount - second_highest_amount) / total_combos)
+
+    def _mi_sort_key_nothing(self, *args):
+        return 0
+
+    def _mi_sort_key_ac(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
+        """
+        Returns
+        -------
+        (# expected answers left, # expected combos left)
+        """
+        num_answers_false = self._get_num_answers(cwa_set_F)
+        num_answers_true = self._get_num_answers(cwa_set_T)
+        ac_false = (num_answers_false, n_combos_F)
+        ac_true = (num_answers_true, n_combos_T)
+        return solver_utils.calculate_expected_rq_wo_curr_move(p_tup, (ac_false, ac_true))
+
+    def _mi_sort_key_ans_proportion_gap(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
+        """
+        Returns
+        -------
+        negative_expected_answer_proportion_gap (-1 is best, increasing to 0 is worse.)
+        """
+        ans_index_list_F = [self.cwas_i_ans_idx_int[i] for i in cwa_set_F]
+        ans_index_list_T = [self.cwas_i_ans_idx_int[i] for i in cwa_set_T]
+        ans_gap_F = self._get_answer_proportion_gap(ans_index_list_F, n_combos_F)
+        ans_gap_T = self._get_answer_proportion_gap(ans_index_list_T, n_combos_T)
+        expected_ans_gap = (p_tup[0] * ans_gap_F) + (p_tup[1] * ans_gap_T)
+        return (-1 * expected_ans_gap)
+
+    def _mi_sort_key_ans_gap_ac_combine(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
+        n_ans_gap = self._mi_sort_key_ans_proportion_gap(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
+        ac = self._mi_sort_key_ac(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
+        return (n_ans_gap, ac)
+
+    def _get_mi_sort_key(self, heuristic_func_index):
+        mi_sort_keys = [
+            self._mi_sort_key_nothing,
+            self._mi_sort_key_ac,
+            self._mi_sort_key_ans_proportion_gap,
+            self._mi_sort_key_ans_gap_ac_combine,
+        ]
+        return mi_sort_keys[heuristic_func_index]
+
+    def one_answer_left(self, working_gs: Game_State):
+        # cwa_set representation_change
+        cwas_i_ans_idx_int = self.cwas_i_ans_idx_int # hoist out of loop
+        iterator = iter(working_gs.cwa_set)
+        zeroth_cwa_representation = next(iterator)
+        zeroth_answer_idx = cwas_i_ans_idx_int[zeroth_cwa_representation]
+        current_cwa_representation = next(iterator, None)
+        while (current_cwa_representation is not None):
+            if (cwas_i_ans_idx_int[current_cwa_representation] != zeroth_answer_idx):
+                return False
+            current_cwa_representation = next(iterator, None)
+        return True
+
+    # useless_queries = 0
+    # useful_queries = 0
+    def create_move_info(
+            self,
+            num_combos_currently,
+            game_state: Game_State,
+            num_queries_this_round,
+            q_info: Query_Info,
+            move,
+            force_set_intersect: bool,
+        ):
+        """
+        `num_queries_this_round`
+            the number there *will* be after making this move.
+        `force_set_intersect`
+            if this is True, then this function will set intersect the q_info sets with the game state sets in order to determine which cwas are left in each case. (used in the filter_cache function, which does not update the qs_dict). If this is False, then it will only do the set intersect if game_state.proposal_used_this_round is not None. If it is None, it will just pull the cwa_sets straight from the qs dict, b/c the qs_dict was just updated at the beginning of the round.
+        WARN: could return None
+        """
+        # cwa_set representation_change
+        # will need the function to intersect two sets as well as to see if a set is nonempty.
+        # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's
+        # type will match the type of the first operand.
+        # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
+        # Therefore, all of the game states' cwa_sets created below are frozensets.
+        if((game_state.proposal_used_this_round is not None) or force_set_intersect):
+            cwa_set_T = game_state.cwa_set & q_info.cwa_set_true
+            # NOTE: bc working game states' cwa_sets are currently of type frozenset, taking the length of a cwa set is less expensive than taking their intersection, which is why true_cwa_set_len is calculated first and its value is used to potentially 'short-circuit' (return early, before doing the set intersection for cwa_set_if_false). If change type from frozenset to Python integer bitset or numpy Hashable array, this may no longer be true (will have to look into the performance of a numpy array 'population count', or see if there's an efficient way to get the population count of a Python integer). If getting the population count is more costly in that case, then you could do the set intersection first, and compare both the ints/numpy arrays to 0 (or the all 0 array) in order to short circuit out of doing a population count.
+            cwa_set_len_T = len(cwa_set_T)
+            if not ((0 < cwa_set_len_T) and (cwa_set_len_T < num_combos_currently)):
+                return None # not a useful query
+            cwa_set_F = game_state.cwa_set & q_info.cwa_set_false
+        else:
+            # if the game_state.proposal_used_this_round is None, then can pull the cwa_sets directly from the q_info, as they were just updated at the beginning of the round when filtering the query dict.
+            cwa_set_T = q_info.cwa_set_true
+            cwa_set_F = q_info.cwa_set_false
+            cwa_set_len_T = len(cwa_set_T)
+
+        # this is a useful query.
+        # cwa_set representation_change Will need a function to get the length of a set.
+        p_true = cwa_set_len_T / num_combos_currently
+        p_false = 1 - p_true
+        # p_false = len(cwa_set_if_false) / num_combos_currently
+        p_tuple = (p_false, p_true)
+        proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
+        game_state_false = Game_State(num_queries_this_round, proposal_used_this_round, cwa_set_F)
+        game_state_true = Game_State(num_queries_this_round, proposal_used_this_round, cwa_set_T)
+        gs_tuple = (game_state_false, game_state_true)
+        # cwa_set_len_F = num_combos_currently - cwa_set_len_T
+        # sort_key = self._mi_sort_key_ac(p_tuple, cwa_set_len_F, cwa_set_len_T, cwa_set_F, cwa_set_T)
+        # sort_key = self.mi_sort_key_ans_proportion_gap(
+        #     p_tuple, cwa_set_len_F, cwa_set_len_T, cwa_set_F, cwa_set_T
+        # )
+        return (move, gs_tuple, p_tuple)
+
+    def get_and_apply_moves(self, game_state: Game_State, qs_dict: dict, force_set_intersect=False):
         """
         yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
         move is a tuple (proposal tuple, rc_index of verifier to query).
@@ -226,7 +292,7 @@ class Solver:
             for (proposal, inner_dict) in qs_dict.items():
                 for (verifier_to_query, q_info) in inner_dict.items():
                     move = (proposal, verifier_to_query)
-                    move_info = create_move_info(
+                    move_info = self.create_move_info(
                         num_combos_currently,
                         game_state,
                         next_num_queries,
@@ -245,7 +311,7 @@ class Solver:
                 next_num_queries = (game_state.num_queries_this_round + 1) % 3
                 for (verifier_to_query, q_info) in inner_dict_this_proposal.items():
                     move = (game_state.proposal_used_this_round, verifier_to_query)
-                    move_info = create_move_info(
+                    move_info = self.create_move_info(
                         num_combos_currently,
                         game_state,
                         next_num_queries,
@@ -255,8 +321,6 @@ class Solver:
                     )
                     if(move_info is not None):
                         yield move_info
-                    # else:
-                    #     pass # not a useful query. See other comments.
 
     def tasks_initialize(self, depth, move_generator):
         if(depth < self.num_concurrent_tasks):
@@ -395,7 +459,7 @@ class Solver:
         if solver_utils.roughly_lt_2tup(search_best_rq, vpt):
             vpt = search_best_rq
         if check_one_answer:
-            if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+            if self.one_answer_left(game_state):
                 return self.end_game_calc_result
             assert (round_depth == 0)
             lower_bound = Solver.premade_lower_bounds[is_begin_round_state]
@@ -717,7 +781,7 @@ class Solver:
         """
         Returns the cache result from evaluating `working_gs` to infinity. Also sets self.best_move.
         """
-        if one_answer_left(self.full_cwas_list, working_gs.cwa_set):
+        if self.one_answer_left(working_gs):
             self.best_move = None
             return self.end_game_cache_result
         is_begin_round = working_gs.proposal_used_this_round is None
@@ -804,7 +868,7 @@ class Solver:
         """
         Returns a 2 tup for cost (avg rounds, avg queries). Use on *post-filtered* caches that store 2-tups.
         """
-        if one_answer_left(self.full_cwas_list, wgs.cwa_set):
+        if self.one_answer_left(wgs):
             return Solver.double_zero_frac
         cache_gs = self._easy_working_gs_to_cache_gs(wgs) if self.put_cache_gs_in_new_ev_cache else wgs
         (best_move, purported_cost) = fcache[cache_gs] # cache_gs should always be in fcache at this point.
@@ -1039,7 +1103,7 @@ class Solver:
             gs_to_put_in_cache = curr_cache_gs if self.put_cache_gs_in_new_ev_cache else curr_working_gs
             if(
                 (gs_to_put_in_cache in filtered_cache) or
-                one_answer_left(self.full_cwas_list, curr_working_gs.cwa_set)
+                self.one_answer_left(curr_working_gs)
             ):
                 continue
             self._handle_state(curr_working_gs, curr_cache_gs, gs_to_put_in_cache, stack, filtered_cache)

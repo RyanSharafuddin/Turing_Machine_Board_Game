@@ -147,8 +147,9 @@ def _combine(*items):
     """ Takes a variable number of renderables and combines them into a single left-aligned grid. """
     grid = Table.grid()
     for i in items:
-        grid.add_row(i)
-    return(grid)
+        if (i is not None):
+            grid.add_row(i)
+    return grid
 def _highlight(*items):
     h = ReprHighlighter()
     l = [h(item) for item in items]
@@ -384,6 +385,9 @@ class Solver_Displayer:
             initial_bitset_int = 0
         self.max_hex_length = len(hex(initial_bitset_int).upper()[2:])
         self.max_decimal_length = len(f'{initial_bitset_int:,}')
+
+    def set_heuristic_func_name(self):
+        self.heuristic_func_name = self.solver._heuristic_func.__name__[13:]
 
     @staticmethod
     def _get_width_at_left_idx_col_small_p(left_index, max_elts_partition, partition: list):
@@ -1304,6 +1308,16 @@ class Solver_Displayer:
         else:
             console.print(table, justify=justify)
 
+    def print_answers_no_rearrange(self, working_gs: Game_State, active: bool):
+        full_cwa = self.solver.full_cwa_list_from_game_state(working_gs)
+        self.print_all_possible_answers(
+            full_cwa,
+            "\nAll Possible Answers" + (" (Without Rearrangement)" if self.n_mode else ""),
+            permutation_order=P_ORDER,
+            active=active,
+            unique_perm=True
+        )
+
     def print_all_possible_answers(
             self,
             cwas,
@@ -1520,14 +1534,24 @@ class Solver_Displayer:
                     see_all_combos,
                 )
 
-    def end_play_display(self, current_gs, v_to_sort_by, query_history, current_score):
+    def end_play_display(
+            self,
+            current_gs,
+            v_to_sort_by,
+            query_history,
+            current_score,
+            limit=config.PLAY_ANS_TABLE_MAX_LEN
+        ):
         """
         Used by controller.play_from_solver to play a game.
         """
         full_cwa = self.solver.full_cwa_list_from_game_state(current_gs)
-        answers_table = self._get_all_possible_answers_table(
-            full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
-        )
+        if (len(full_cwa) > limit):
+            answers_table = None
+        else:
+            answers_table = self._get_all_possible_answers_table(
+                full_cwa, "ANSWER", permutation_order=P_ORDER, verifier_to_sort_by=v_to_sort_by
+            )
         answer = full_cwa[0][-1]
         q_history_table = _get_query_history_table(query_history, self.solver.num_rcs)
         ans_num_style = f'b {self._answer_to_color_dict[answer]}'
@@ -1785,7 +1809,10 @@ class Solver_Displayer:
     def _create_html_of_tree(self, tree: str):
         problem = self.solver.problem
         os.makedirs(TREE_DIRECTORY, exist_ok=True)
-        capitulate_str = '_capitulate' if self.capitulate else ''
+        if self.capitulate:
+            capitulate_str = f'_capitulate_{self.heuristic_func_name}'
+        else:
+            capitulate_str = ''
         html_relative_path=f'{TREE_DIRECTORY}/{problem.identity}{capitulate_str}.html'
         html_absolute_path = f'{os.getcwd()}/{html_relative_path}'
         url = file_path_to_url(html_absolute_path)
@@ -1914,6 +1941,8 @@ class Solver_Displayer:
         (r, q) = self.solver.expected_cost
         t = self._begin_final_print_table()
         self._add_n_mode_deets_to_table(t)
+        t.add_row("Cost Estimator", Text(self.heuristic_func_name, "rosy_brown"))
+        t.add_section()
         if underperformance is not None:
             (ur, uq) = underperformance
             (bcr, bcq) = best_cost
@@ -2014,7 +2043,7 @@ def _get_max_string_height_by_depth(tree: Tree):
     while(q):
         curr_node : Tree = q.popleft()
         full_cwas_current_node = tree.solver.full_cwa_list_from_cwa_set(curr_node.gs.cwa_set)
-        if not(solver.one_answer_left(tree.solver.full_cwas_list, curr_node.gs.cwa_set)): # internal node
+        if not(tree.solver.one_answer_left(curr_node.gs)): # internal node
             num_combinations = len(full_cwas_current_node)
             if(curr_node.depth == len(answer)):
                 answer.append(num_combinations)
@@ -2037,7 +2066,7 @@ def _eliminate_trailing_zeros(s: str):
     return(s[:end_range])
 
 def _get_children(tree: Tree):
-    if (solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
+    if (tree.solver.one_answer_left(tree.gs)):
         return([])
     result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
     assert (result is not None)
@@ -2085,7 +2114,7 @@ def _get_node_background_color(tree: Tree, result):
 def _node_to_str_table(tree: Tree, colored=True):
     sd = Solver_Displayer(tree.solver)
     nl = '\n'
-    if not(solver.one_answer_left(tree.solver.full_cwas_list, tree.gs.cwa_set)):
+    if not(tree.solver.one_answer_left(tree.gs)):
         result = tree.solver.get_move_mcost_gs_ncost_from_cache(tree.gs)
         (best_move, best_move_cost, gs_tup, total_expected_cost) = result
         verifier_to_sort_by = (

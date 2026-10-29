@@ -76,8 +76,8 @@ class Solver_Nightmare(Solver):
         resultant_ds = [self._min_v_sets_by_proposal(ml, min_vs_l) for ml in move_lists]
         assert (resultant_ds[0] == resultant_ds[1])
 
-    @staticmethod
     def get_and_apply_moves(
+        self,
         game_state: Game_State,
         qs_dict: dict[int:dict[int:Query_Info]],
         minimal_vs_list: list[int],
@@ -97,7 +97,7 @@ class Solver_Nightmare(Solver):
                             if corresponding_q_info is not None:
                                 # verifier_index is in inner dict
                                 move = (proposal, verifier_index)
-                                move_info = create_move_info(
+                                move_info = self.create_move_info(
                                     num_combos_currently,
                                     game_state,
                                     next_num_queries,
@@ -126,7 +126,7 @@ class Solver_Nightmare(Solver):
                     corresponding_q_info = inner_dict_this_proposal.get(verifier_index)
                     if corresponding_q_info is not None:
                         move = (game_state.proposal_used_this_round, verifier_index)
-                        move_info = create_move_info(
+                        move_info = self.create_move_info(
                             num_combos_currently,
                             game_state,
                             next_num_queries,
@@ -350,7 +350,7 @@ class Solver_Nightmare(Solver):
             vpt = search_best_rq
 
         if check_one_answer:
-            if one_answer_left(self.full_cwas_list, game_state.cwa_set):
+            if self.one_answer_left(game_state):
                 # caching end game states uses up too much memory. And constantly checking
                 # this setting wastes time unnecessarily
                 # if config.CACHE_END_STATES:

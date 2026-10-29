@@ -92,33 +92,34 @@ LINK_COLOR = "blue1" # #0000FF
 
 
 # Solver workings
-A_TOL                        = 1e-8
-REL_TOL                      = 0
-DISABLE_GC                   = True  # disable the garbage collector while solve()ing.
-CACHE_END_STATES             = False # whether to cache the end states into the evaluations_cache
-CONSIDER_END_ROUND_EARLY     = False # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
-STANDARD_BITSET_TYPE         = (     # cache game state set type in standard mode. Choose 1.
+A_TOL                    = 1e-8
+REL_TOL                  = 0
+DISABLE_GC               = True  # disable the garbage collector while solve()ing.
+CACHE_END_STATES         = False # whether to cache the end states into the evaluations_cache
+CONSIDER_END_ROUND_EARLY = False # See explanations near end of _calculate_best_move() in the Solver and Solver_Nightmare classes.
+STANDARD_BITSET_TYPE     = (     # cache game state set type in standard mode. Choose 1.
     set
     # int
     # np.ndarray
 )
-NIGHTMARE_BITSET_TYPE        = (     # cache game state set type in standard mode. Choose 1.
+NIGHTMARE_BITSET_TYPE    = (     # cache game state set type in standard mode. Choose 1.
     int
     # np.ndarray
 )
-ND_ARR_DTYPE                 = (     # the type of int nd_array bitsets store. Choose 1.
+ND_ARR_DTYPE             = (     # the type of int nd_array bitsets store. Choose 1.
     np.uint8
     # np.uint16
     # np.uint32
     # np.uint64
 )
+CAPITULATE_HEURISTIC     = 3     # integer from 0 to 3 inclusive.
 
 # Change How Debugging Information Is Displayed
 PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
 PARTITION_TABLE_ROW_STYLES = ["", "on #1f1f1f"] # options: [""] for all same or ["", "on #1f1f1f"] to zebra
 ANSWER_TABLE_ROW_STYLES    = PARTITION_TABLE_ROW_STYLES
 CWA_BITSETS_BASE_16        = False # whether to display cwa bit sets in base 16 (if they are to be displayed)
-S_MODE_PROGRESS_BARS_DICT    = {     # dictionary of num_verifiers : num_progress_bars in standard mode
+S_MODE_PROGRESS_BARS_DICT  = {     # dictionary of num_verifiers : num_progress_bars in standard mode
 
 }
 S_MODE_DEFAULT_PROGRESS_BARS = 1     # default number of progress bars in standard mode
@@ -140,10 +141,11 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 SHOW_LOCALS                 = True # print local variables when an unexpected exception occurs?
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
+PLAY_ANS_TABLE_MAX_LEN      = 400   # Don't print remaining answer tables longer than this in play()
 KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "VPT_6" # The name of this version of the program
+VERSION_NAME               = "VPT_7" # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"

@@ -1,17 +1,15 @@
 from .solver import *
 
-def fset_answers_from_cwa_set(all_cwas, cwa_set):
-    # cwa_set representation_change TODO!!
-    return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
-
 class Solver_Capitulate(Solver):
     worst_eval = (inf, inf)
     __slots__ = ()
-    def __init__(self, problem: Problem):
+    def __init__(self, problem: Problem, heuristic_func_index = config.CAPITULATE_HEURISTIC):
         Solver.__init__(self, problem)
         self.num_concurrent_tasks = 0
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
         self.put_cache_gs_in_new_ev_cache   = False
+        self._heuristic_func                = self._get_mi_sort_key(heuristic_func_index)
+        self.sd.set_heuristic_func_name()
 
     # giving Solver_Capitulate its own create_move_info so that changes
     # to Solver's create_move_info don't affect it.
@@ -33,50 +31,38 @@ class Solver_Capitulate(Solver):
         WARN: could return None
         """
         # cwa_set representation_change
-        # will need the function to intersect two sets as well as to see if a set is nonempty.
-        # NOTE: According to Python docs, if you mix a frozenset and a set in a binary operation, the result's
-        # type will match the type of the first operand.
-        # See https://docs.python.org/3/library/stdtypes.html#frozenset:~:text=Binary%20operations%20that%20mix%20set%20instances%20with%20frozenset%20return%20the%20type%20of%20the%20first%20operand.%20For%20example%3A%20frozenset(%27ab%27)%20%7C%20set(%27bc%27)%20returns%20an%20instance%20of%20frozenset.
-        # Therefore, all of the game states' cwa_sets created below are frozensets.
         if((game_state.proposal_used_this_round is not None) or force_set_intersect):
-            cwa_set_if_true = game_state.cwa_set & q_info.cwa_set_true
-            # NOTE: bc working game states' cwa_sets are currently of type frozenset, taking the length of a cwa set is less expensive than taking their intersection, which is why true_cwa_set_len is calculated first and its value is used to potentially 'short-circuit' (return early, before doing the set intersection for cwa_set_if_false). If change type from frozenset to Python integer bitset or numpy Hashable array, this may no longer be true (will have to look into the performance of a numpy array 'population count', or see if there's an efficient way to get the population count of a Python integer). If getting the population count is more costly in that case, then you could do the set intersection first, and compare both the ints/numpy arrays to 0 (or the all 0 array) in order to short circuit out of doing a population count.
-            true_cwa_set_len = len(cwa_set_if_true)
-            if not ((0 < true_cwa_set_len) and (true_cwa_set_len < num_combos_currently)):
+            cwa_set_T = game_state.cwa_set & q_info.cwa_set_true
+            cwa_set_len_T = len(cwa_set_T)
+            if not ((0 < cwa_set_len_T) and (cwa_set_len_T < num_combos_currently)):
                 return None # not a useful query
-            cwa_set_if_false = game_state.cwa_set & q_info.cwa_set_false
+            cwa_set_F = game_state.cwa_set & q_info.cwa_set_false
         else:
             # if the game_state.proposal_used_this_round is None, then can pull the cwa_sets directly from the q_info, as they were just updated at the beginning of the round when filtering the query dict.
-            cwa_set_if_true = q_info.cwa_set_true
-            cwa_set_if_false = q_info.cwa_set_false
-            true_cwa_set_len = len(cwa_set_if_true)
+            cwa_set_T = q_info.cwa_set_true
+            cwa_set_F = q_info.cwa_set_false
+            cwa_set_len_T = len(cwa_set_T)
 
         # this is a useful query.
         # cwa_set representation_change Will need a function to get the length of a set.
-        p_true = true_cwa_set_len / num_combos_currently
+        p_true = cwa_set_len_T / num_combos_currently
         p_false = 1 - p_true
         # p_false = len(cwa_set_if_false) / num_combos_currently
         p_tuple = (p_false, p_true)
         proposal_used_this_round = None if(num_queries_this_round == 0) else move[0]
-        game_state_false = Game_State(
-            num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = proposal_used_this_round,
-            cwa_set = cwa_set_if_false,
-        )
-        game_state_true = Game_State(
-            num_queries_this_round = num_queries_this_round,
-            proposal_used_this_round = proposal_used_this_round,
-            cwa_set = cwa_set_if_true,
-        )
+        game_state_false = Game_State(num_queries_this_round, proposal_used_this_round, cwa_set_F)
+        game_state_true = Game_State(num_queries_this_round, proposal_used_this_round, cwa_set_T)
         gs_tuple = (game_state_false, game_state_true)
-        move_info = (move, cost, gs_tuple, p_tuple)
+        cwa_set_len_F = num_combos_currently - cwa_set_len_T
+        sort_key = self._heuristic_func(p_tuple, cwa_set_len_F, cwa_set_len_T, cwa_set_F, cwa_set_T)
+        move_info = (move, cost, gs_tuple, p_tuple, sort_key)
         return move_info
 
     # giving Solver_Capitulate its own get_and_apply_moves()
     # so changes to Solver's get_and_apply_moves don't affect this.
     def get_and_apply_moves(self, game_state : Game_State, qs_dict: dict, force_set_intersect=False):
         """
-        yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true))].
+        yields from a list of [(move, cost, (game_state_false, game_state_true), (p_false, p_true), sort_key)].
         move is a tuple (proposal tuple, rc_index of verifier to query).
         cost is a tuple (round cost, query cost)
         See create_move_info function docstring for what force_set_intersect does.
@@ -124,25 +110,16 @@ class Solver_Capitulate(Solver):
                         yield move_info
 
     def _choose_best_move_depth_one(self, move_infos:list):
-        # cwa_set representation_change TODO!!
-        best_expected_result = self.worst_eval # number of answers left, number of combos left.
-        for(move, mcost, gs_tuple, p_tuple) in move_infos:
-            (p_false, p_true) = p_tuple
-            (gs_false_answers_left, gs_true_answers_left) = [
-                len(fset_answers_from_cwa_set(self.full_cwas_list, gs.cwa_set)) for gs in gs_tuple
-            ]
-            (gs_false_combos_left, gs_true_combos_left) = [
-                len(gs.cwa_set) for gs in gs_tuple
-            ]
-            expected_answers_left = (p_false * gs_false_answers_left) + (p_true * gs_true_answers_left)
-            expected_combos_left = (p_false * gs_false_combos_left) + (p_true * gs_true_combos_left)
-            expected_result = (expected_answers_left, expected_combos_left)
-            if(expected_result < best_expected_result):
-                best_expected_result = expected_result
-                best_move = move
-                best_mcost = mcost
-                best_gs_tup = gs_tuple
-        answer = (best_move, best_mcost, best_gs_tup, best_expected_result)
+        # console.print(f"\n{self.calculate_call_id = :,}")
+        (first_move, _, first_gs_tuple, _, first_sort_key) = move_infos[0]
+        best_sort_key = first_sort_key
+        answer = (first_move, first_gs_tuple, first_sort_key)
+        for(move, mcost, gs_tuple, p_tuple, sort_key) in move_infos:
+            # console.print(display.get_move_text(move), ":", f"{sort_key:0.3f}")
+            if(sort_key < best_sort_key):
+                answer = (move, gs_tuple, best_sort_key)
+                best_sort_key = sort_key
+        # console.print(f"answer:", display.get_move_text(answer[0]), answer[2])
         return answer
 
     # NOTE: calculate_best_move must be able to be started with
@@ -151,34 +128,30 @@ class Solver_Capitulate(Solver):
         """ A capitulation """
         stack = [game_state]
         while stack:
+            self.calculate_call_id += 1
             current_gs = stack.pop()
-            if current_gs in self._evaluations_cache:
+            if ((current_gs in self._evaluations_cache) or self.one_answer_left(current_gs)):
                 continue
-            if not one_answer_left(self.full_cwas_list, current_gs.cwa_set):
-                move_infos = list(self.get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
-                if not move_infos:
-                    new_game_state = Game_State(
-                        proposal_used_this_round=None,
-                        num_queries_this_round=0,
-                        cwa_set=current_gs.cwa_set
-                    )
-                    move_infos = list(
-                        self.get_and_apply_moves(new_game_state, self.qs_dict, force_set_intersect=True)
-                    )
-                answer = self._choose_best_move_depth_one(move_infos)
-                (best_move, best_mcost, best_gs_tup, best_expected_result) = answer
-                self._evaluations_cache[current_gs] = (best_move, best_expected_result)
-                stack.append(best_gs_tup[0])
-                stack.append(best_gs_tup[1])
+            move_infos = list(self.get_and_apply_moves(current_gs, qs_dict, force_set_intersect=True))
+            if not move_infos:
+                new_game_state = Game_State(0, None, current_gs.cwa_set)
+                move_infos = list(
+                    self.get_and_apply_moves(new_game_state, self.qs_dict, force_set_intersect=True)
+                )
+            answer = self._choose_best_move_depth_one(move_infos)
+            (best_move, best_gs_tup, best_sort_key) = answer
+            self._evaluations_cache[current_gs] = (best_move, best_sort_key)
+            stack.append(best_gs_tup[0])
+            stack.append(best_gs_tup[1])
 
     def _calculate_actual_expected_for_capitulation(self, game_state: Game_State, new_ev_cache: dict):
         if game_state in new_ev_cache:
             return new_ev_cache[game_state]
         assert bool(game_state.cwa_set)
-        if one_answer_left(self.full_cwas_list, game_state.cwa_set):
-            return((None, (0, 0)))
+        if self.one_answer_left(game_state):
+            return (None, self.double_zero)
         assert (game_state in self._evaluations_cache)
-        (best_move, answer_combo_cost) = self._evaluations_cache[game_state]
+        (best_move, best_sort_key) = self._evaluations_cache[game_state]
         (gs_false, gs_true) = self.apply_move_to_state(best_move, game_state)
         p_false = len(gs_false.cwa_set) / len(game_state.cwa_set)
         p_true = len(gs_true.cwa_set) / len(game_state.cwa_set)
@@ -226,9 +199,6 @@ class Solver_Capitulate(Solver):
             qs_dict=self.qs_dict,
             game_state=self.initial_game_state
         )
-
-    def _experiment(self):
-        return
 
     def _final_printing(self, original_cache: dict, filtered_cache: dict):
         # Overrides _final_printing in Solver. Needs to keep same function signature.

@@ -51,6 +51,8 @@ class Game_State(dataobject, readonly=True, hashable=True):
     proposal_used_this_round: int | None
     cwa_set: Any
 
+type working_cwa_set = set[int]
+
 Problem = namedtuple(
     'Problem',
     [
