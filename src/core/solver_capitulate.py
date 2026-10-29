@@ -1,9 +1,5 @@
 from .solver import *
 
-def fset_answers_from_cwa_set(all_cwas, cwa_set):
-    # cwa_set representation_change TODO!!
-    return(frozenset([all_cwas[cwa][-1] for cwa in cwa_set]))
-
 class Solver_Capitulate(Solver):
     worst_eval = (inf, inf)
     __slots__ = ()
@@ -13,6 +9,7 @@ class Solver_Capitulate(Solver):
         self.convert_working_gs_to_cache_gs = solver_utils._do_not_convert_gs
         self.put_cache_gs_in_new_ev_cache   = False
         self._heuristic_func                = self._get_mi_sort_key(heuristic_func_index)
+        self.sd.set_heuristic_func_name()
 
     # giving Solver_Capitulate its own create_move_info so that changes
     # to Solver's create_move_info don't affect it.

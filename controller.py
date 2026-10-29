@@ -21,14 +21,12 @@ def play_from_solver(s: solver.Solver, display_problem = True):
     This function assumes that the solver s has already been solved.
     If display_problem is off, will not display the problem
     """
-    sd = display.Solver_Displayer(s)
+    sd = s.sd
     current_gs = s.initial_game_state
-    full_cwa = s.full_cwa_list_from_game_state(current_gs)
     current_score = (0, 0) # current_round_num, total_queries_made
     query_history = [] # each round is: [proposal, (verifier, result), . . .]
     sd.print_problem(s.rcs_list, s.problem, active=display_problem)
-    title = "\nAll Possible Answers"
-    sd.print_all_possible_answers(full_cwa, title, permutation_order=P_ORDER, active=display_problem)
+    sd.print_answers_no_rearrange(s.initial_game_state, active=display_problem)
     display_bitsets = DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)
     print("\n" if display_bitsets else "", end="")
     sd.print_table_bitsets(
@@ -43,10 +41,14 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         )
         full_cwa = s.full_cwa_list_from_game_state(current_gs)
         expected_total_score = add_tups(current_score, expected_cost)
-        if(current_score > (0, 0)):
+        if((current_score > (0, 0)) and (len(full_cwa) <= PLAY_ANS_TABLE_MAX_LEN)):
             # only print this table after having made some queries, since already printed it at start.
             sd.print_all_possible_answers(
-                full_cwa, "Remaining Combos", permutation_order=P_ORDER, active=PRINT_COMBOS, verifier_to_sort_by=verifier_to_sort_by
+                full_cwa,
+                "Remaining Combos",
+                permutation_order=P_ORDER,
+                active=PRINT_COMBOS,
+                verifier_to_sort_by=verifier_to_sort_by
             )
         current_score = add_tups(current_score, mcost)
         query_this_round = 1 if (mcost[0]) else current_gs.num_queries_this_round + 1
@@ -62,7 +64,7 @@ def play_from_solver(s: solver.Solver, display_problem = True):
         update_query_history(query_history, best_move, mcost[0], result)
     # Found an answer
     v_to_sort_by = None if(current_score == (0, 0)) else best_move[1]
-    sd.end_play_display(current_gs, v_to_sort_by, query_history, current_score)
+    sd.end_play_display(current_gs, v_to_sort_by, query_history, current_score, PLAY_ANS_TABLE_MAX_LEN)
 
 def display_solution_from_solver(s: solver.Solver, display_problem = True):
     """
@@ -71,21 +73,17 @@ def display_solution_from_solver(s: solver.Solver, display_problem = True):
     sd = s.sd
     if display_problem:
         sd.print_problem(s.rcs_list, s.problem, active=True)
-    full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
     if s.one_answer_left(s.initial_game_state):
+        full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
         title = "\nANSWER" + (" (Without Rearrangement)" if s.n_mode else "")
         sd.print_all_possible_answers(full_cwa, title, unique_perm=True)
         if display_problem:
             sd.pickled_display_print()
     else:
-        sd.print_all_possible_answers(
-            full_cwa,
-            "\nAll Possible Answers" + (" (Without Rearrangement)" if s.n_mode else ""),
-            permutation_order=P_ORDER,
-            active=display_problem,
-            unique_perm=True
+        sd.print_answers_no_rearrange(s.initial_game_state, active=display_problem)
+        print(
+            "\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end=""
         )
-        print("\n" if (DISPLAY_CWA_BITSETS and display_problem and (s.all_cwa_bitsets is not None)) else "", end="")
         sd.print_table_bitsets(
             bitsets=s.all_cwa_bitsets,
             base_16=CWA_BITSETS_BASE_16,
@@ -105,9 +103,9 @@ def make_solver(problem: Problem, capitulate=False):
         s = Solver_Capitulate(problem)
     else:
         s = Solver_Nightmare(problem) if(problem.mode == NIGHTMARE) else Solver(problem)
-    sd = display.Solver_Displayer(s)
+    sd = s.sd
     sd.print_problem(s.rcs_list, s.problem, active=DISPLAY)
-    if(not(s.full_cwas_list)):
+    if not(s.full_cwas_list):
         rprint(
             f"\n[bold red]Error[/bold red]: This is an invalid problem which has no solutions. Check that the problem is specified correctly, and check the relevant rules in rules.py."
         )
@@ -118,11 +116,7 @@ def make_solver(problem: Problem, capitulate=False):
         rprint("Rule card numbers list: ", s.problem.rc_nums_list, end='')
         print("Exiting.")
         exit()
-    full_cwa = s.full_cwa_list_from_game_state(s.initial_game_state)
-    title = "\nAll Possible Answers" + (" (Without Rearrangement)" if (problem.mode == NIGHTMARE) else "")
-    sd.print_all_possible_answers(
-        full_cwa, title, permutation_order=P_ORDER, active=DISPLAY, unique_perm=True
-    )
+    sd.print_answers_no_rearrange(s.initial_game_state, active=DISPLAY)
     display_bitsets = DISPLAY and DISPLAY_CWA_BITSETS and (s.all_cwa_bitsets is not None)
     print("\n" if display_bitsets else "", end="")
     sd.print_table_bitsets(s.all_cwa_bitsets, base_16=CWA_BITSETS_BASE_16, active=display_bitsets)
@@ -387,7 +381,7 @@ if(__name__ == "__main__"):
 # s = get_or_make_solver(problem, no_pickles=True, force_overwrite=False)[0]
 # # Then use the solver displayer below to examine.
 # # Use the below for testing/debugging purposes
-# sd = display.Solver_Displayer(s)
+# sd = s.sd
 # sd.print_useful_qs_dict_info(
 #     qs_dict, # NOTE: fill in with correct qs dict you want to see
 #     s.initial_game_state.cwa_set, # NOTE: fill in with cwa_set the qs_dict will act upon

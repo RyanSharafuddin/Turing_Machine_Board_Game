@@ -112,7 +112,7 @@ ND_ARR_DTYPE             = (     # the type of int nd_array bitsets store. Choos
     # np.uint32
     # np.uint64
 )
-CAPITULATE_HEURISTIC     = 2     # integer from 0 to 3 inclusive.
+CAPITULATE_HEURISTIC     = 3     # integer from 0 to 3 inclusive.
 
 # Change How Debugging Information Is Displayed
 PARTITION_DIVIDER          = '│' # options: '│' and '|'. For printing partition dictionary.
@@ -141,6 +141,7 @@ PRINT_SD_COLOR_DICT         = False # Print the Solver_Displayer's answer to col
 SHOW_LOCALS                 = False # print local variables when an unexpected exception occurs?
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
+PLAY_ANS_TABLE_MAX_LEN      = 400   # Don't print remaining answer tables longer than this in play()
 KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
