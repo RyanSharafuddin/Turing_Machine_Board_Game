@@ -113,15 +113,16 @@ class Solver_Capitulate(Solver):
                         yield move_info
 
     def _choose_best_move_depth_one(self, move_infos:list):
-        console.print(f"\n{self.calculate_call_id = :,}")
+        # console.print(f"\n{self.calculate_call_id = :,}")
         (first_move, _, first_gs_tuple, _, first_sort_key) = move_infos[0]
         best_sort_key = first_sort_key
         answer = (first_move, first_gs_tuple, first_sort_key)
         for(move, mcost, gs_tuple, p_tuple, sort_key) in move_infos:
-            console.print(display.get_move_text(move), ":", f"{sort_key:0.3f}")
+            # console.print(display.get_move_text(move), ":", f"{sort_key:0.3f}")
             if(sort_key < best_sort_key):
                 answer = (move, gs_tuple, best_sort_key)
-        console.print(f"answer:", display.get_move_text(answer[0]), answer[2])
+                best_sort_key = sort_key
+        # console.print(f"answer:", display.get_move_text(answer[0]), answer[2])
         return answer
 
     # NOTE: calculate_best_move must be able to be started with
