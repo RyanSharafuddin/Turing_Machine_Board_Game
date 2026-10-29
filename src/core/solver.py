@@ -59,9 +59,7 @@ class Solver:
         "num_concurrent_tasks",
         "depth_to_tasks_l",
 
-        "biggest_avg_difference_info",
-        "biggest_begin_round_avg_difference_info",
-        "biggest_depth_difference_info",
+        "_heuristic_func",
 
         "best_move",
         "put_cache_gs_in_new_ev_cache",
@@ -160,6 +158,9 @@ class Solver:
                 second_highest_amount = amount_of_answer
         return ((highest_amount - second_highest_amount) / total_combos)
 
+    def _mi_sort_key_nothing(self, *args):
+        return 0
+
     def _mi_sort_key_ac(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
         """
         Returns
@@ -172,7 +173,7 @@ class Solver:
         ac_true = (num_answers_true, n_combos_T)
         return solver_utils.calculate_expected_rq_wo_curr_move(p_tup, (ac_false, ac_true))
 
-    def mi_sort_key_ans_proportion_gap(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
+    def _mi_sort_key_ans_proportion_gap(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
         """
         Returns
         -------
@@ -184,6 +185,20 @@ class Solver:
         ans_gap_T = self._get_answer_proportion_gap(ans_index_list_T, n_combos_T)
         expected_ans_gap = (p_tup[0] * ans_gap_F) + (p_tup[1] * ans_gap_T)
         return (-1 * expected_ans_gap)
+
+    def _mi_sort_key_ans_gap_ac_combine(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
+        n_ans_gap = self._mi_sort_key_ans_proportion_gap(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
+        ac = self._mi_sort_key_ac(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
+        return (n_ans_gap, ac)
+
+    def _get_mi_sort_key(self, heuristic_func_index):
+        mi_sort_keys = [
+            self._mi_sort_key_nothing,
+            self._mi_sort_key_ac,
+            self._mi_sort_key_ans_proportion_gap,
+            self._mi_sort_key_ans_gap_ac_combine,
+        ]
+        return mi_sort_keys[heuristic_func_index]
 
     def one_answer_left(self, working_gs: Game_State):
         # cwa_set representation_change
