@@ -5,6 +5,7 @@ from src.core.definitions import *
 from src.core.definitions import console as console
 from src.core.solver import Solver as Solver
 from src.core.solver_nightmare import Solver_Nightmare
+from src.core.solver_capitulate import Solver_Capitulate
 from src.problems.problems import get_best_time as get_best_time
 import src.problems.problems as problems
 # problems, solver
@@ -17,7 +18,13 @@ def pid_val_to_param(pid: str, val: tuple[str, str]):
 def pid_val_to_param_list(lst):
     return [pid_val_to_param(*row) for row in lst]
 
-def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False):
+def get_problem_and_compare_output(
+        p_id,
+        expected_cost,
+        consider_end_round_early=False,
+        capitulate=False,
+        heuristic_func_index=0,
+    ):
     """
     Assert that the solver produces the same evaluation cost as before, and within a reasonable amount of time.
     """
@@ -25,13 +32,16 @@ def get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early
         expected_cost = tuple(Fraction(s) for s in expected_cost)
     p = problems.get_requested_problem(p_id=p_id)
     console.print(f"\nNow testing problem {p.identity}")
-    s_cons = Solver_Nightmare if (p.mode == NIGHTMARE) else Solver
-    s = s_cons(
-        p,
-        fail_on_warn=True,
-        consider_end_round_early=consider_end_round_early,
-        calculate_mem_usage=False,
-    )
+    if capitulate:
+        s = Solver_Capitulate(p, heuristic_func_index=heuristic_func_index)
+    else:
+        s_cons = Solver_Nightmare if (p.mode == NIGHTMARE) else Solver
+        s = s_cons(
+            p,
+            fail_on_warn=True,
+            consider_end_round_early=consider_end_round_early,
+            calculate_mem_usage=False,
+        )
     s.solve()
     assert (s.expected_cost == expected_cost), s.expected_cost # Fractions have perfect accuracy
     # previous_best_time = get_best_time(p)
@@ -87,7 +97,6 @@ def test_standard_no_ere(p_id, expected_cost):
 )
 def test_extreme_no_ere(p_id, expected_cost):
     get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False)
-
 
 @pytest.mark.parametrize(
     ("p_id", "expected_cost"),
@@ -154,3 +163,51 @@ def test_ere_nightmare(p_id, expected_cost):
 )
 def test_nightmare_no_ere(p_id, expected_cost):
     get_problem_and_compare_output(p_id, expected_cost, consider_end_round_early=False)
+
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    pid_val_to_param_list(
+        [
+        ]
+    )
+)
+def test_capitulate_ac_heuristic(p_id, expected_cost):
+    get_problem_and_compare_output(
+        p_id,
+        expected_cost,
+        consider_end_round_early=False,
+        capitulate=True,
+        heuristic_func_index=1
+    )
+
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    pid_val_to_param_list(
+        [
+        ]
+    )
+)
+def test_capitulate_ans_gap_heuristic(p_id, expected_cost):
+    get_problem_and_compare_output(
+        p_id,
+        expected_cost,
+        consider_end_round_early=False,
+        capitulate=True,
+        heuristic_func_index=2
+    )
+
+@pytest.mark.parametrize(
+    ("p_id", "expected_cost"),
+    pid_val_to_param_list(
+        [
+        ]
+    )
+)
+def test_capitulate_3_heuristic(p_id, expected_cost):
+    get_problem_and_compare_output(
+        p_id,
+        expected_cost,
+        consider_end_round_early=False,
+        capitulate=True,
+        heuristic_func_index=3
+    )
