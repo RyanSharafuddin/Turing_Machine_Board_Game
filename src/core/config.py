@@ -142,7 +142,7 @@ SHOW_LOCALS                 = True # print local variables when an unexpected ex
 LOCALS_MAX_LENGTH           = 5     # max length of local containers to print before truncating.
 DISPLAY_CWA_BITSETS         = False # Display all the cwa bitsets at the beginning when displaying problem?
 PLAY_ANS_TABLE_MAX_LEN      = 400   # Don't print remaining answer tables longer than this in play()
-KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
+KNOWN_KILLED_9_PROBLEMS     = {"C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
 VERSION_NAME               = "VPT_7" # The name of this version of the program
