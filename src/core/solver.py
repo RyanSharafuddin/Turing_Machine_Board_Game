@@ -360,6 +360,7 @@ class Solver:
             p_this_gs
         )
         # we know that either the evdepth < desired, OR the evdepth = desired and prev_cache_result pruned.
+        # TODO: call self._update_gs_evaluation below, rather than duplicating its code.
         curr_cache_result = prev_cache_result
         curr_cache_result_evdepth = curr_cache_result[0]
         curr_cache_result_pruned = curr_cache_result[1]
