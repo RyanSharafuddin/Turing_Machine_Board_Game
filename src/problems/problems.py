@@ -333,11 +333,13 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
     """
     If the solver s just solved a new problem or set a new record, note this down in the pickled time dict. Also, if any problems were deleted from the user file since the last time this happened, delete them from the pickled time dict.
     """
-    time_pickle = _PICKLED_PROB_INFO_DICT.get(s.problem.identity, (None, None, -1))
+    time_pickle = _PICKLED_PROB_INFO_DICT.get(s.problem.identity, (None, None, -1, -1, -1))
     # don't unpack. This is more robust
     previous_best_time = time_pickle[0]
     previous_cost = time_pickle[1]
     previous_memory_bytes = time_pickle[2]
+    previous_num_states = time_pickle[3]
+    previous_num_begin_round_states = time_pickle[4]
     p_ids_to_delete = [p_id for p_id in _PICKLED_PROB_INFO_DICT if not(p_id in _ID_TO_PROBLEM_DICT)]
     for p_id in p_ids_to_delete:
         del(_PICKLED_PROB_INFO_DICT[p_id])
@@ -366,13 +368,47 @@ def update_pickled_time_dict_if_necessary(s: solver.Solver):
             f"Memory used last time: {previous_memory_bytes:,}",
             sep="\n"
         )
-    update_this_problem = ((changed_time or changed_cost) or changed_mem)
+    changed_num_states = (previous_num_states != s.num_states) and (s.num_states != -1)
+    changed_num_begin_round_states = (
+        (previous_num_begin_round_states != s.num_begin_round_states)
+        and (s.num_begin_round_states != -1)
+    )
+    if (changed_num_states and (previous_num_states != -1)):
+        console.print(
+            Text("Warn:", style=SMALL_WARN),
+            "The number of remembered states differs from last time. This may be acceptable.",
+            f"States remembered this time: {s.num_states:,}",
+            f"States remembered last time: {previous_num_states:,}",
+            sep="\n"
+        )
+    if (changed_num_begin_round_states and (previous_num_begin_round_states != -1)):
+        console.print(
+            Text("Warn:", style=SMALL_WARN),
+            "The number of remembered begin-round states differs from last time. This may be acceptable.",
+            f"Begin-round states remembered this time: {s.num_begin_round_states:,}",
+            f"Begin-round states remembered last time: {previous_num_begin_round_states:,}",
+            sep="\n"
+        )
+    changed_states = changed_num_states or changed_num_begin_round_states
+    update_this_problem = ((changed_time or changed_cost) or (changed_mem or changed_states))
     if(bool(p_ids_to_delete) or update_this_problem):
         print(f"Pickling problem info dict . . .")
         if update_this_problem:
             mem_to_write = s.size_of_evaluations_cache_in_bytes if changed_mem else previous_memory_bytes
             seconds_to_write = s.seconds_to_solve if changed_time else previous_best_time
-            _PICKLED_PROB_INFO_DICT[s.problem.identity] = (seconds_to_write, s.expected_cost, mem_to_write)
+            num_states_to_write = s.num_states if changed_num_states else previous_num_states
+            num_begin_round_states_to_write = (
+                s.num_begin_round_states
+                if changed_num_begin_round_states
+                else previous_num_begin_round_states
+            )
+            _PICKLED_PROB_INFO_DICT[s.problem.identity] = (
+                seconds_to_write,
+                s.expected_cost,
+                mem_to_write,
+                num_states_to_write,
+                num_begin_round_states_to_write,
+            )
         f = open(PROB_INFO_PICKLE_FILE_NAME, "wb")
         pickle.dump(_PICKLED_PROB_INFO_DICT, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()

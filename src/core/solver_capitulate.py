@@ -205,6 +205,10 @@ class Solver_Capitulate(Solver):
         (best_cost, underperformance) = self._get_perfect_and_underperformance()
         self.sd.capitulate_final_printing(best_cost, underperformance)
 
+    def _calc_post_solve_debug_info(self, original_cache, filtered_cache):
+        """ Overrides Solver's _calc_post_solve_debug_info """
+        return
+
     def get_num_begin_round_states(self):
         raise NotImplementedError("You should not be calling this on a capitulate solver.")
 

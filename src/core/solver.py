@@ -18,6 +18,8 @@ class Info_To_Save(NamedTuple):
     evaluations_cache                  : dict
     expected_cost                      : tuple
     seconds_to_solve                   : int
+    num_states                         : int
+    num_begin_round_states             : int
     git_hash                           : str
     git_message                        : str
     size_of_evaluations_cache_in_bytes : int
@@ -51,6 +53,8 @@ class Solver:
         "size_of_evaluations_cache_in_bytes",
         "git_hash",
         "git_message",
+        "num_states",
+        "num_begin_round_states",
         "possible_rules_by_verifier",
         "bitset_type",
         "ndarr_dtype",
@@ -125,6 +129,8 @@ class Solver:
         self.expected_cost                      = None # have not called solve() yet.
         self.seconds_to_solve                   = -1 # have not called solve() yet.
         self.size_of_evaluations_cache_in_bytes = -1 # have not called solve() yet.
+        self.num_states                         = -1 # have not called solve() yet.
+        self.num_begin_round_states             = -1 # have not called solve() yet.
         self.git_hash                           = None
         self.git_message                        = None
         self.sd = display.Solver_Displayer(self)
@@ -645,7 +651,14 @@ class Solver:
             self.initial_game_state,
             (Solver.double_zero_frac,) # 1-length tuple w/zero cost filtered (r,q) type Fraction, currently
         )[-1]
+        if config.PRINT_POST_SOLVE_DEBUG_INFO:
+            self._calc_post_solve_debug_info(original_cache, filtered_cache)
         self._final_printing(original_cache, filtered_cache)
+
+    def _calc_post_solve_debug_info(self, original_cache, filtered_cache):
+        print("\nCalculating post-solve debug information.\n")
+        self.num_begin_round_states = self._get_num_begin_round_states(original_cache)
+        self.num_states = self._get_total_states(original_cache)
 
     # May be overriden by other types of solvers.
     def _final_printing(self, original_cache: dict, filtered_cache: dict):
@@ -975,22 +988,26 @@ class Solver:
 
     def get_info_to_save(self):
         return Info_To_Save(
-            problem           = self.problem,
-            evaluations_cache = self._evaluations_cache,
-            expected_cost     = self.expected_cost,
-            seconds_to_solve  = self.seconds_to_solve,
-            git_hash          = git.Repo(search_parent_directories=True).head.object.hexsha,
-            git_message       = git.Repo(search_parent_directories=True).head.object.message,
+            problem                = self.problem,
+            evaluations_cache      = self._evaluations_cache,
+            expected_cost          = self.expected_cost,
+            seconds_to_solve       = self.seconds_to_solve,
+            num_states             = self.num_states,
+            num_begin_round_states = self.num_begin_round_states,
+            git_hash               = git.Repo(search_parent_directories=True).head.object.hexsha,
+            git_message            = git.Repo(search_parent_directories=True).head.object.message,
             size_of_evaluations_cache_in_bytes = self.size_of_evaluations_cache_in_bytes
         )
 
     def set_saved_info(self, info: Info_To_Save):
         assert (self.problem == info.problem)
-        self._evaluations_cache = info.evaluations_cache
-        self.expected_cost      = info.expected_cost
-        self.seconds_to_solve   = info.seconds_to_solve
-        self.git_hash           = info.git_hash
-        self.git_message        = info.git_message
+        self._evaluations_cache     = info.evaluations_cache
+        self.expected_cost          = info.expected_cost
+        self.seconds_to_solve       = info.seconds_to_solve
+        self.num_states             = info.num_states
+        self.num_begin_round_states = info.num_begin_round_states
+        self.git_hash               = info.git_hash
+        self.git_message            = info.git_message
         self.size_of_evaluations_cache_in_bytes = info.size_of_evaluations_cache_in_bytes
 
     ############################### SAME FOR NIGHTMARE AND STANDARD ###############################
@@ -1077,15 +1094,12 @@ class Solver:
                 "The new evaluation is not roughly equal to the old evaluation"
             )
             console.print(f"old: {old_eval}\nnew: {new_eval}")
-
-
-    def get_num_begin_round_states(self, original_cache: dict):
+    def _get_num_begin_round_states(self, original_cache: dict):
         """
         Returns the number of begin-round states stored in given *pre-filter* cache. Not for capitulate solvers.
         """
         return sum((gs.proposal_used_this_round is None) for gs in original_cache)
-
-    def get_total_states(self, original_cache: dict):
+    def _get_total_states(self, original_cache: dict):
         """
         Returns the total number of states stored in given *pre-filter* cache. Not for capitulate solvers.
         """

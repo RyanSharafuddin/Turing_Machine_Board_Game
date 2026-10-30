@@ -145,7 +145,7 @@ PLAY_ANS_TABLE_MAX_LEN      = 400   # Don't print remaining answer tables longer
 KNOWN_KILLED_9_PROBLEMS     = {"C51RIIQ_N", "C5MR03_N", "I64L26L"} # don't auto-test these.
 
 # Directory paths, from perspective of controller.py.
-VERSION_NAME               = "Iterative_Deepen_2"       # The name of this version of the program
+VERSION_NAME               = "Iterative_Deepen_3"       # The name of this version of the program
 PICKLE_DIRECTORY           = f"Outputs/Pickles/{VERSION_NAME}" # Where all pickled solvers go.
 TREE_DIRECTORY             = f"Outputs/Trees/{VERSION_NAME}"   # Tree display output.
 USER_PROBS_FILE_NAME       = "src/problems/user_problems.txt"
