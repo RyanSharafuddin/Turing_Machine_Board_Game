@@ -37,8 +37,8 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
         v2_stats = prob_info_dict_v2.get(p_id)
         if (v2_stats is None):
             continue
-        (v1_time, v1_cost, v1_bytes_used) = v1_stats[0:3]
-        (v2_time, v2_cost, v2_bytes_used) = v2_stats[0:3]
+        (v1_time, v1_cost, v1_bytes_used, v1_states, v1_br_states) = v1_stats[0:5]
+        (v2_time, v2_cost, v2_bytes_used, v2_states, v2_br_states) = v2_stats[0:5]
         if ((max(v1_time, v2_time) < MIN_SEC) or (max(v1_bytes_used, v2_bytes_used) < MIN_BYTES)):
             continue
         if (v1_cost != v2_cost):
@@ -49,6 +49,8 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
             )
         time_improvement = get_improvement_percent_Text(v1_time, v2_time)
         memory_improvement = get_improvement_percent_Text(v1_bytes_used, v2_bytes_used)
+        states_improvement = get_improvement_percent_Text(v1_states, v2_states)
+        br_states_improvement = get_improvement_percent_Text(v1_br_states, v2_br_states)
         (mode, num_vs, sort_key) = problems.get_mode_num_vs_and_sort_key_from_pid(p_id)
         if (mode is None):
             console.print(
@@ -68,6 +70,12 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
                     display.get_gigabytes_Text(v1_bytes_used).plain,
                     memory_improvement,
                     display.get_gigabytes_Text(v2_bytes_used).plain,
+                    f"{v1_states:,}",
+                    states_improvement,
+                    f"{v2_states:,}",
+                    f"{v1_br_states:,}",
+                    br_states_improvement,
+                    f"{v2_br_states:,}",
                 ),
                 sort_key
             )
