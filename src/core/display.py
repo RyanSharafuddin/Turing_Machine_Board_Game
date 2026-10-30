@@ -1247,6 +1247,24 @@ class Solver_Displayer:
             )
             t.add_section()
 
+    def _add_debug_info_deets_to_table(self, t: Table):
+        total_state_number = self.solver.num_states
+        num_begin_round_states = self.solver.num_begin_round_states
+        total_state_number_str = f'{total_state_number:,}'
+        begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
+        total_state_number_Text = Text(total_state_number_str, style="cyan")
+        begin_round_number_Text = Text(begin_round_number_str, style="cyan")
+        t.add_row(f"Total number of states", total_state_number_Text)
+        t.add_row(f"Number of begin round states", begin_round_number_Text)
+        if total_state_number:
+            # NOTE: only calculate and display this if total_state_number != 0, since otherwise divide by 0.
+            percent_Text = Text(
+                f"{100 * num_begin_round_states / total_state_number:0.2f}%",
+                style="cyan"
+            )
+            t.add_row(f"% of states that are begin round", percent_Text)
+        t.add_section()
+
     def show_partition_filtering(self, original_qs_dict, current_qs_dict, gs: Game_State):
         """
         Given a pre-filtered qs_dict and a post-filtered qs_dict, show information about partition filtering if the post-filtered qs_dict is smaller than the pre-filtered one.
@@ -1910,23 +1928,7 @@ class Solver_Displayer:
         t.add_row("Considered end round early", "✅" if self.solver.consider_end_round_early else "❌")
         t.add_section()
         if show_debug_info:
-            print("\nCalculating post-solve debug information.\n")
-            num_begin_round_states = self.solver.get_num_begin_round_states(original_cache)
-            total_state_number = self.solver.get_total_states(original_cache)
-            total_state_number_str = f'{total_state_number:,}'
-            begin_round_number_str = f'{num_begin_round_states:>{len(total_state_number_str)},}'
-            total_state_number_Text = Text(total_state_number_str, style="cyan")
-            begin_round_number_Text = Text(begin_round_number_str, style="cyan")
-            t.add_row(f"Total number of states", total_state_number_Text)
-            t.add_row(f"Number of begin round states", begin_round_number_Text)
-            if total_state_number:
-                # NOTE: only calculate and display this if total_state_number != 0, since otherwise divide by 0.
-                percent_Text = Text(
-                    f"{100 * num_begin_round_states / total_state_number:0.2f}%",
-                    style="cyan"
-                )
-                t.add_row(f"% of states that are begin round", percent_Text)
-            t.add_section()
+            self._add_debug_info_deets_to_table(t)
         if show_ec_mem_usage:
             self.solver.calculate_evcache_size(original_cache)
             self._add_mem_usage_deets(self.solver.size_of_evaluations_cache_in_bytes, t)
@@ -1992,6 +1994,8 @@ class Solver_Displayer:
         """
         print()
         t = self._begin_final_print_table()
+        if (self.solver.num_begin_round_states > -1):
+            self._add_debug_info_deets_to_table(t)
         if (self.solver.size_of_evaluations_cache_in_bytes < 0):
             t.add_row("Memory Usage", '❓')
         else:
