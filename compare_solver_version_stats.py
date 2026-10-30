@@ -99,6 +99,13 @@ def display_compare_versions(v_name_1: str, v_name_2: str):
     table.add_column(Text("Memory 1", justify="center", style=COLOR_1), justify="right")
     table.add_column(Text("Memory %", justify="center"), justify="right")
     table.add_column(Text("Memory 2", justify="center", style=COLOR_2), justify="right")
+    table.add_column(Text("# States 1", justify="center", style=COLOR_1), justify="right")
+    table.add_column(Text("# States %", justify="center"), justify="right")
+    table.add_column(Text("# States 2", justify="center", style=COLOR_2), justify="right")
+
+    table.add_column(Text("# BR States 1", justify="center", style=COLOR_1), justify="right")
+    table.add_column(Text("# BR States %", justify="center"), justify="right")
+    table.add_column(Text("# BR States 2", justify="center", style=COLOR_2), justify="right")
     for (index, raw_row_datum) in enumerate(raw_row_data):
         prev_mode = raw_row_data[index-1][2]
         curr_mode = raw_row_datum[2]
