@@ -164,6 +164,25 @@ class Solver:
                 second_highest_amount = amount_of_answer
         return ((highest_amount - second_highest_amount) / total_combos)
 
+    def _get_answer_proportion_gap_and_num_answers(self, ans_index_list: list[int], total_combos):
+        """
+        Define the proportion of an answer in a game state to be the fraction of all the *combos* in a game state that have that answer. This function returns the difference between the answer with the highest proportion and the answer with the second highest proportion (or 1 if there is only 1 answer).
+        """
+        highest_amount = 0
+        second_highest_amount = 0
+        ans_to_num_arr = [0] * self.num_unique_answers
+        for answer_index in ans_index_list:
+            ans_to_num_arr[answer_index] += 1
+            amount_of_answer = ans_to_num_arr[answer_index]
+            if (amount_of_answer > highest_amount):
+                highest_amount = amount_of_answer
+            elif (amount_of_answer > second_highest_amount):
+                second_highest_amount = amount_of_answer
+        return (
+            ((highest_amount - second_highest_amount) / total_combos),
+            len(frozenset(ans_index_list)) # more efficient than sum(nonzero elts of ans_to_num_arr)
+        )
+
     def _mi_sort_key_nothing(self, *args):
         return 0
 
@@ -193,9 +212,15 @@ class Solver:
         return (-1 * expected_ans_gap)
 
     def _mi_sort_key_ans_gap_ac_combine(self, p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T):
-        n_ans_gap = self._mi_sort_key_ans_proportion_gap(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
-        ac = self._mi_sort_key_ac(p_tup, n_combos_F, n_combos_T, cwa_set_F, cwa_set_T)
-        return (n_ans_gap, ac)
+        ans_index_list_F = [self.cwas_i_ans_idx_int[i] for i in cwa_set_F]
+        ans_index_list_T = [self.cwas_i_ans_idx_int[i] for i in cwa_set_T]
+        (ans_gap_F, n_ans_F) = self._get_answer_proportion_gap_and_num_answers(ans_index_list_F, n_combos_F)
+        (ans_gap_T, n_ans_T) = self._get_answer_proportion_gap_and_num_answers(ans_index_list_T, n_combos_T)
+        neg_exp_ans_gap = -1 * ((p_tup[0] * ans_gap_F) + (p_tup[1] * ans_gap_T))
+        ac_false = (n_ans_F, n_combos_F)
+        ac_true = (n_ans_T, n_combos_T)
+        expected_ac = solver_utils.calculate_expected_rq_wo_curr_move(p_tup, (ac_false, ac_true))
+        return (neg_exp_ans_gap, expected_ac)
 
     def _get_mi_sort_key(self, heuristic_func_index):
         mi_sort_keys = [
@@ -268,9 +293,6 @@ class Solver:
         gs_tuple = (game_state_false, game_state_true)
         # cwa_set_len_F = num_combos_currently - cwa_set_len_T
         # sort_key = self._mi_sort_key_ac(p_tuple, cwa_set_len_F, cwa_set_len_T, cwa_set_F, cwa_set_T)
-        # sort_key = self.mi_sort_key_ans_proportion_gap(
-        #     p_tuple, cwa_set_len_F, cwa_set_len_T, cwa_set_F, cwa_set_T
-        # )
         return (move, gs_tuple, p_tuple)
 
     def get_and_apply_moves(self, game_state: Game_State, qs_dict: dict, force_set_intersect=False):
