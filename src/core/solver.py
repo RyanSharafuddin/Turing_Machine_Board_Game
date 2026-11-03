@@ -382,38 +382,16 @@ class Solver:
             p_this_gs
         )
         # we know that either the evdepth < desired, OR the evdepth = desired and prev_cache_result pruned.
-        # TODO: call self._update_gs_evaluation below, rather than duplicating its code.
-        curr_cache_result = prev_cache_result
-        curr_cache_result_evdepth = curr_cache_result[0]
-        curr_cache_result_pruned = curr_cache_result[1]
-        check_one_answer = (prev_cache_result[-1] is self.double_zero)
-        while True:
-            rd_to_evaluate_to = curr_cache_result_evdepth + (not curr_cache_result_pruned)
-            (curr_cache_result, curr_calc_pruned) = self._calculate_best_move(
-                qs_dict                   = qs_dict,
-                game_state                = wgs,
-                cache_game_state          = cache_gs,
-                pre_existing_cache_result = curr_cache_result,
-                vpt                       = vpt_this_state,
-                check_one_answer          = check_one_answer,
-                depth                     = depth + 1,
-                round_depth               = rd_to_evaluate_to,
-            )
-            curr_cache_result_evdepth = curr_cache_result[0]
-            curr_cache_result_pruned = curr_cache_result[1]
-            if (curr_calc_pruned or (curr_cache_result_evdepth >= round_depth)):
-                assert not (
-                    curr_cache_result_pruned
-                    and (not curr_calc_pruned)
-                    and (curr_cache_result_evdepth == round_depth)
-                )
-                return (
-                    curr_cache_result,
-                    curr_calc_pruned,
-                    curr_cache_result_evdepth,
-                    curr_cache_result[-1],
-                )
-            check_one_answer = False
+        return self._update_gs_evaluation(
+            qs_dict           = qs_dict,
+            wgs               = wgs,
+            cache_gs          = cache_gs,
+            prev_cache_result = prev_cache_result,
+            vpt               = vpt_this_state,
+            check_one_answer  = (prev_cache_result[-1] is self.double_zero),
+            depth             = depth,
+            round_depth       = round_depth,
+        )
 
     def _update_gs_evaluation(
         self,
@@ -561,12 +539,7 @@ class Solver:
                 (f_evdepth < round_depth) or (f_cache_pruned and (f_evdepth == round_depth))
             )
             if false_needs_update:
-                (
-                    f_result_cache,
-                    calc_pruned,
-                    f_evdepth,
-                    f_lower_bound
-                ) = self._update_tf_gs_evaluation(
+                (f_result_cache, calc_pruned) = self._update_tf_gs_evaluation(
                     other_gs_lb       = t_lower_bound,
                     p_other_gs        = p_true,
                     p_this_gs         = p_false,
@@ -582,6 +555,8 @@ class Solver:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
+                f_evdepth = f_result_cache[0]
+                f_lower_bound = f_result_cache[-1]
 
             t_evdepth = t_result_cache[0]
             t_cache_pruned = t_result_cache[1]
@@ -589,12 +564,7 @@ class Solver:
                 (t_evdepth < round_depth) or (t_cache_pruned and (t_evdepth == round_depth))
             )
             if true_needs_update:
-                (
-                    t_result_cache,
-                    calc_pruned,
-                    t_evdepth,
-                    t_lower_bound
-                ) = self._update_tf_gs_evaluation(
+                (t_result_cache, calc_pruned) = self._update_tf_gs_evaluation(
                     other_gs_lb       = f_lower_bound,
                     p_other_gs        = p_false,
                     p_this_gs         = p_true,
@@ -610,6 +580,8 @@ class Solver:
                     if depth < self.num_concurrent_tasks:
                         self.progress.update(self.depth_to_tasks_l[depth], advance=1)
                     continue
+                t_evdepth = t_result_cache[0]
+                t_lower_bound = t_result_cache[-1]
 
             beat_vertical_prune_threshold = True
             # moves that have been horizontally pruned (ruled out) should not affect the min_round_depth.
