@@ -9,6 +9,8 @@ __pycache__/
 .python-version
 todo.txt
 *.svg
+compare_versions.sh
+compare_solver_version_stats.py
 Supporting_Documents/
 Outputs/
 
