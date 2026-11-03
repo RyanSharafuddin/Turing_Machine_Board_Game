@@ -1,3 +1,7 @@
+# not needed to invoke pytest from command line, but needed for VS Code to work w/pytest.
+import os
+os.chdir("/Users/Ryan/My Corner/Projects/Python/Turing_Machine_Board_Game/Main_Stuff")
+
 from fractions import Fraction
 import pytest
 import controller # pyright: ignore[reportUnusedImport] # needed to prevent some sort of circular import error nonsense
