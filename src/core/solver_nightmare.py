@@ -321,10 +321,7 @@ class Solver_Nightmare(Solver):
                     and (not curr_calc_pruned)
                     and (curr_cache_result_evdepth == round_depth)
                 )
-                return (
-                    curr_cache_result,
-                    curr_calc_pruned,
-                )
+                return (curr_cache_result, curr_calc_pruned)
             check_one_answer = False
 
     def _calculate_best_move(
@@ -390,7 +387,6 @@ class Solver_Nightmare(Solver):
         # self._print_canonical_form_info(game_state, cache_game_state, max_num_forms=500)
         ######################################## DEBUGGING ###################################################
 
-        search_curr_evdepth_LB_rq = self.start_search_cost # TODO: is this line necessary?
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
@@ -521,6 +517,15 @@ class Solver_Nightmare(Solver):
                 )
 
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
+                if (f_evdepth == t_evdepth):
+                    answer_evdepth = f_evdepth
+                    answer_cache_pruned = f_result_cache[1] or t_result_cache[1]
+                elif (f_evdepth < t_evdepth):
+                    answer_evdepth = f_evdepth
+                    answer_cache_pruned = f_result_cache[1]
+                else: # f_evdepth > t_evdepth
+                    answer_evdepth = t_evdepth
+                    answer_cache_pruned = t_result_cache[1]
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
 
             if solver_utils.roughly_lt_2tup(currnode_best_known_rq_NO_m, search_best_rq_NO_m):
@@ -601,7 +606,8 @@ class Solver_Nightmare(Solver):
             else:
                 evdepth = min_round_depth + is_begin_round_state
                 assert (evdepth != inf)
-                cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
+                cache_pruned = answer_cache_pruned and (answer_evdepth == min_round_depth)
+                cache_answer = (evdepth, cache_pruned, search_best_rq, search_curr_evdepth_LB_rq)
             self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
 
         else: # did not beat vertical_prune_threshold

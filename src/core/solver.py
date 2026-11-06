@@ -431,10 +431,7 @@ class Solver:
                     and (not curr_calc_pruned)
                     and (curr_cache_result_evdepth == round_depth)
                 )
-                return (
-                    curr_cache_result,
-                    curr_calc_pruned,
-                )
+                return (curr_cache_result, curr_calc_pruned)
             check_one_answer = False
 
     # called_calculate = 0
@@ -502,7 +499,6 @@ class Solver:
             # self.sd.show_partition_filtering(original_qs_dict, qs_dict, game_state) # partition show
             round_depth -= 1
 
-        search_curr_evdepth_LB_rq = self.start_search_cost # TODO: is this line necessary?
         search_best_rq_NO_m = solver_utils.subtract_move_cost_from_rq(search_best_rq, is_begin_round_state)
         search_curr_evdepth_LB_rq_NO_m = self.start_search_cost
         not_found_moves = True
@@ -604,6 +600,15 @@ class Solver:
                 )
 
             if solver_utils.roughly_lt_2tup(currnode_LB_rq_NO_m, search_curr_evdepth_LB_rq_NO_m):
+                if (f_evdepth == t_evdepth):
+                    answer_evdepth = f_evdepth
+                    answer_cache_pruned = f_result_cache[1] or t_result_cache[1]
+                elif (f_evdepth < t_evdepth):
+                    answer_evdepth = f_evdepth
+                    answer_cache_pruned = f_result_cache[1]
+                else: # f_evdepth > t_evdepth
+                    answer_evdepth = t_evdepth
+                    answer_cache_pruned = t_result_cache[1]
                 search_curr_evdepth_LB_rq_NO_m = currnode_LB_rq_NO_m
 
             if solver_utils.roughly_lt_2tup(currnode_best_known_rq_NO_m, search_best_rq_NO_m):
@@ -680,7 +685,8 @@ class Solver:
             else:
                 evdepth = min_round_depth + is_begin_round_state
                 assert (evdepth != inf)
-                cache_answer = (evdepth, False, search_best_rq, search_curr_evdepth_LB_rq)
+                cache_pruned = answer_cache_pruned and (answer_evdepth == min_round_depth)
+                cache_answer = (evdepth, cache_pruned, search_best_rq, search_curr_evdepth_LB_rq)
             self.best_move = best_move # NOTE: this can clobber best move in iterative deepening in filter
 
         else: # did not beat vertical_prune_threshold
@@ -704,6 +710,7 @@ class Solver:
             # NOTE: Consider putting this block before the above if-else blocks.
             # TODO: if have beat the vp threshold, update the vpt value here before using it in the rest of
             #       this block by adding is_begin_round to vpt_NO_m w/solver_utils.add
+            # TODO: set search_curr_evdepth_LB_rq to the correct value if necessary?
             if beat_vertical_prune_threshold:
                 vpt = solver_utils.add_move_cost_to_rq(vpt_NO_m, False) # it is not a begin_round_state here.
             raise NotImplementedError("Not considering ere yet when using vertical pruning")
