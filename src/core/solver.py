@@ -425,7 +425,12 @@ class Solver:
             )
             curr_cache_result_evdepth = curr_cache_result[0]
             curr_cache_result_pruned = curr_cache_result[1]
-            if (curr_calc_pruned or (curr_cache_result_evdepth >= round_depth)):
+            if (
+                curr_calc_pruned
+                or ((curr_cache_result_evdepth == round_depth) and (not curr_cache_result_pruned))
+                or (curr_cache_result_evdepth > round_depth)
+                ):
+                # TODO: delete the below assert after test, since it is not possible for the assert to happen.
                 assert not (
                     curr_cache_result_pruned
                     and (not curr_calc_pruned)
