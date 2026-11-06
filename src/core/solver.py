@@ -407,10 +407,6 @@ class Solver:
         curr_cache_result = prev_cache_result
         curr_cache_result_evdepth = curr_cache_result[0]
         curr_cache_result_pruned = curr_cache_result[1]
-        # NOTE: I think I don't need to calculate (not curr_cache_result_pruned) and add it to
-        #       curr_cache_result every time. I think I only need to add it the first time,
-        #       before the loop, and then at the end of the loop, increase rd_to_evaluate_to by 1.
-        #       Think about this more carefully before implementing it.
         while True:
             rd_to_evaluate_to = curr_cache_result_evdepth + (not curr_cache_result_pruned)
             (curr_cache_result, curr_calc_pruned) = self._calculate_best_move(
@@ -430,12 +426,6 @@ class Solver:
                 or ((curr_cache_result_evdepth == round_depth) and (not curr_cache_result_pruned))
                 or (curr_cache_result_evdepth > round_depth)
                 ):
-                # TODO: delete the below assert after test, since it is not possible for the assert to happen.
-                assert not (
-                    curr_cache_result_pruned
-                    and (not curr_calc_pruned)
-                    and (curr_cache_result_evdepth == round_depth)
-                )
                 return (curr_cache_result, curr_calc_pruned)
             check_one_answer = False
 
